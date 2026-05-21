@@ -924,7 +924,7 @@ function InputDatabaseContent() {
                   className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 >
                   <option className='text-gray-600' value=''>
-                    Pilih Sumber Data
+                    -- Pilih --
                   </option>
                   <option value='Energi & Pertambangan'>
                     Energi & Pertambangan
@@ -1000,6 +1000,7 @@ function InputDatabaseContent() {
                       { value: 'MRS', label: 'MRS' },
                       { value: 'VIDEOTRON', label: 'VIDEOTRON' },
                       { value: 'AIO', label: 'AIO' },
+                      { value: 'Genset', label: 'Genset' },
                     ]
                     if (
                       produkRelevan &&
