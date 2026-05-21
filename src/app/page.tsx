@@ -76,6 +76,7 @@ export default function LoginPage() {
             width={200}
             height={160}
             className="mt-7"
+            unoptimized
           />
           <h1 className="text-2xl font-semibold text-black dark:text-white">MabelHub</h1>
         </div>
