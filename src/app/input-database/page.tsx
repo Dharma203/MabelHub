@@ -452,6 +452,48 @@ function InputDatabaseContent() {
 
   const handleKirim = async () => {
     try {
+      const requiredHeader: { value: string; label: string }[] = [
+        { value: requestor, label: 'Requestor' },
+        { value: segmen, label: 'Segmen' },
+        { value: namaPerusahaan, label: 'Nama Perusahaan' },
+        { value: provinsi, label: 'Provinsi' },
+        { value: kota, label: 'Kota' },
+        { value: alamat, label: 'Alamat' },
+        { value: bidangPerusahaan, label: 'Bidang Perusahaan' },
+        { value: segmentasi, label: 'Segmentasi' },
+        { value: produkRelevan, label: 'Produk Relevan' },
+        { value: merekTayang, label: 'Merek Tayang' },
+        { value: brandOwner, label: 'Brand Owner' },
+        { value: sumberData, label: 'Sumber Data' },
+        { value: linkProduk, label: 'Link Produk' },
+        { value: linkToko, label: 'Link Toko' },
+        { value: merekLainnya, label: 'Merek Lainnya' },
+        { value: salesInternal, label: 'Sales Internal' },
+      ]
+      for (const field of requiredHeader) {
+        if (!field.value.trim()) {
+          alert(`Field "${field.label}" wajib diisi.`)
+          return
+        }
+      }
+
+      // Validasi kontak — minimal nama dan tipe kontak wajib diisi
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        if (!item.nama.trim()) {
+          alert(`Kontak ${i + 1}: "Nama Lengkap" wajib diisi.`)
+          return
+        }
+        if (!item.tipeKontak.trim()) {
+          alert(`Kontak ${i + 1}: "Tipe Kontak" wajib diisi.`)
+          return
+        }
+        if (!item.noTelp.trim()) {
+          alert(`Kontak ${i + 1}: "No Kontak" wajib diisi.`)
+          return
+        }
+      }
+
       const isRevisionMode = !!(
         searchParams.get('id')?.trim() || originalSnapshot
       )
@@ -560,8 +602,7 @@ function InputDatabaseContent() {
           ? 'Data berhasil direvisi!'
           : 'Database berhasil disimpan!',
       )
-      router.push('/input-database')
-      router.refresh()
+      window.location.href = '/input-database'
     } catch (error) {
       console.error('Error saving database:', error)
       alert(
