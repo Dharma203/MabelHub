@@ -26,6 +26,7 @@ const rawData: { status: string; update: string }[] = [
   { status: 'Respon Negatif', update: 'Jangan hubungi lagi' },
   { status: 'Respon Negatif', update: 'Harga terlalu mahal' },
   { status: 'Respon Negatif', update: 'Spesifikasi tidak cocok' },
+  { status: 'Nomor Invalid', update: 'Nomor Invalid' },
 ]
 
 export type StatusUpdate = {
