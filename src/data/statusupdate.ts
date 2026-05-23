@@ -26,7 +26,6 @@ const rawData: { status: string; update: string }[] = [
   { status: 'Respon Negatif', update: 'Jangan hubungi lagi' },
   { status: 'Respon Negatif', update: 'Harga terlalu mahal' },
   { status: 'Respon Negatif', update: 'Spesifikasi tidak cocok' },
-  { status: 'Nomor Invalid', update: 'Nomor Invalid' },
 ]
 
 export type StatusUpdate = {
@@ -39,6 +38,11 @@ export const listStatusUpdate: StatusUpdate[] = rawData
 // Dropdown Status WA — unik per status
 export const listStatusByUpdate = [
   { value: '', label: '-- Pilih Status --' },
+  { value: 'Nomor Invalid', label: 'Nomor Invalid' },
+  { value: 'Terkirim(1C)', label: 'Terkirim(1C)' },
+  { value: 'Diterima(2C)', label: 'Diterima(2C)' },
+  { value: 'Aktif Broadcast', label: 'Aktif Broadcast' },
+  { value: 'Dibaca - Belum Respons', label: 'Dibaca - Belum Respons' },
   ...Array.from(new Set(rawData.map((w) => w.status)))
     .sort()
     .map((s) => ({ value: s, label: s })),
