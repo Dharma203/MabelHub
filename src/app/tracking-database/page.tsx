@@ -2,7 +2,6 @@
 
 import {
   Filter,
-  ChevronUp,
   ChevronDown,
   Calendar,
   CalendarDays,
@@ -16,15 +15,11 @@ import {
   PhoneCallIcon,
   BarChart2,
   X,
-  Pen,
-  Pencil,
-  PenBoxIcon,
   LucidePenBox,
   EyeIcon,
   BarChart2Icon,
 } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import DatePicker from '@/components/ui/DatePicker'
 import React from 'react'
 import { useRouter } from 'next/navigation'
 
