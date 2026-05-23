@@ -37,7 +37,7 @@ export const listStatusUpdate: StatusUpdate[] = rawData
 
 // Dropdown Status WA — unik per status
 export const listStatusByUpdate = [
-  { value: '', label: '-- Pilih Status --' },
+  { value: '', label: '--Pilih Status--' },
   { value: 'Nomor Invalid', label: 'Nomor Invalid' },
   { value: 'Terkirim(1C)', label: 'Terkirim(1C)' },
   { value: 'Diterima(2C)', label: 'Diterima(2C)' },
