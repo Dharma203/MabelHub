@@ -62,7 +62,7 @@ type TrackingRow = {
   penginput: string
   jenis_entitas: string
   created_at: string
-  requestor:string
+  requestor: string
 }
 
 type ApiStats = {
@@ -255,16 +255,26 @@ export default function TrackingDatabasePage() {
 
   // Auto-fetch riwayat revisi terbaru saat row di-expand
   useEffect(() => {
-    if (!selected?.kode) {
-      setLatestRevision(null)
-      return
+    const fetchRevision = async () => {
+      if (!selected?.kode) {
+        setLatestRevision(null)
+        return
+      }
+      setLoadingRevision(true)
+      try {
+        const r = await fetch(
+          `/api/input-database/history/${encodeURIComponent(selected.kode)}`,
+        )
+        const data: LatestRevision = await r.json()
+        setLatestRevision(data)
+      } catch {
+        setLatestRevision({ found: false })
+      } finally {
+        setLoadingRevision(false)
+      }
     }
-    setLoadingRevision(true)
-    fetch(`/api/input-database/history/${encodeURIComponent(selected.kode)}`)
-      .then((r) => r.json())
-      .then((data: LatestRevision) => setLatestRevision(data))
-      .catch(() => setLatestRevision({ found: false }))
-      .finally(() => setLoadingRevision(false))
+
+    fetchRevision()
   }, [selected?.kode])
 
   // Close dropdown on click outside
@@ -305,7 +315,7 @@ export default function TrackingDatabasePage() {
     [bulan, produk, merek, perusahaan, provinsi, kota, tipe],
   )
 
-  const setFilterArr = useCallback((id: string, vals: string[]) => {
+  const setFilterArr = (id: string, vals: string[]) => {
     switch (id) {
       case 'Bulan':
         setBulan(vals)
@@ -331,33 +341,24 @@ export default function TrackingDatabasePage() {
     }
     setPage(1)
     setSelected(null)
-  })
+  }
 
-  const toggleFilterVal = useCallback(
-    (id: string, val: string) => {
-      const cur = getFilterArr(id)
-      setFilterArr(
-        id,
-        cur.includes(val) ? cur.filter((v) => v !== val) : [...cur, val],
-      )
-    },
-    [getFilterArr, setFilterArr],
-  )
+  const toggleFilterVal = (id: string, val: string) => {
+    const cur = getFilterArr(id)
+    setFilterArr(
+      id,
+      cur.includes(val) ? cur.filter((v) => v !== val) : [...cur, val],
+    )
+  }
 
-  const clearFilterArr = useCallback(
-    (id: string) => {
-      setFilterArr(id, [])
-      setOpenDropdown(null)
-    },
-    [setFilterArr],
-  )
+  const clearFilterArr = (id: string) => {
+    setFilterArr(id, [])
+    setOpenDropdown(null)
+  }
 
-  const selectAllFilter = useCallback(
-    (id: string, opts: string[]) => {
-      setFilterArr(id, [...opts])
-    },
-    [setFilterArr],
-  )
+  const selectAllFilter = (id: string, opts: string[]) => {
+    setFilterArr(id, [...opts])
+  }
 
   const getOptions = useCallback(
     (id: string): string[] => {
@@ -1403,12 +1404,21 @@ export default function TrackingDatabasePage() {
                                       <DetailItem
                                         icon='📎'
                                         label='Sumber Lain'
-                                        value={selected.sumber_data === 'Sales Internal' ? selected.sales_internal : selected.sumber_data}
+                                        value={
+                                          selected.sumber_data ===
+                                          'Sales Internal'
+                                            ? selected.sales_internal
+                                            : selected.sumber_data
+                                        }
                                       />
                                       <DetailItem
                                         icon='🎯'
                                         label='Merek Tayang'
-                                        value={selected.merek_tayang === 'Lainnya' ? selected.merek_lainnya : selected.merek_tayang}
+                                        value={
+                                          selected.merek_tayang === 'Lainnya'
+                                            ? selected.merek_lainnya
+                                            : selected.merek_tayang
+                                        }
                                       />
                                       <DetailItem
                                         icon='👑'
