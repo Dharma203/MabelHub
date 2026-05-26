@@ -58,3 +58,7 @@ Desktop.ini
 
 # System Files
 *.log
+
+.md
+
+.txt

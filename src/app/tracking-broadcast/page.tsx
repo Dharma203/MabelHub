@@ -1646,7 +1646,10 @@ export default function TrackingBroadcastPage() {
                         type='checkbox'
                         onChange={handleSelectAll}
                         checked={
-                          selectedIds.length === rows.length && rows.length > 0
+                          rows.filter((r) => r.tipe === 'WhatsApp').length >
+                            0 &&
+                          selectedIds.length ===
+                            rows.filter((r) => r.tipe === 'WhatsApp').length
                         }
                         className='w-3.5 h-3.5 accent-blue-500 cursor-pointer'
                       />
@@ -1677,6 +1680,7 @@ export default function TrackingBroadcastPage() {
                     </tr>
                   ) : (
                     rows.map((row, i) => {
+                      console.log('tipe:', row.tipe)
                       const active = selected?._id === row._id
                       return (
                         <React.Fragment key={row._id}>

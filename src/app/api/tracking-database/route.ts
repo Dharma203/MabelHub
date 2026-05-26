@@ -17,23 +17,34 @@ export async function GET(req: NextRequest) {
     const filter: Record<string, any> = {}
 
     const bulanArr = searchParams.getAll('bulan')
+    const segmen = searchParams.get('segmen')
+    if (segmen) filter['segmen'] = segmen
     const produkArr = searchParams.getAll('produk')
+    const merek_lainnya = searchParams.get('merek_lainnya')
+    if (merek_lainnya) filter['merek_lainnya'] = merek_lainnya
     const merekArr = searchParams.getAll('merek')
     const perusahaanArr = searchParams.getAll('perusahaan')
     const provinsiArr = searchParams.getAll('provinsi')
     const kotaArr = searchParams.getAll('kota')
     const tipeArr = searchParams.getAll('tipe')
+    const salesInternal = searchParams.get('sales_internal')
+    if (salesInternal) filter['sales_internal'] = salesInternal
+    const sumberData = searchParams.get('sumber_data')
+    if (sumberData) filter['sumber_data'] = sumberData
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
-    const segmenArr = searchParams.getAll('segmen')
-    const segmentasiArr = searchParams.getAll('segmentasi')
-    const bidangPerusahaanArr = searchParams.getAll('bidang_perusahaan')
-    const brandOwnerArr = searchParams.getAll('brand_owner')
-    const alamatArr = searchParams.getAll('alamat')
-    const emailArr = searchParams.getAll('email')
-    const linkProdukArr = searchParams.getAll('link_produk')
-    const linkTokoArr = searchParams.getAll('link_toko')
-    const updatedArr = searchParams.getAll('updated_at')
+    const createdAt = searchParams.get('createdAt')
+    if (createdAt) {
+      // Filter berdasarkan rentang tanggal createdAt
+      const createdAtDate = new Date(createdAt)
+      filter['created_at'] = {
+        $gte: createdAtDate.toDateString(),
+      }
+    }
+    const requestor = searchParams.get('requestor')
+    if (requestor) {
+      filter['penginput'] = requestor
+    }
 
     if (produkArr.length > 0) filter['produk_relevan'] = { $in: produkArr }
     if (merekArr.length > 0) filter['merek_tayang'] = { $in: merekArr }
@@ -301,13 +312,17 @@ export async function GET(req: NextRequest) {
       const data = allRows.map((r) => ({
         _id: r._id?.toString() ?? '',
         kode: r.code_input ?? '',
+        requestor: r.requestor ?? '',
         nama_perusahaan: r.nama_perusahaan ?? '',
         segmen: r.segmen ?? '',
         segmentasi: r.segmentasi ?? '',
+        sumber_data: r.sumber_data ?? '',
+        sales_internal: r.sales_internal ?? '',
         kota: r.kota ?? '',
         provinsi: r.provinsi ?? '',
         produk: r.produk_relevan ?? '',
         merek_tayang: r.merek_tayang ?? '',
+        merek_lainnya: r.merek_lainnya ?? '',
         pic: r.nama ?? '',
         jabatan: r.jabatan ?? '',
         telp: r.no_telp ?? '',
@@ -324,6 +339,7 @@ export async function GET(req: NextRequest) {
         jenis_entitas: r.jenis_entitas ?? '',
         keterangan_update: r.keterangan_update ?? '',
         bulan_data: r.bulan_data ?? '',
+        created_at: r.created_at ?? '',
         updated_at: r.updated_at
           ? new Date(r.updated_at).toLocaleDateString('id-ID')
           : '',
@@ -381,7 +397,7 @@ export async function GET(req: NextRequest) {
           },
           { $sort: { _sortDate: -1, _sortCounter: -1 } },
           { $skip: skip },
-          { $limit: limit },
+          { $limit: 10 },
         ])
         .toArray(),
     ])
@@ -389,13 +405,17 @@ export async function GET(req: NextRequest) {
     const items = pageRows.map((r) => ({
       _id: r._id?.toString() ?? '',
       kode: r.code_input ?? '',
+      requestor: r.requestor ?? '',
       nama_perusahaan: r.nama_perusahaan ?? '',
       segmen: r.segmen ?? '',
       segmentasi: r.segmentasi ?? '',
+      sumber_data: r.sumber_data ?? '',
+      sales_internal: r.sales_internal ?? '',
       kota: r.kota ?? '',
       provinsi: r.provinsi ?? '',
       produk: r.produk_relevan ?? '',
       merek_tayang: r.merek_tayang ?? '',
+      merek_lainnya: r.merek_lainnya ?? '',
       pic: r.nama ?? '',
       jabatan: r.jabatan ?? '',
       telp: r.no_telp ?? '',
@@ -412,6 +432,7 @@ export async function GET(req: NextRequest) {
       jenis_entitas: r.jenis_entitas ?? '',
       keterangan_update: r.keterangan_update ?? '',
       bulan_data: r.bulan_data ?? '',
+      created_at: r.created_at ?? '',
       updated_at: r.updated_at
         ? new Date(r.updated_at).toLocaleDateString('id-ID')
         : '',
