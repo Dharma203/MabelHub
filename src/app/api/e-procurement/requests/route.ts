@@ -214,6 +214,34 @@ export async function POST(req: Request) {
     );
   }
 
+  if (!deadlineUsulan) {
+    return NextResponse.json(
+      { error: "Deadline usulan wajib diisi" },
+      { status: 400 },
+    );
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dlDate = new Date(deadlineUsulan);
+  dlDate.setHours(0, 0, 0, 0);
+
+  if (isNaN(dlDate.getTime())) {
+    return NextResponse.json(
+      { error: "Format deadline tidak valid" },
+      { status: 400 },
+    );
+  }
+
+  const diffTime = dlDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  if (diffDays < 3) {
+    return NextResponse.json(
+      { error: "Deadline usulan minimal 3 hari dari hari ini" },
+      { status: 400 },
+    );
+  }
+
   const client = await clientPromise;
   const db = client.db(process.env.MONGODB_DB || "MabelHub");
   await ensureIndexes(db);
