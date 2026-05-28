@@ -120,6 +120,7 @@ type DashboardStats = {
     ring4: number;
   };
   trend?: { date: string; count: number }[];
+  topVisit?: { name: string; count: number }[];
   topSales?: { name: string; count: number }[];
   klpd?: { name: string; count: number }[];
 };
@@ -211,6 +212,8 @@ export default function DashboardRequestPage() {
   const [selected, setSelected] = useState<VisitRow | null>(null);
   const [search, setSearch] = useState("");
   const [klpdActiveIndex, setKlpdActiveIndex] = useState<number | undefined>();
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const [activeFilters, setActiveFilters] = useState<{
     ring: string | null;
@@ -254,6 +257,8 @@ export default function DashboardRequestPage() {
         if (activeFilters.sales) params.set("sales", activeFilters.sales);
         if (activeFilters.klpd) params.set("klpd", activeFilters.klpd);
         if (activeFilters.date) params.set("date", activeFilters.date);
+        if (startDate) params.set("startDate", startDate);
+        if (endDate) params.set("endDate", endDate);
 
         const res = await fetch(`/api/dashboard-request?${params.toString()}`, {
           cache: "no-store",
@@ -271,7 +276,7 @@ export default function DashboardRequestPage() {
     return () => {
       mounted = false;
     };
-  }, [sessionLoading, user, activeFilters]);
+  }, [sessionLoading, user, activeFilters, startDate, endDate]);
 
   useEffect(() => {
     let mounted = true;
@@ -290,6 +295,8 @@ export default function DashboardRequestPage() {
         if (activeFilters.sales) params.set("sales", activeFilters.sales);
         if (activeFilters.klpd) params.set("klpd", activeFilters.klpd);
         if (activeFilters.date) params.set("date", activeFilters.date);
+        if (startDate) params.set("start", startDate);
+        if (endDate) params.set("end", endDate);
 
         const res = await fetch(`/api/visits?${params.toString()}`, {
           cache: "no-store",
@@ -307,7 +314,7 @@ export default function DashboardRequestPage() {
     return () => {
       mounted = false;
     };
-  }, [sessionLoading, user, activeFilters]);
+  }, [sessionLoading, user, activeFilters, startDate, endDate]);
 
   const filteredVisits = visits.filter((v) => {
     if (!search) return true;
@@ -345,7 +352,9 @@ export default function DashboardRequestPage() {
                 activeFilters.satker ||
                 activeFilters.sales ||
                 activeFilters.klpd ||
-                activeFilters.date) && (
+                activeFilters.date ||
+                startDate ||
+                endDate) && (
                 <div className="pl-4 mt-2 flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-gray-500 font-semibold flex items-center gap-1">
                     <Filter className="w-3 h-3" /> Filters:
@@ -441,8 +450,30 @@ export default function DashboardRequestPage() {
                       </button>
                     </span>
                   )}
+                  {startDate && (
+                    <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-700 px-2 py-1 rounded-full text-xs font-bold">
+                      Start Date: {startDate}
+                      <button
+                        onClick={() => setStartDate("")}
+                        className="hover:text-rose-900"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {endDate && (
+                    <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-700 px-2 py-1 rounded-full text-xs font-bold">
+                      End Date: {endDate}
+                      <button
+                        onClick={() => setEndDate("")}
+                        className="hover:text-rose-900"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setActiveFilters({
                         ring: null,
                         statusGroup: null,
@@ -451,8 +482,10 @@ export default function DashboardRequestPage() {
                         sales: null,
                         klpd: null,
                         date: null,
-                      })
-                    }
+                      });
+                      setStartDate("");
+                      setEndDate("");
+                    }}
                     className="text-xs text-gray-500 hover:text-red-500 underline ml-2 transition-colors"
                   >
                     Clear All
@@ -461,17 +494,48 @@ export default function DashboardRequestPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Date Filter Capsule */}
+              <div className="flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-sm ring-1 ring-black/5">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="bg-transparent text-xs text-gray-700 outline-none cursor-pointer"
+                  title="Start Date"
+                />
+                <span className="text-gray-300">|</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="bg-transparent text-xs text-gray-700 outline-none cursor-pointer"
+                  title="End Date"
+                />
+                {(startDate || endDate) && (
+                  <button
+                    onClick={() => {
+                      setStartDate("");
+                      setEndDate("");
+                    }}
+                    className="ml-1 text-gray-400 hover:text-red-500 transition-colors"
+                    title="Clear Dates"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
               {/* Searchbar */}
-              <div className="relative w-full md:w-95">
+              <div className="relative w-full md:w-60">
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search..."
-                  className="h-12 w-full rounded-full bg-white px-6 pr-14 text-sm shadow-sm outline-none ring-1 ring-black/5 focus:ring-2 focus:ring-blue-300"
+                  className="h-10 w-full rounded-full bg-white px-4 pr-10 text-xs shadow-sm outline-none ring-1 ring-black/5 focus:ring-2 focus:ring-blue-300"
                 />
-                <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-gray-500">
-                  <Search className="h-5 w-5" />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Search className="h-4 w-4" />
                 </span>
               </div>
 
@@ -851,10 +915,10 @@ export default function DashboardRequestPage() {
               </div>
             </div>
 
-            {/* Top Sales Performance (Horizontal Bar Chart) */}
+            {/* Top Visit Performance (Horizontal Bar Chart) */}
             <div className="rounded-2xl bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-black/5 flex flex-col pt-7 pb-6 h-full">
               <h3 className="mb-2 text-sm font-bold tracking-wider text-gray-800">
-                TOP SALES PERFORMANCE
+                TOP VISIT PERFORMANCE
               </h3>
               <p className="mb-6 text-xs text-gray-400">
                 Peringkat jumlah visit terbanyak
@@ -872,7 +936,7 @@ export default function DashboardRequestPage() {
                     minHeight={0}
                   >
                     <BarChart
-                      data={stats?.topSales || []}
+                      data={stats?.topVisit || stats?.topSales || []}
                       layout="vertical"
                       margin={{ top: 0, right: 30, left: 10, bottom: 0 }}
                     >
