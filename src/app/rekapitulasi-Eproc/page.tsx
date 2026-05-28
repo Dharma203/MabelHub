@@ -249,6 +249,10 @@ export default function RekapitulasiEProcurementPage() {
     return val;
   }
   function getTindakLanjutValue(r: EProcDoc) {
+    if (getStatusUsulan(r) === "Cancel") {
+      return "Cancel";
+    }
+
     if (r.tindakLanjut === "Lanjut" || r.tindakLanjut === "Cancel") {
       return r.tindakLanjut;
     }
@@ -372,10 +376,21 @@ export default function RekapitulasiEProcurementPage() {
     if (!laporTargetId) return;
 
     if (laporSelectedValue === "") {
-      // user clicked kembali ke lapor
-      // kita boleh lanjut save value empty string.
+      if (!laporCatatan.trim()) {
+        alert("Catatan wajib diisi!");
+        return;
+      }
     } else if (!laporSelectedValue) {
       alert("Pilih Tindak Lanjut terlebih dahulu!");
+      return;
+    }
+
+    if (
+      (laporSelectedValue === "Lanjut" || laporSelectedValue === "Cancel") &&
+      laporStatusReqSales === "Alasan lainnya" &&
+      !laporCatatan.trim()
+    ) {
+      alert("Catatan wajib diisi jika memilih Alasan lainnya!");
       return;
     }
 
@@ -929,6 +944,16 @@ export default function RekapitulasiEProcurementPage() {
                           <td className="px-3 py-2">
                             {(() => {
                               const tVal = getTindakLanjutValue(r);
+                              if (getStatusUsulan(r) === "Cancel") {
+                                return (
+                                  <button
+                                    disabled
+                                    className="rounded bg-red-100 px-3 py-1 text-xs font-bold text-red-700 opacity-60 cursor-not-allowed"
+                                  >
+                                    Cancel
+                                  </button>
+                                );
+                              }
                               if (tVal === "Lapor") {
                                 return (
                                   <button
@@ -1041,6 +1066,16 @@ export default function RekapitulasiEProcurementPage() {
                             <div className="shrink-0 ml-2">
                               {(() => {
                                 const tVal = getTindakLanjutValue(r);
+                                if (getStatusUsulan(r) === "Cancel") {
+                                  return (
+                                    <button
+                                      disabled
+                                      className="rounded bg-red-100 px-3 py-1.5 text-xs font-bold text-red-700 ring-1 ring-red-200/50 opacity-60 cursor-not-allowed"
+                                    >
+                                      Cancel
+                                    </button>
+                                  );
+                                }
                                 if (tVal === "Lapor") {
                                   return (
                                     <button
@@ -1885,7 +1920,7 @@ export default function RekapitulasiEProcurementPage() {
 
               <div>
                 <label className="block text-sm font-bold text-blue-900 mb-1">
-                  Catatan
+                  Catatan {(laporStatusReqSales === "Alasan lainnya" || laporSelectedValue === "") && <span className="text-red-500">*</span>}
                 </label>
                 <textarea
                   rows={4}
