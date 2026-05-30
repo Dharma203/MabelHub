@@ -22,6 +22,7 @@ import {
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import React from 'react'
 import { useRouter } from 'next/navigation'
+import { delimiter } from 'path'
 
 type ProvinsiKotaRow = {
   no: number
@@ -1360,15 +1361,19 @@ export default function TrackingDatabasePage() {
                                         label='Tanggal Input'
                                         value={
                                           selected.created_at
-                                            ? new Date(
-                                                selected.created_at,
-                                              ).toLocaleDateString('id-ID', {
-                                                day: '2-digit',
-                                                month: 'long',
-                                                year: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                              })
+                                            ? new Date(selected.created_at)
+                                                .toLocaleDateString('sv-SE', {
+                                                  day: '2-digit',
+                                                  month: '2-digit',
+                                                  year: 'numeric',
+                                                  hour: '2-digit',
+                                                  minute: '2-digit',
+                                                  second: '2-digit',
+                                                  hour12: false,
+                                                })
+                                                .replace('pukul', '')
+                                                .replace(' ', ' ')
+                                                .trim()
                                             : '-'
                                         }
                                       />
@@ -1408,7 +1413,7 @@ export default function TrackingDatabasePage() {
                                           selected.sumber_data ===
                                           'Sales Internal'
                                             ? selected.sales_internal
-                                            : selected.sumber_data
+                                            : '-'
                                         }
                                       />
                                       <DetailItem

@@ -397,7 +397,7 @@ export async function GET(req: NextRequest) {
           },
           { $sort: { _sortDate: -1, _sortCounter: -1 } },
           { $skip: skip },
-          { $limit: 10 },
+          { $limit: limit },
         ])
         .toArray(),
     ])

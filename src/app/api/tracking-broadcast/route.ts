@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { findSourceMap } from 'module'
 import { data } from '@/app/tracking-database/filterUtils'
+import { request } from 'http'
 
 type KontakTrackingItem = {
   id: string
@@ -22,7 +23,24 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl
 
     const filter: Record<string, any> = {}
+    
+    const createdAt = searchParams.get('createdAt')
+    if (createdAt) {
+      // Filter berdasarkan rentang tanggal createdAt
+      const createdAtDate = new Date(createdAt)
+      filter['created_at'] = {
+        $gte: createdAtDate.toDateString(),
+      }
+    }
+    const requestor = searchParams.get('requestor')
+    if (requestor) {
+      filter['penginput'] = requestor
+    }
+    const sumberData = searchParams.get('sumber_data')
+    if (sumberData) filter['sumber_data'] = sumberData
 
+    const salesInternal = searchParams.get('sales_internal')
+    if (salesInternal) filter['sales_internal'] = salesInternal
     const bulanArr = searchParams.getAll('bulan')
     const produkArr = searchParams.getAll('produk')
     const perusahaanArr = searchParams.getAll('perusahaan')
@@ -501,9 +519,12 @@ export async function GET(req: NextRequest) {
     const items = pageRows.map((r) => ({
       _id: r._id?.toString() ?? '',
       kode: r.code_input ?? '',
+      requestor: r.requestor ?? '',
       nama_perusahaan: r.nama_perusahaan ?? '',
       segmen: r.segmen ?? '',
       segmentasi: r.segmentasi ?? '',
+      sumber_data: r.sumber_data ?? '',
+      sales_internal: r.sales_internal ?? '',
       kota: r.kota ?? '',
       provinsi: r.provinsi ?? '',
       produk: r.produk_relevan ?? '',
@@ -527,6 +548,7 @@ export async function GET(req: NextRequest) {
       bulan_data: r.bulan_data ?? '',
       status_wa: r.broadcast?.status_wa ?? '',
       ke_sales: r.broadcast?.ke_sales ?? '',
+      created_at: r.created_at ?? '',
       updated_at: r.updated_at
         ? new Date(r.updated_at).toLocaleDateString('id-ID')
         : '',

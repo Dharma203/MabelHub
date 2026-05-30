@@ -42,6 +42,7 @@ type BroadCastRow = {
   nama_perusahaan: string
   segmen: string
   segmentasi: string
+  sumber_data: string
   kota: string
   provinsi: string
   produk: string
@@ -52,6 +53,7 @@ type BroadCastRow = {
   bidang_perusahaan: string
   sumber_date: string
   sumber_lain: string
+  sales_internal: string
   merek_tayang: string
   brand_owner: string
   email: string
@@ -65,6 +67,8 @@ type BroadCastRow = {
   jenis_entitas: string
   status_wa: string
   detail_update: string
+  created_at: string
+  requestor: string
   ke_sales: string
 }
 
@@ -1852,17 +1856,33 @@ export default function TrackingBroadcastPage() {
                                       <DetailItem
                                         icon='📅'
                                         label='Tanggal Input'
-                                        value={selected.sumber_date}
+                                        value={
+                                          selected.created_at
+                                            ? new Date(selected.created_at)
+                                                .toLocaleDateString('sv-SE', {
+                                                  day: '2-digit',
+                                                  month: '2-digit',
+                                                  year: 'numeric',
+                                                  hour: '2-digit',
+                                                  minute: '2-digit',
+                                                  second: '2-digit',
+                                                  hour12: false,
+                                                })
+                                                .replace('pukul', '')
+                                                .replace(' ', ' ')
+                                                .trim()
+                                            : '-'
+                                        }
                                       />
                                       <DetailItem
                                         icon='👤'
                                         label='Penginput'
-                                        value={selected.penginput}
+                                        value={selected.requestor}
                                       />
                                       <DetailItem
                                         icon='🏷'
                                         label='Jenis Entitas'
-                                        value={selected.jenis_entitas}
+                                        value={selected.segmen}
                                       />
                                       <DetailItem
                                         icon='🔖'
@@ -1881,12 +1901,17 @@ export default function TrackingBroadcastPage() {
                                       <DetailItem
                                         icon='📂'
                                         label='Sumber Data'
-                                        value={selected.sumber_date}
+                                        value={selected.sumber_data}
                                       />
                                       <DetailItem
                                         icon='📎'
                                         label='Sumber Lain'
-                                        value={selected.sumber_lain}
+                                        value={
+                                          selected.sumber_data ===
+                                          'Sales Internal'
+                                            ? selected.sales_internal
+                                            : '-'
+                                        }
                                       />
                                       <DetailItem
                                         icon='👑'
