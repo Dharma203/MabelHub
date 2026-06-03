@@ -93,6 +93,7 @@ type Summary = {
 };
 
 const renderActiveShape = (props: any) => {
+  if (!props || !props.payload) return null;
   const RADIAN = Math.PI / 180;
   const {
     cx,
