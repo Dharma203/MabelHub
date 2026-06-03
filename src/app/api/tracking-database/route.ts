@@ -63,6 +63,36 @@ export async function GET(req: NextRequest) {
     //   YYYYMMDD = "20" + mid[4..5] + mid[2..3] + mid[0..1]
     //            = "20" + "25" + "12" + "01" = "20251201"
     // ----------------------------------------------------------------
+
+    const bulanAgg = await col.aggregate([
+      { $match: { code_input: { $exists: true, $ne: "" } } },
+      {
+        $project: {
+          mid: { $arrayElemAt: [{ $split: ["$code_input", "-"] }, 1] }
+        }
+      },
+      {
+        $match: {
+          mid: { $exists: true },
+          $expr: { $eq: [{ $strLenCP: "$mid" }, 6] } // pastikan 6 digit
+        }
+      },
+      {
+        $project: {
+          yearMonth: {
+            $concat: [
+              "20",
+              { $substr: ["$mid", 4, 2] }, // YY
+              "-",
+              { $substr: ["$mid", 2, 2] }  // MM
+            ]
+          }
+        }
+      },
+      { $group: { _id: "$yearMonth" } },
+      { $sort: { _id: -1 } }
+    ]).toArray();
+
     const midExpr = { $arrayElemAt: [{ $split: ['$code_input', '-'] }, 1] }
     const dateStrExpr = {
       $concat: [
@@ -344,7 +374,10 @@ export async function GET(req: NextRequest) {
           ? new Date(r.updated_at).toLocaleDateString('id-ID')
           : '',
       }))
-      return NextResponse.json({ ...summaryStats, rows: data })
+
+      const bulan_data = bulanAgg
+        .map(r => r._id as string)
+      return NextResponse.json({ ...summaryStats, rows: data, bulan_data })
     }
 
     // ----------------------------------------------------------------

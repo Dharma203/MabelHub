@@ -116,6 +116,27 @@ function getPageWindow(current: number, totalPages: number, size: number) {
   return Array.from({ length: size }, (_, i) => start + i)
 }
 
+const BULAN_LIST: Record<string, string> = {
+  '01': 'January',
+  '02': 'February',
+  '03': 'March',
+  '04': 'April',
+  '05': 'May',
+  '06': 'June',
+  '07': 'July',
+  '08': 'August',
+  '09': 'September',
+  '10': 'October',
+  '11': 'November',
+  '12': 'December',
+}
+
+function formatBulanData(val: string): string {
+  const mm = val.split('-')
+  if (!mm) return val
+  return `${BULAN_NAMES[mm[1]] ?? mm[1]}`
+}
+
 // Helper: "2026-04" → "April-2026"
 const BULAN_NAMES: Record<string, string> = {
   '01': 'January',
@@ -131,6 +152,7 @@ const BULAN_NAMES: Record<string, string> = {
   '11': 'November',
   '12': 'December',
 }
+
 function formatBulan(val: string): string {
   const [yyyy, mm] = val.split('-')
   if (!yyyy || !mm) return val
@@ -1533,7 +1555,7 @@ export default function TrackingDatabasePage() {
                                       <DetailItem
                                         icon='📆'
                                         label='Bulan Data'
-                                        value={selected.bulan_data}
+                                        value={formatBulanData(selected.created_at)}
                                       />
                                     </div>
                                   </div>
