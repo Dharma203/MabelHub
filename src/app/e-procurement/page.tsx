@@ -96,6 +96,21 @@ export default function EProcurementRequestPage() {
   const [pemohon, setPemohon] = useState("");
   const [segmen, setSegmen] = useState<string>("");
   const [deadline, setDeadline] = useState<string>("");
+
+  const deadlineWarning = useMemo(() => {
+    if (!deadline) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dlDate = new Date(deadline);
+    dlDate.setHours(0, 0, 0, 0);
+    if (isNaN(dlDate.getTime())) return null;
+    const diffTime = dlDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays < 3) {
+      return "Deadline usulan minimal 3 hari dari hari ini.";
+    }
+    return null;
+  }, [deadline]);
   const [lokasi, setLokasi] = useState("");
   const [catatanHeader, setCatatanHeader] = useState("");
 
@@ -378,6 +393,15 @@ export default function EProcurementRequestPage() {
   };
 
   const handleKirim = async () => {
+    if (!deadline) {
+      alert("Deadline usulan wajib diisi!");
+      return;
+    }
+    if (deadlineWarning) {
+      alert(deadlineWarning);
+      return;
+    }
+
     try {
       const payload = {
         header: {
@@ -527,9 +551,19 @@ export default function EProcurementRequestPage() {
                     type='date'
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
-                    className='h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-12 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                    className={cn(
+                      'h-12 w-full rounded-xl border px-4 pr-12 text-sm outline-none focus:ring-2',
+                      deadlineWarning
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                        : 'border-gray-200 focus:ring-blue-200'
+                    )}
                   />
                 </div>
+                {deadlineWarning && (
+                  <p className="mt-1 text-xs text-red-500 font-semibold">
+                    ⚠️ {deadlineWarning}
+                  </p>
+                )}
               </div>
 
               <div>

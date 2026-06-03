@@ -573,7 +573,7 @@ export default function TrackingDatabasePage() {
                   const activeArr = getFilterArr(btn.id)
                   const count = activeArr.length
                   const isActive = count > 0
-                  const opts = getOptions(btn.id)
+                  const opts = getOptions(btn.id) ?? []
                   const search = dropdownSearch[btn.id] ?? ''
                   const filtered = search
                     ? opts.filter((o) => {
@@ -615,7 +615,8 @@ export default function TrackingDatabasePage() {
                             </span>
                           )}
                           <ChevronDown
-                            size={10}
+                            size={14}
+                            strokeWidth={2.5}
                             className={`ml-0.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                           />
                         </span>

@@ -106,6 +106,47 @@ export async function GET(req: Request) {
     }
   }
 
+  // Date range filter
+  const startStr = searchParams.get("startDate") || searchParams.get("start");
+  const endStr = searchParams.get("endDate") || searchParams.get("end");
+  if (startStr || endStr) {
+    const dateConditions: any[] = [];
+    if (startStr) {
+      dateConditions.push({
+        $gte: [
+          {
+            $dateFromString: {
+              dateString: "$visit_date",
+              format: "%d-%b-%Y",
+              onError: new Date("1970-01-01"),
+              onNull: new Date("1970-01-01"),
+            },
+          },
+          new Date(startStr + "T00:00:00.000Z"),
+        ],
+      });
+    }
+    if (endStr) {
+      const endDt = new Date(endStr + "T23:59:59.999Z");
+      dateConditions.push({
+        $lte: [
+          {
+            $dateFromString: {
+              dateString: "$visit_date",
+              format: "%d-%b-%Y",
+              onError: new Date("1970-01-01"),
+              onNull: new Date("1970-01-01"),
+            },
+          },
+          endDt,
+        ],
+      });
+    }
+    if (dateConditions.length > 0) {
+      matchQuery.$expr = { $and: dateConditions };
+    }
+  }
+
   // Ambil beberapa distinct dulu untuk coverage (lebih simpel & akurat)
   const [
     salesDistinct,
@@ -338,6 +379,7 @@ export async function GET(req: Request) {
     },
 
     trend,
+    topVisit: topSales,
     topSales,
     klpd: klpdMapped,
   });
