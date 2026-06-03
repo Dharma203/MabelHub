@@ -8,6 +8,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { listProvinsi, listKabupatenKota } from '@/data/wilayah'
 import { listMerek } from '@/data/merek'
 import { useSearchPerusahaan, Perusahaan } from '@/hooks/useSearchPerusahaan'
+import { computeChangedFields } from '@/utils/validation'
+import { validateFormFields, validateContactItems } from '@/utils/formValidation'
 
 type TeamMember = {
   userId: string
@@ -36,85 +38,6 @@ function displayName(m: {
   return m.role ? `${name} • ${m.role}` : name
 }
 
-// ── Label field yang ditampilkan di history ─────────────────────────────────
-const FIELD_LABELS: Record<string, string> = {
-  requestor: 'Penginput',
-  segmen: 'Jenis Entitas',
-  namaPerusahaan: 'Nama Perusahaan',
-  provinsi: 'Provinsi',
-  kota: 'Kota/Kabupaten',
-  alamat: 'Alamat',
-  bidangPerusahaan: 'Bidang Usaha',
-  segmentasi: 'Segmentasi',
-  produkRelevan: 'Produk Relevan',
-  merekTayang: 'Merek Tayang',
-  brandOwner: 'Brand Owner',
-  sumberData: 'Sumber Data',
-  linkProduk: 'Link Produk',
-  linkToko: 'Link Toko',
-}
-
-function computeChangedFields(
-  oldSnap: { header: Record<string, string>; items: any[] } | null,
-  newHeader: Record<string, string>,
-  newItems: any[],
-): { field: string; oldValue: string; newValue: string }[] {
-  const changes: { field: string; oldValue: string; newValue: string }[] = []
-  if (!oldSnap) return changes
-
-  // Bandingkan setiap field header
-  for (const [key, label] of Object.entries(FIELD_LABELS)) {
-    const oldVal = String(oldSnap.header[key] ?? '')
-    const newVal = String(newHeader[key] ?? '')
-    if (oldVal !== newVal) {
-      changes.push({ field: label, oldValue: oldVal, newValue: newVal })
-    }
-  }
-
-  // Bandingkan items kontak (per-index)
-  const maxLen = Math.max(oldSnap.items.length, newItems.length)
-  for (let i = 0; i < maxLen; i++) {
-    const oldItem = oldSnap.items[i]
-    const newItem = newItems[i]
-    const prefix = `Kontak ${i + 1}`
-    if (!oldItem && newItem) {
-      changes.push({
-        field: `${prefix}`,
-        oldValue: '(tidak ada)',
-        newValue: `${newItem.nama} – ${newItem.jabatan}`,
-      })
-      continue
-    }
-    if (oldItem && !newItem) {
-      changes.push({
-        field: `${prefix}`,
-        oldValue: `${oldItem.nama} – ${oldItem.jabatan}`,
-        newValue: '(dihapus)',
-      })
-      continue
-    }
-    const kontakFields: { key: keyof typeof oldItem; label: string }[] = [
-      { key: 'nama', label: 'Nama' },
-      { key: 'jabatan', label: 'Jabatan' },
-      { key: 'tipeKontak', label: 'Tipe Kontak' },
-      { key: 'noTelp', label: 'No Kontak' },
-      { key: 'email', label: 'Email' },
-    ]
-    for (const f of kontakFields) {
-      const ov = String(oldItem[f.key] ?? '')
-      const nv = String(newItem[f.key] ?? '')
-      if (ov !== nv) {
-        changes.push({
-          field: `${prefix} – ${f.label}`,
-          oldValue: ov,
-          newValue: nv,
-        })
-      }
-    }
-  }
-
-  return changes
-}
 
 function InputDatabaseContent() {
   const [isOpen, setIsOpen] = useState(false)
@@ -390,7 +313,7 @@ function InputDatabaseContent() {
         setItems(
           kontakItems.map((item: any) => ({
             ...item,
-            noTelp: (item.noTelp ?? '').replace(/^62/, ''),
+            noTelp: String(item.noTelp ?? '').replace(/^62/, ''),
           })),
         )
       }
@@ -452,6 +375,35 @@ function InputDatabaseContent() {
 
   const handleKirim = async () => {
     try {
+      const headerError = validateFormFields({
+        requestor,
+        segmen,
+        namaPerusahaan,
+        provinsi,
+        kota,
+        alamat,
+        bidangPerusahaan,
+        segmentasi,
+        produkRelevan,
+        merekTayang,
+        brandOwner,
+        sumberData,
+        linkProduk,
+        linkToko,
+        merekLainnya,
+        salesInternal,
+      })
+      if (headerError) {
+        alert(headerError.message)
+        return
+      }
+
+      const contactError = validateContactItems(items)
+      if (contactError) {
+        alert(contactError.message)
+        return
+      }
+
       const isRevisionMode = !!(
         searchParams.get('id')?.trim() || originalSnapshot
       )
@@ -560,8 +512,7 @@ function InputDatabaseContent() {
           ? 'Data berhasil direvisi!'
           : 'Database berhasil disimpan!',
       )
-      router.push('/input-database')
-      router.refresh()
+      window.location.href = '/input-database'
     } catch (error) {
       console.error('Error saving database:', error)
       alert(
@@ -880,7 +831,7 @@ function InputDatabaseContent() {
                         updateItem(index, 'noTelp', val)
                       }}
                       placeholder='6281234567890'
-                      maxLength={13}
+                      maxLength={14}
                       className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                     />
                   </div>
@@ -924,7 +875,7 @@ function InputDatabaseContent() {
                   className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 >
                   <option className='text-gray-600' value=''>
-                    Pilih Sumber Data
+                    -- Pilih --
                   </option>
                   <option value='Energi & Pertambangan'>
                     Energi & Pertambangan
@@ -1000,6 +951,7 @@ function InputDatabaseContent() {
                       { value: 'MRS', label: 'MRS' },
                       { value: 'VIDEOTRON', label: 'VIDEOTRON' },
                       { value: 'AIO', label: 'AIO' },
+                      { value: 'Genset', label: 'Genset' },
                     ]
                     if (
                       produkRelevan &&
