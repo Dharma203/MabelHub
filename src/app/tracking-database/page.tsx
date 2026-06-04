@@ -116,21 +116,6 @@ function getPageWindow(current: number, totalPages: number, size: number) {
   return Array.from({ length: size }, (_, i) => start + i)
 }
 
-const BULAN_LIST: Record<string, string> = {
-  '01': 'January',
-  '02': 'February',
-  '03': 'March',
-  '04': 'April',
-  '05': 'May',
-  '06': 'June',
-  '07': 'July',
-  '08': 'August',
-  '09': 'September',
-  '10': 'October',
-  '11': 'November',
-  '12': 'December',
-}
-
 function formatBulanData(val: string): string {
   const mm = val.split('-')
   if (!mm) return val

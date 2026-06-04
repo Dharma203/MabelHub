@@ -21,8 +21,14 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
         { label: "Input Database", href: "/input-database", icon: "Bot"},
         { label: "Tracking Database", href: "/tracking-database", icon: "Database"},
         { label: "Tracking Broadcast", href: "/tracking-broadcast", icon: "MessageCircleCode"},
-        { label: "Tindak Lanjut Sales", href: "/tindak-lanjut-sales", icon: "User"},
         { label: "Report Progres", href: "/report-progres", icon: "FileText"},
+      ]
+    },
+    {
+      title: "SALES",
+      icon: "User",
+      items: [
+        {label: "Validasi Sales", href: "/validasi-sales", icon: "User"}
       ]
     },
     {
