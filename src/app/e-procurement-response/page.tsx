@@ -30,18 +30,20 @@ type EProcRow = {
   nominalPembayaran?: number | string;
 };
 
-function fmtDate(d: string | Date) {
+function fmtDate(d: string | Date | undefined | null) {
+  if (!d) return "-";
   const dt = typeof d === "string" ? new Date(d) : d;
-  if (Number.isNaN(dt.getTime())) return "-";
+  if (!dt || Number.isNaN(dt.getTime())) return "-";
   const dd = String(dt.getDate()).padStart(2, "0");
   const mm = String(dt.getMonth() + 1).padStart(2, "0");
   const yyyy = dt.getFullYear();
   return `${dd}-${mm}-${yyyy}`;
 }
 
-function fmtDateTime(d: string | Date) {
+function fmtDateTime(d: string | Date | undefined | null) {
+  if (!d) return "-";
   const dt = typeof d === "string" ? new Date(d) : d;
-  if (Number.isNaN(dt.getTime())) return "-";
+  if (!dt || Number.isNaN(dt.getTime())) return "-";
   const dd = String(dt.getDate()).padStart(2, "0");
   const mm = String(dt.getMonth() + 1).padStart(2, "0");
   const yyyy = dt.getFullYear();
@@ -150,7 +152,7 @@ export default function EProcurementResponsePage() {
   return (
     <div className="min-h-screen bg-blue-50">
       <div className="flex relative z-10">
-        
+
 
         <div className="flex-1 p-3 sm:p-6">
           <div className="px-3 pt-2 pb-2">
@@ -260,6 +262,8 @@ export default function EProcurementResponsePage() {
   );
 }
 
+const NOW = Date.now();
+
 function FragmentRow({
   r,
   isOpen,
@@ -274,14 +278,13 @@ function FragmentRow({
   onTake: () => void;
 }) {
   const isDelayed =
-    Date.now() - new Date(r.tanggalSubmit).getTime() > 3 * 24 * 60 * 60 * 1000;
+    NOW - new Date(r.tanggalSubmit).getTime() > 3 * 24 * 60 * 60 * 1000;
 
   return (
     <>
       <tr
-        className={`block lg:table-row border border-slate-200 lg:border-0 border-b lg:border-b border-slate-100/80 hover:bg-slate-50 cursor-pointer transition-colors mb-4 lg:mb-0 rounded-xl lg:rounded-none p-4 lg:p-0 shadow-sm lg:shadow-none bg-white ${
-          isOpen ? "bg-indigo-50/20" : isDelayed ? "bg-rose-50/40" : ""
-        }`}
+        className={`block lg:table-row border border-slate-200 lg:border-0 border-b lg:border-b border-slate-100/80 hover:bg-slate-50 cursor-pointer transition-colors mb-4 lg:mb-0 rounded-xl lg:rounded-none p-4 lg:p-0 shadow-sm lg:shadow-none bg-white ${isOpen ? "bg-indigo-50/20" : isDelayed ? "bg-rose-50/40" : ""
+          }`}
         onClick={onToggle}
         title="Klik untuk lihat detail"
       >
