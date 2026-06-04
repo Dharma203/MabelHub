@@ -185,6 +185,12 @@ function getPageWindow(current: number, totalPages: number, size: number) {
   return Array.from({ length: size }, (_, i) => start + i)
 }
 
+function formatBulanData(val: string): string {
+  const mm = val.split('-')
+  if (!mm) return val
+  return `${BULAN_NAMES[mm[1]] ?? mm[1]}`
+}
+
 const BULAN_NAMES: Record<string, string> = {
   '01': 'January',
   '02': 'February',
@@ -2008,7 +2014,7 @@ export default function TrackingBroadcastPage() {
                                       <DetailItem
                                         icon='📆'
                                         label='Bulan Data'
-                                        value={selected.bulan_data}
+                                        value={formatBulanData(selected.created_at)}
                                       />
                                       {selected.alamat &&
                                         selected.alamat.trim() !== '' && (
