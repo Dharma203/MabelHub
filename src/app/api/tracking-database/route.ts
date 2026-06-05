@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
     const client = await clientPromise
     const db = client.db('MabelHub')
     const col = db.collection('input_database')
+    
 
     const { searchParams } = req.nextUrl
 
@@ -384,6 +385,7 @@ export async function GET(req: NextRequest) {
     // Mode pagination
     // ----------------------------------------------------------------
     const page = Math.max(1, Number(searchParams.get('page') ?? 1))
+    const sortByDate = searchParams.get('sortByDate') === '1' ? 1 : -1
     const limit = Math.min(
       500,
       Math.max(1, Number(searchParams.get('limit') ?? 25)),
@@ -395,40 +397,7 @@ export async function GET(req: NextRequest) {
       col
         .aggregate([
           { $match: filter },
-          {
-            $addFields: {
-              _sortDate: {
-                $concat: [
-                  '20',
-                  {
-                    $substr: [
-                      { $arrayElemAt: [{ $split: ['$code_input', '-'] }, 1] },
-                      4,
-                      2,
-                    ],
-                  },
-                  {
-                    $substr: [
-                      { $arrayElemAt: [{ $split: ['$code_input', '-'] }, 1] },
-                      2,
-                      2,
-                    ],
-                  },
-                  {
-                    $substr: [
-                      { $arrayElemAt: [{ $split: ['$code_input', '-'] }, 1] },
-                      0,
-                      2,
-                    ],
-                  },
-                ],
-              },
-              _sortCounter: {
-                $arrayElemAt: [{ $split: ['$code_input', '-'] }, 2],
-              },
-            },
-          },
-          { $sort: { _sortDate: -1, _sortCounter: -1 } },
+          { $sort: { created_at: sortByDate } },
           { $skip: skip },
           { $limit: limit },
         ])
@@ -475,6 +444,7 @@ export async function GET(req: NextRequest) {
       ...summaryStats,
       items,
       pagination: {
+        sort: sortByDate,
         page,
         limit,
         total: totalCount,
