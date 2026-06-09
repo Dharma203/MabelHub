@@ -1,4 +1,4 @@
-export type Role = "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES";
+export type Role = "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES"| "TELEMARKETING";
 
 export type MenuItem = {
   label: string;
@@ -93,7 +93,7 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
     },
   ],
 
-  ADMIN: [
+  TELEMARKETING : [
     {
       title: "TELEMARKETING",
       icon: "Bot",
@@ -104,20 +104,23 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
         { label: "Report Progres", href: "/report-progres", icon: "FileText"},
       ]
     },
-    {
-      title: "VISIT",
-      icon: "CalendarCheck",
-      items: [
-        { label: "Dashboard Visit", href: "/dashboard-request", icon: "LayoutDashboard" },
-        { label: "Plan Activity", href: "/plan-activity", icon: "MapPin" },
-      ],
-    },
-    {
-      title: "PRODUCT",
-      icon: "Package",
-      items: [
-      ],
-    },
+  ],
+
+  ADMIN: [
+    // {
+    //   title: "VISIT",
+    //   icon: "CalendarCheck",
+    //   items: [
+    //     { label: "Dashboard Visit", href: "/dashboard-request", icon: "LayoutDashboard" },
+    //     { label: "Plan Activity", href: "/plan-activity", icon: "MapPin" },
+    //   ],
+    // },
+    // {
+    //   title: "PRODUCT",
+    //   icon: "Package",
+    //   items: [
+    //   ],
+    // },
     {
       title: "E-PROCUREMENT",
       icon: "ShoppingCart",
@@ -134,14 +137,14 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
         { label: "Tracking Admin", href: "/rekapitulasi-response", icon: "BarChart" },
       ],
     },
-    {
-      title: "INSTANSI",
-      icon: "Building2",
-      items: [
-        { label: "Daftar Instansi", href: "/instansi", icon: "Building2" },
-        { label: "Tambah Instansi", href: "/tambah-instansi", icon: "PlusSquare" },
-      ],
-    },
+    // {
+    //   title: "INSTANSI",
+    //   icon: "Building2",
+    //   items: [
+    //     { label: "Daftar Instansi", href: "/instansi", icon: "Building2" },
+    //     { label: "Tambah Instansi", href: "/tambah-instansi", icon: "PlusSquare" },
+    //   ],
+    // },
     {
       title: "KONTRAK",
       icon: "FileSignature",

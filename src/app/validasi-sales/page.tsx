@@ -262,12 +262,30 @@ export default function ValidasiSalesPage() {
     const handleSave = async () => {
         if (!selectedRow) return
         setSaving(true)
+        setIsSending(true)
         try {
+            const isAllFilled = Boolean(
+                panelForm.validasi &&
+                panelForm.produk_relevan &&
+                panelForm.detail_validasi &&
+                panelForm.tipe_penyedia &&
+                panelForm.catatan
+            )
+            const newStatus = isAllFilled ? 'Terisi' : 'Draft'
+
             await fetch('/api/validasi-sales', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    _id: selectedRow._id,
+                    sales_internal: selectedRow.sales_internal,
                     nama_perusahaan: selectedRow.nama_perusahaan,
+                    alamat: selectedRow.alamat,
+                    pic: selectedRow.pic,
+                    jabatan: selectedRow.jabatan,
+                    produk: selectedRow.produk,
+                    status_wa: selectedRow.status_wa,
+                    status: newStatus,
                     ...panelForm,
                 }),
             })
@@ -277,8 +295,63 @@ export default function ValidasiSalesPage() {
             // handle error silently
         } finally {
             setSaving(false)
+            setIsSending(false)
         }
     }
+
+    const [sendingRows, setIsSendingRows] = useState<Set<string>>(new Set())
+
+    const handleSendRow = useCallback(
+        async (row: CompanyRow) => {
+            if (sendingRows.has(row._id)) return
+            setIsSendingRows((prev) => new Set(prev).add(row._id))
+            try {
+                const payload = {
+                    _id: row._id,
+                     sales_internal: row.sales_internal,
+                     nama_perusahaan: row.nama_perusahaan,
+                     alamat: row.alamat,
+                     pic: row.pic,
+                     jabatan: row.pic,
+                     produk: row.produk,
+                     status_wa: row.status_wa,
+                     validasi: panelForm.validasi,
+                     produk_relevan: panelForm.produk_relevan,
+                     detail_validasi: panelForm.detail_validasi,
+                     tipe_penyedia: panelForm.tipe_penyedia,
+                     catatan: panelForm.catatan,
+                     sent_at: new Date().toISOString(),
+                }
+
+                const res = await fetch ('/api/validasi-sales/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type' : 'application/json'},
+                    body: JSON.stringify(payload)
+                })
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}))
+                    throw new Error(err?.error || 'Gagal menyimpan data')
+                }
+
+                alert(`✅ Data "${row.nama_perusahaan}" berhasil dikirim!`)
+            } catch (error) {
+                console.error('[handleSendRow] Error:', error)
+                alert (
+                    error instanceof Error
+                    ? error.message
+                    : 'Terjadi Kesalahan saat mengirim data',
+                )
+            } finally {
+                setIsSendingRows((prev) => {
+                    const s = new Set(prev)
+                    s.delete(row._id)
+                    return s
+                })
+            }
+        },
+        [sendingRows],
+    )
 
     const handleReset = () => {
         setSearch('')
@@ -488,11 +561,14 @@ export default function ValidasiSalesPage() {
                                             Batal
                                         </button>
                                         <button
-                                            onClick={() => { /* TODO: Submit selected */ }}
-                                            disabled={isSending}
+                                            onClick={() => {
+                                                const rowsToSend = rows.filter((r) => selectedIds.includes(r._id))
+                                                rowsToSend.forEach((r) => handleSendRow(r))
+                                            }}
+                                            disabled={selectedIds.some((id) => sendingRows.has(id))}
                                             className="h-7 px-4 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
                                         >
-                                            {isSending ? (
+                                            {selectedIds.some((id) => sendingRows.has(id)) ? (
                                                 <>
                                                     <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                     Mengirim...
@@ -631,13 +707,13 @@ export default function ValidasiSalesPage() {
                                                                 onClick={() => openPanel(row)}
                                                                 title="Klik untuk buka panel drafting"
                                                             >
-                                                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all group-hover:shadow-sm group-hover:scale-105 ${row.status === 'Selesai'
+                                                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all group-hover:shadow-sm group-hover:scale-105 ${row.status === 'Terisi'
                                                                     ? 'bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200'
                                                                     : row.status === 'Draft'
                                                                         ? 'bg-amber-100 text-amber-700 group-hover:bg-amber-200'
                                                                         : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
                                                                     }`}>
-                                                                    {row.status === 'Selesai' && <Check size={10} strokeWidth={3} />}
+                                                                    {row.status === 'Terisi' && <Check size={10} strokeWidth={3} />}
                                                                     {row.status === 'Draft' && <ChevronDown size={10} strokeWidth={2.5} />}
                                                                     {row.status || 'Kosong'}
                                                                 </span>

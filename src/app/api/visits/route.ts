@@ -228,23 +228,25 @@ export async function GET(req: Request) {
     pipeline.push({ $match: postMatch });
   }
 
-  pipeline.push({ $sort: { __visitDate: -1, __createdAt: -1, _id: -1 } });
-  pipeline.push({
-    $facet: {
-      items: [
-        { $skip: skip },
-        { $limit: limit },
-        { $project: { __visitDate: 0, __createdAt: 0 } },
-      ],
-      total: [{ $count: "count" }],
-    },
-  });
+  const itemsPipeline = [
+    ...pipeline,
+    { $sort: { __visitDate: -1, __createdAt: -1, _id: -1 } },
+    { $skip: skip },
+    { $limit: limit },
+    { $project: { __visitDate: 0, __createdAt: 0 } },
+  ];
 
-  const agg = await col.aggregate(pipeline).toArray();
-  const first = agg?.[0] || { items: [], total: [] };
+  const countPipeline = [
+    ...pipeline,
+    { $count: "count" },
+  ];
 
-  const itemsRaw = Array.isArray(first.items) ? first.items : [];
-  const total = Number(first.total?.[0]?.count || 0);
+  const [itemsRaw, totalResult] = await Promise.all([
+    col.aggregate(itemsPipeline).toArray(),
+    col.aggregate(countPipeline).toArray(),
+  ]);
+
+  const total = Number(totalResult?.[0]?.count || 0);
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   const items = itemsRaw.map((it: any) => ({ ...it, _id: String(it._id) }));
@@ -374,17 +376,17 @@ export async function POST(req: Request) {
       // new field (biar stats/team bisa pakai assignedTo.userId)
       assignedTo: targetUser
         ? {
-            userId: targetUser.userId,
-            role: targetUser.role,
-            username: targetUser.username,
-            fullName: targetUser.fullName,
-          }
+          userId: targetUser.userId,
+          role: targetUser.role,
+          username: targetUser.username,
+          fullName: targetUser.fullName,
+        }
         : {
-            userId: targetUserId,
-            role: "",
-            username: "",
-            fullName: "",
-          },
+          userId: targetUserId,
+          role: "",
+          username: "",
+          fullName: "",
+        },
 
       visit_date: toVisitDateStr(tanggal),
       city: kota_kab,
