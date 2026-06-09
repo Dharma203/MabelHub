@@ -512,7 +512,32 @@ function InputDatabaseContent() {
           ? 'Data berhasil direvisi!'
           : 'Database berhasil disimpan!',
       )
-      window.location.href = '/input-database'
+      
+      router.push('/input-database')
+      setSegmen('')
+      setKota('')
+      setAlamat('')
+      setNamaPerusahaan('')
+      setBidangPerusahaan('')
+      setSegmentasi('')
+      setProdukRelevan('')
+      setMerekTayang('')
+      setBrandOwner('')
+      setSumberData('')
+      setSalesInternal('')
+      setMerekLainnya('')
+      setLinkProduk('')
+      setLinkToko('')
+      setcodeInput('')
+      setOriginalSnapshot(null)
+      setItems([{
+        id: Date.now().toString(36) + Math.random().toString(36).substring(2),
+        nama: '',
+        jabatan: '',
+        tipeKontak: '',
+        noTelp: '',
+        email: '',
+      }])
     } catch (error) {
       console.error('Error saving database:', error)
       alert(
