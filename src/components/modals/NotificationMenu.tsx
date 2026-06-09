@@ -202,8 +202,13 @@ export default function NotificationMenu() {
       >
         <Bell className="h-6 w-6 text-slate-700 dark:text-slate-300" />
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 dark:bg-rose-600 px-1 text-[10px] font-bold text-white border-2 border-white dark:border-slate-800 shadow-[0_0_8px_rgba(244,63,94,0.6)] animate-pulse">
-            {unreadCount > 99 ? "99+" : unreadCount}
+          <span className="absolute -right-1.5 -top-1.5 flex h-6 items-center justify-center">
+            {/* Outer pulsing glow ring */}
+            <span className="absolute inset-0 rounded-full bg-red-500/40 animate-ping" />
+            {/* Actual Badge */}
+            <span className={`relative flex h-6 ${unreadCount > 9 ? "px-2 min-w-[24px]" : "w-6"} items-center justify-center rounded-full bg-gradient-to-tr from-red-600 via-red-500 to-red-500 text-[10px] font-black text-white shadow-[0_2px_8px_rgba(239,68,68,0.5)] select-none leading-none tracking-tight`}>
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
           </span>
         )}
       </button>
