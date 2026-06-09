@@ -3,7 +3,7 @@ import clientPromise from "@/lib/mongodb";
 import { hashPassword } from "@/lib/password";
 import { assertSuperadmin, assertAdminOrSuperadmin } from "@/lib/auth-server";
 
-type UserRole = "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES";
+type UserRole = "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES" | "TELEMARKETING";
 
 type UserDoc = {
   fullName: string;
@@ -41,6 +41,7 @@ function normalizeRole(role: string): UserRole | null {
   if (r === "ADMIN") return "ADMIN";
   if (r === "LEADER") return "LEADER";
   if (r === "SALES") return "SALES";
+  if (r === "TELEMARKETING") return "TELEMARKETING";
   return null;
 }
 

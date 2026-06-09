@@ -198,6 +198,7 @@ export async function POST(req: NextRequest) {
       detail_validasi,
       tipe_penyedia,
       catatan,
+      status: bodyStatus,
     } = body;
 
     if (!nama_perusahaan) {
@@ -213,8 +214,7 @@ export async function POST(req: NextRequest) {
 
     const now = new Date();
 
-    // Status selalu "Draft" saat submit — belum final
-    const status = "Draft";
+    const status = bodyStatus || "Draft";
 
     const updateDoc = {
       $set: {

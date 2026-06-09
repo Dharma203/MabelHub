@@ -591,7 +591,7 @@ function InputDatabaseContent() {
                     options={(() => {
                       const base = [
                         { value: '', label: 'Pilih requestor' },
-                        { value: 'Aliya', label: 'Aliya' },
+                        { value: user?.fullName || '', label: user?.fullName || '' },
                       ]
                       // Jika requestor dari database belum ada di list, tambahkan otomatis
                       if (

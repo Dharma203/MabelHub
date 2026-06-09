@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import ConfirmModal from "@/components/modals/ConfirmModal";
 
-type UserRole = "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES";
+type UserRole = "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES" | "TELEMARKETING";
 
 type UserRow = {
   _id: string;
@@ -358,6 +358,7 @@ export default function AddUserPage() {
                       { value: "ADMIN", label: "Admin" },
                       { value: "LEADER", label: "Leader" },
                       { value: "SALES", label: "Sales" },
+                      { value: "TELEMARKETING", label: "Telemarketing" },
                     ]}
                     className="h-10 border-0"
                     placeholder="Pilih Role..."
@@ -436,7 +437,12 @@ export default function AddUserPage() {
                                 ? "Admin"
                                 : u.role === "LEADER"
                                   ? "Leader"
-                                  : "Sales"}
+                                  : u.role === "TELEMARKETING"
+                                  ? "Telemarketing"
+                                  : u.role === "SALES"
+                                    ? "Sales"
+                                    : "Unknown"
+                                }
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-center gap-3">
@@ -520,6 +526,7 @@ export default function AddUserPage() {
                   { value: "ADMIN", label: "Admin" },
                   { value: "LEADER", label: "Leader" },
                   { value: "SALES", label: "Sales" },
+                  { value: "TELEMARKETING", label: "Telemarketing" },
                 ]}
                 className="h-10 border-0"
                 placeholder="Pilih Role..."

@@ -500,13 +500,18 @@ export default function InstansiPage() {
                   </button>
                   <button
                     onClick={openPendingModal}
-                    className="flex h-10 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-orange-600 shadow-sm ring-1 ring-gray-300 hover:bg-gray-100"
+                    className="relative flex h-10 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-orange-600 shadow-sm ring-1 ring-gray-300 hover:bg-gray-100 transition-colors"
                   >
                     <Clock className="w-5 h-4" />
                     REQUEST PENDING
                     {pendingCount > 0 && (
-                      <span className="absolute -right-2 -top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white ring-2 ring-white shadow-sm">
-                        {pendingCount > 99 ? "99+" : pendingCount}
+                      <span className="absolute -right-2 -top-2 flex h-6 items-center justify-center">
+                        {/* Outer pulsing glow ring */}
+                        <span className="absolute inset-0 rounded-full bg-red-500/40 animate-ping" />
+                        {/* Actual Badge */}
+                        <span className={`relative flex h-6 ${pendingCount > 9 ? "px-2 min-w-[24px]" : "w-6"} items-center justify-center rounded-full bg-gradient-to-tr from-red-600 via-red-500 to-red-500 text-[10px] font-black text-white shadow-[0_2px_8px_rgba(239,68,68,0.5)] select-none leading-none tracking-tight`}>
+                          {pendingCount > 99 ? "99+" : pendingCount}
+                        </span>
                       </span>
                     )}
                   </button>
@@ -626,7 +631,7 @@ export default function InstansiPage() {
                       resp.items.map((c) => (
                         <tr
                           key={c._id}
-                          className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm p-4 mb-5 block lg:table-row hover:bg-gray-50/50 transition-colors lg:border-0 lg:border-b lg:border-gray-200 lg:rounded-none lg:shadow-none lg:p-0 lg:mb-0"
+                          className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-5 block lg:table-row hover:bg-gray-50/50 transition-colors lg:border-0 lg:border-b lg:border-gray-200 lg:rounded-none lg:shadow-none lg:p-0 lg:mb-0"
                         >
                           <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px]">Kota/Kab</span>
