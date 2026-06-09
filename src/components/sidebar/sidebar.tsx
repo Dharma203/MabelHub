@@ -150,7 +150,9 @@ export default function Sidebar() {
         ? "Admin"
         : role === "LEADER"
           ? "Leader"
-          : "Sales";
+          : role === "TELEMARKETING"
+            ? "Telemarketing"
+            : "Sales";
 
   const isActive = (href: string) => {
     const [basePath, query] = href.split("?");
