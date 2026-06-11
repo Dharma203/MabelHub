@@ -18,7 +18,10 @@ type ParamKey =
   | "kegiatan"
   | "perusahaan"
   | "status_akhir"
-  | "status_keputusan";
+  | "status_keputusan"
+  | "lokasi"
+  | "entity"
+  | "sub_kategori";
 
 type ParamDoc = {
   _id: string;
@@ -32,6 +35,9 @@ type ParamDoc = {
   perusahaan: string[];
   status_akhir: string[];
   status_keputusan: string[];
+  lokasi: string[];
+  entity: string[];
+  sub_kategori: string[];
   updatedAt?: string;
 };
 
@@ -50,6 +56,9 @@ const KEY_LABEL: Record<ParamKey, string> = {
   perusahaan: "Perusahaan",
   status_akhir: "Status Akhir",
   status_keputusan: "Status Keputusan",
+  lokasi: "Lokasi",
+  entity: "Entity",
+  sub_kategori: "Sub Kategori",
 };
 
 const ALL_KEYS: ParamKey[] = [
@@ -63,6 +72,9 @@ const ALL_KEYS: ParamKey[] = [
   "perusahaan",
   "status_akhir",
   "status_keputusan",
+  "lokasi",
+  "entity",
+  "sub_kategori",
 ];
 
 export default function ParameterPage() {
@@ -192,6 +204,9 @@ export default function ParameterPage() {
       perusahaan: d?.perusahaan ?? [],
       status_akhir: d?.status_akhir ?? [],
       status_keputusan: d?.status_keputusan ?? [],
+      lokasi: d?.lokasi ?? [],
+      entity: d?.entity ?? [],
+      sub_kategori: d?.sub_kategori ?? [],
     } as Record<ParamKey, string[]>;
   }, [doc]);
 
@@ -401,6 +416,7 @@ export default function ParameterPage() {
                 ["kota_kabupaten", "klpd", "ring"],
                 ["segmen", "posisi", "status_kunjungan"],
                 ["kegiatan", "perusahaan", "status_akhir", "status_keputusan"],
+                ["lokasi", "entity", "sub_kategori"],
               ] as ParamKey[][]
             )
               .flat()

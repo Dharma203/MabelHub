@@ -25,6 +25,7 @@ type CompanyRow = {
     catatan: string
     status: string
     status_wa: string
+    source_id?: string
 }
 
 type SelectionMode = 'none' | 'some' | 'all'
@@ -141,6 +142,7 @@ export default function ValidasiSalesPage() {
         detail_validasi: '',
         tipe_penyedia: '',
         catatan: '',
+        source_id: '',
     })
     const [saving, setSaving] = useState(false)
 
@@ -233,6 +235,7 @@ export default function ValidasiSalesPage() {
             detail_validasi: row.detail_validasi || '',
             tipe_penyedia: row.tipe_penyedia || '',
             catatan: row.catatan || '',
+            source_id: row.source_id || '',
         })
     }
 
@@ -261,6 +264,7 @@ export default function ValidasiSalesPage() {
     // Save validasi
     const handleSave = async () => {
         if (!selectedRow) return
+        console.log("selectedRow", selectedRow)
         setSaving(true)
         setIsSending(true)
         try {
@@ -269,7 +273,8 @@ export default function ValidasiSalesPage() {
                 panelForm.produk_relevan &&
                 panelForm.detail_validasi &&
                 panelForm.tipe_penyedia &&
-                panelForm.catatan
+                panelForm.catatan &&
+                selectedRow.source_id
             )
             const newStatus = isAllFilled ? 'Terisi' : 'Draft'
 
@@ -281,10 +286,14 @@ export default function ValidasiSalesPage() {
                     sales_internal: selectedRow.sales_internal,
                     nama_perusahaan: selectedRow.nama_perusahaan,
                     alamat: selectedRow.alamat,
+                    kota: selectedRow.kota,
+                    provinsi: selectedRow.provinsi,
                     pic: selectedRow.pic,
                     jabatan: selectedRow.jabatan,
                     produk: selectedRow.produk,
                     status_wa: selectedRow.status_wa,
+                    tipe_kontak: selectedRow.tipe_kontak,
+                    no_telp: selectedRow.no_telp,
                     status: newStatus,
                     ...panelForm,
                 }),
@@ -303,6 +312,8 @@ export default function ValidasiSalesPage() {
 
     const handleSendRow = useCallback(
         async (row: CompanyRow) => {
+            console.log("row.source_id:", row.source_id)
+            console.log("full row:", row)
             if (sendingRows.has(row._id)) return
             setIsSendingRows((prev) => new Set(prev).add(row._id))
             try {
@@ -311,15 +322,21 @@ export default function ValidasiSalesPage() {
                      sales_internal: row.sales_internal,
                      nama_perusahaan: row.nama_perusahaan,
                      alamat: row.alamat,
+                     kota: row.kota,
+                     provinsi: row.provinsi,
                      pic: row.pic,
-                     jabatan: row.pic,
+                     jabatan: row.jabatan,
                      produk: row.produk,
                      status_wa: row.status_wa,
-                     validasi: panelForm.validasi,
-                     produk_relevan: panelForm.produk_relevan,
-                     detail_validasi: panelForm.detail_validasi,
-                     tipe_penyedia: panelForm.tipe_penyedia,
-                     catatan: panelForm.catatan,
+                     tipe_kontak: row.tipe_kontak,
+                     no_telp: row.no_telp,
+                     source_id: row.source_id,
+                     validasi: row.validasi,
+                     produk_relevan: row.produk_relevan_val,
+                     detail_validasi: row.detail_validasi,
+                     tipe_penyedia: row.tipe_penyedia,
+                     catatan: row.catatan,
+                     status: row.status,
                      sent_at: new Date().toISOString(),
                 }
 
@@ -681,13 +698,9 @@ export default function ValidasiSalesPage() {
                                                                 )}
                                                             </td>
                                                             <td className="px-3 py-2 text-center">
-                                                                {row.status_wa ? (
-                                                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white">
-                                                                        <Check size={11} strokeWidth={3} />
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-[11px] text-slate-300">—</span>
-                                                                )}
+                                                                <span className={`inline-flex whitespace-nowrap items-center px-2 py-0.5 rounded-full text-[9px] font-semibold ${getStatusWACellClass(row.status_wa)}`}>
+                                                                    {row.status_wa || '—'}
+                                                                </span>
                                                             </td>
                                                             <td className="px-3 py-2">
                                                                 {row.validasi ? (
@@ -1035,6 +1048,16 @@ function getValidasiBadgeClass(validasi: string): string {
     if (validasi.includes('Tidak Terhubung')) return 'bg-red-100 text-red-700'
     if (validasi.includes('Dibaca')) return 'bg-yellow-100 text-yellow-700'
     if (validasi.includes('Ditolak')) return 'bg-rose-100 text-rose-700'
+    return 'bg-slate-100 text-slate-600'
+}
+
+function getStatusWACellClass(status_wa: string): string {
+    if (status_wa.includes('Diterima')) return 'bg-emerald-100 text-emerald-700'
+    if (status_wa.includes('Terkirim')) return 'bg-blue-100 text-blue-700'
+    if (status_wa.includes('Terhubung')) return 'bg-green-100 text-green-700'
+    if (status_wa.includes('Tidak Terhubung')) return 'bg-red-100 text-red-700'
+    if (status_wa.includes('Dibaca')) return 'bg-yellow-100 text-yellow-700'
+    if (status_wa.includes('Ditolak')) return 'bg-rose-100 text-rose-700'
     return 'bg-slate-100 text-slate-600'
 }
 

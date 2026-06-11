@@ -65,6 +65,19 @@ export async function GET(req: NextRequest) {
         },
       },
       { $sort: { _id: 1 } },
+      {
+        $lookup: {
+          from: "input_database",
+          localField: "kode",
+          foreignField: "code_input",
+          as: "input_doc"
+        }
+      },
+      {
+        $addFields: {
+          input_data: { $arrayElemAt: ["$input_doc", 0] }
+        }
+      },
     ];
 
     // Count total unique companies
@@ -90,16 +103,17 @@ export async function GET(req: NextRequest) {
       const val = validasiMap.get(r._id);
       return {
         _id: r.source_id?.toString() || `row-${skip + idx}-${r._id}`,
+        source_id: r.source_id || "",
         nama_perusahaan: r._id || "",
         sales_internal: r.ke_sales || "",
         alamat: r.alamat || "",
-        kota: r.kota || "",
-        provinsi: r.provinsi || "",
-        pic: r.pic || "",
-        jabatan: r.jabatan || "",
-        produk: r.produk || "",
-        tipe_kontak: r.tipe || "",
-        no_telp: r.telp || "",
+        kota: r.kota || r.input_data?.kota || "",
+        provinsi: r.provinsi || r.input_data?.provinsi || "",
+        pic: r.pic || r.input_data?.nama || "",
+        jabatan: r.jabatan || r.input_data?.jabatan || "",
+        produk: r.produk || r.input_data?.produk || "",
+        tipe_kontak: r.tipe || r.input_data?.tipe_kontak || "",
+        no_telp: r.telp || r.input_data?.no_telp || "",
         status_wa: r.status_wa || "",
         // Validasi fields (dari koleksi validasi_sales)
         validasi: val?.validasi || "",
@@ -193,6 +207,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       nama_perusahaan,
+      source_id,
+      sales_internal,
+      alamat,
+      kota,
+      provinsi,
+      pic,
+      jabatan,
+      produk,
+      status_wa,
+      tipe_kontak,
+      no_telp,
       validasi,
       produk_relevan,
       detail_validasi,
@@ -219,6 +244,16 @@ export async function POST(req: NextRequest) {
     const updateDoc = {
       $set: {
         nama_perusahaan,
+        sales_internal: sales_internal || "",
+        alamat: alamat || "",
+        kota: kota || "",
+        provinsi: provinsi || "",
+        pic: pic || "",
+        jabatan: jabatan || "",
+        produk: produk || "",
+        status_wa: status_wa || "",
+        tipe_kontak: tipe_kontak || "",
+        no_telp: no_telp || "",
         validasi: validasi || "",
         produk_relevan: produk_relevan || "",
         detail_validasi: detail_validasi || "",
@@ -228,6 +263,7 @@ export async function POST(req: NextRequest) {
         updated_at: now,
       },
       $setOnInsert: {
+        source_id: source_id || null,
         created_at: now,
       },
     };

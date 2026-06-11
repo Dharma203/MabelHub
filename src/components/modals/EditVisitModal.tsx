@@ -39,8 +39,11 @@ export default function EditVisitModal({
     descriptions: "",
     tindak_lanjut: "",
     visit_image: "",
+    reschedule_date: "",
+    reschedule_note: "",
   });
 
+  const isReschedule = form.status_visit.toLowerCase().includes('reschedule');
   // Track the owner of the visit data
   const [ownerId, setOwnerId] = useState("");
 
@@ -60,6 +63,8 @@ export default function EditVisitModal({
       descriptions: "",
       tindak_lanjut: "",
       visit_image: "",
+      reschedule_date: "",
+      reschedule_note: "",
     });
 
     fetch(`/api/visits/${editId}`)
@@ -81,6 +86,8 @@ export default function EditVisitModal({
           descriptions: data.descriptions || "",
           tindak_lanjut: data.tindak_lanjut || "",
           visit_image: data.visit_image || "",
+          reschedule_date: data.reschedule_date || "",
+          reschedule_note: data.reschedule_note || "",
         });
       })
       .catch((e: any) => {
@@ -100,7 +107,13 @@ export default function EditVisitModal({
     if (!editId) return;
     setSaving(true);
     try {
-      const payload = { ...form };
+      const payload: Record<string, any> = { ...form };
+
+      // Clear reschedule fields if status is not Reschedule
+      if (!payload.status_visit?.toLowerCase().includes('reschedule')) {
+        payload.reschedule_date = "";
+        payload.reschedule_note = "";
+      }
 
       if (fileObj) {
         const base64 = await new Promise<string>((resolve, reject) => {
@@ -132,7 +145,11 @@ export default function EditVisitModal({
   if (!isOpen) return null;
 
   const isOwner = ownerId === currentUserId;
-  const canEdit = isOwner;
+  const isPrivileged =
+    currentUserRole === "ADMIN" ||
+    currentUserRole === "SUPERADMIN" ||
+    currentUserRole === "LEADER";
+  const canEdit = isOwner || isPrivileged;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -281,6 +298,54 @@ export default function EditVisitModal({
                   </span>
                 </div>
               </div>
+
+              {/* Reschedule fields — only when status = Reschedule */}
+              {isReschedule && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-sm font-bold text-black">
+                      Tanggal Reschedule
+                    </label>
+                    <input
+                      type="date"
+                      value={form.reschedule_date}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          reschedule_date: e.target.value,
+                        }))
+                      }
+                      readOnly={!canEdit}
+                      className={`rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${
+                        canEdit
+                          ? "focus:ring-1 focus:ring-blue-300 text-black"
+                          : "text-black cursor-not-allowed"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-bold text-black">
+                      Catatan Reschedule
+                    </label>
+                    <input
+                      value={form.reschedule_note}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          reschedule_note: e.target.value,
+                        }))
+                      }
+                      placeholder="Alasan reschedule..."
+                      readOnly={!canEdit}
+                      className={`rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${
+                        canEdit
+                          ? "focus:ring-1 focus:ring-blue-300 text-black"
+                          : "text-black cursor-not-allowed"
+                      }`}
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <label className="mb-1 block text-sm font-bold text-black">
                   Kegiatan

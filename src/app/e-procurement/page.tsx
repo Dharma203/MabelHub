@@ -111,12 +111,17 @@ export default function EProcurementRequestPage() {
     }
     return null;
   }, [deadline]);
-  const [lokasi, setLokasi] = useState("");
+  const [lokasi, setLokasi] = useState<string[]>([]);
+  const [entity, setEntity] = useState<string[]>([]);
+  const [produk, setProduk] = useState<string[]>([]);
   const [catatanHeader, setCatatanHeader] = useState("");
 
   // Parameter API
+  const [paramLokasi, setParamLokasi] = useState<string[]>([]);
   const [paramRing, setParamRing] = useState<string[]>([]);
   const [paramSegmen, setParamSegmen] = useState<string[]>([]);
+  const [paramEntity, setParamEntity] = useState<string[]>([]);
+  const [paramSubKategori, setParamSubKategori] = useState<string[]>([]);
   useEffect(() => {
     fetch("/api/parameters")
       .then((res) => res.json())
@@ -125,9 +130,12 @@ export default function EProcurementRequestPage() {
         if (d) {
           setParamRing(d.ring || []);
           setParamSegmen(d.segmen || []);
+          setParamLokasi(d.kota_kabupaten || []);
+          setParamEntity(d.entity || []);
+          setParamSubKategori(d.sub_kategori || []);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const [selectedRing, setSelectedRing] = useState("");
@@ -286,7 +294,7 @@ export default function EProcurementRequestPage() {
   }
 
   const removeItem = (id: string) => {
-    setItems((prev) => prev.map((x) => (x.id === id ? { ...x, qty: 0 } : x)));
+    setItems((prev) => prev.filter((x) => x.id !== id));
   };
 
   const updateItem = <K extends keyof ProductItem>(
@@ -317,9 +325,9 @@ export default function EProcurementRequestPage() {
       setSegmen((data.header?.segmen ?? data.segmen ?? "") as string);
       setDeadline(
         data.header?.deadlineUsulan ??
-          data.deadlineUsulan ??
-          data.header?.deadline ??
-          "",
+        data.deadlineUsulan ??
+        data.header?.deadline ??
+        "",
       );
       setLokasi(data.header?.lokasi ?? data.lokasi ?? "");
       setCatatanHeader(data.header?.catatanHeader ?? data.catatan ?? "");
@@ -406,10 +414,10 @@ export default function EProcurementRequestPage() {
       const payload = {
         header: {
           requestor,
-          pemohon,
+          pemohon: entity[0] || "",
           segmen,
           deadline,
-          lokasi,
+          lokasi: lokasi[0] || "",
           catatanHeader,
           assignedToUserId: canPickAssignee ? assignedToUserId : "",
         },
@@ -432,7 +440,7 @@ export default function EProcurementRequestPage() {
   return (
     <div className="min-h-screen bg-blue-50">
       <div className="flex">
-        
+
 
         <div className="flex-1 p-6 ">
           <div className="px-3 pt-2 pb-2">
@@ -440,7 +448,7 @@ export default function EProcurementRequestPage() {
               E-PROCUREMENT
             </h1>
             <div className="text-sm ml-4 mt-2 text-slate-500 font-medium">
-             Ajukan Request dan Kelola Permintaan Pengadaan.
+              Ajukan Request dan Kelola Permintaan Pengadaan.
             </div>
             <div className="w-full px-6 py-3"></div>
           </div>
@@ -490,10 +498,15 @@ export default function EProcurementRequestPage() {
                 <label className='text-sm font-semibold text-blue-600'>
                   PEMOHON (ENTITY)
                 </label>
-                <input
-                  value={pemohon}
-                  onChange={(e) => setPemohon(e.target.value)}
-                  className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                <SearchableSelect
+                  value={entity[0] || ""}
+                  onChange={(val: string) => setEntity([val])}
+                  options={[
+                    { value: "", label: "-- Pilih Entity --" },
+                    ...paramEntity.map((l) => ({ value: l, label: l })),
+                  ]}
+                  className="mt-1 border-0 bg-white"
+                  placeholder="Pilih Entity..."
                 />
               </div>
 
@@ -570,10 +583,15 @@ export default function EProcurementRequestPage() {
                 <label className='text-sm font-semibold text-blue-600'>
                   LOKASI
                 </label>
-                <input
-                  value={lokasi}
-                  onChange={(e) => setLokasi(e.target.value)}
-                  className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                <SearchableSelect
+                  value={lokasi[0] || ""}
+                  onChange={(val: string) => setLokasi([val])}
+                  options={[
+                    { value: "", label: "-- Pilih Lokasi --" },
+                    ...paramLokasi.map((l) => ({ value: l, label: l })),
+                  ]}
+                  className="mt-1 border-0 bg-white"
+                  placeholder="Pilih Lokasi..."
                 />
               </div>
 
@@ -667,17 +685,20 @@ export default function EProcurementRequestPage() {
                       />
                     </div>
 
-                    <div className='md:col-span-4'>
+                    <div className='md:col-span-4 '>
                       <label className='text-sm font-semibold text-blue-600'>
                         SUB-KATEGORI
                       </label>
-                      <input
-                        disabled={it.qty === 0}
+                      <SearchableSelect
+                        isDisabled={it.qty === 0}
                         value={it.subKategori}
-                        onChange={(e) =>
-                          updateItem(it.id, 'subKategori', e.target.value)
-                        }
-                        className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                        onChange={(val: string) => updateItem(it.id, 'subKategori', val)}
+                        options={[
+                          { value: "", label: "-- Pilih Produk --" },
+                          ...paramSubKategori.map((l) => ({ value: l, label: l })),
+                        ]}
+                        className="mt-2 border-0 bg-white"
+                        placeholder="Pilih Produk..."
                       />
                     </div>
 

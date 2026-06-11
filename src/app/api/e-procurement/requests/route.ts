@@ -331,6 +331,5 @@ export async function POST(req: Request) {
   };
 
   await db.collection<EProcDoc>("eproc_requests").insertOne(doc);
-
   return NextResponse.json({ data: doc }, { status: 201 });
 }
