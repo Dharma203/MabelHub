@@ -17,6 +17,7 @@ type VisitRow = {
   satuan_kerja?: string;
   status_visit?: string; // "Visited"
   visit_image?: string;
+  reschedule_date?: string;
 };
 
 type PlanRow = {
@@ -28,6 +29,7 @@ type PlanRow = {
   satuan_kerja: string;
   status: string;
   visit_image: string;
+  reschedule_date: string;
   _sortTs: number; // untuk sorting (baru -> besar)
 };
 
@@ -210,6 +212,7 @@ export default function PlanActivityPage() {
           satuan_kerja: v.satuan_kerja || "",
           status: v.status_visit || "",
           visit_image: v.visit_image || "",
+          reschedule_date: v.reschedule_date || "",
           _sortTs: sortTs,
         };
       });
@@ -489,11 +492,18 @@ export default function PlanActivityPage() {
                                       ? "bg-green-100 text-green-700"
                                       : r.status?.toLowerCase() === "planned"
                                         ? "bg-blue-100 text-blue-700"
-                                        : "bg-gray-100 text-gray-600"
+                                        : r.status?.toLowerCase() === "reschedule"
+                                          ? "bg-amber-100 text-amber-700"
+                                          : "bg-gray-100 text-gray-600"
                                   }`}
                                 >
                                   {r.status || "-"}
                                 </span>
+                                {r.status?.toLowerCase() === "reschedule" && r.reschedule_date && (
+                                  <div className="text-[10px] text-amber-600 font-semibold mt-0.5">
+                                    📅 {r.reschedule_date}
+                                  </div>
+                                )}
                               </div>
 
                               <div className="flex justify-between items-center md:justify-center pt-2 md:pt-0 border-t md:border-t-0 border-dashed border-gray-200 lg:table-cell">

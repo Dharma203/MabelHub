@@ -34,6 +34,7 @@ function pickAllowedPatch(body: any) {
     "kegiatan_status",
     "no_visit_per_month",
     "reschedule_date",
+    "reschedule_note",
     "visit_image",
 
     "pic_name",
@@ -208,6 +209,19 @@ export async function PUT(
     const calculated = calculateMarketStatus(patch.kegiatan_status);
     if (calculated) {
       patch.status_market = calculated;
+    }
+  }
+
+  // Jika reschedule_date terisi, otomatis update visit_date (convert ke format D-Mon-YYYY)
+  // dan set status menjadi "Not Visited"
+  if (patch.reschedule_date && String(patch.reschedule_date).trim() !== "") {
+    const rd = new Date(patch.reschedule_date);
+    if (!isNaN(rd.getTime())) {
+      const day = rd.getDate();
+      const mon = rd.toLocaleString("en-US", { month: "short" });
+      const year = rd.getFullYear();
+      patch.visit_date = `${day}-${mon}-${year}`;
+      patch.status_visit = "Not Visited";
     }
   }
 
