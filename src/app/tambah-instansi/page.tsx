@@ -8,6 +8,11 @@ import { FileUp, Upload } from "lucide-react";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import ConfirmModal from "@/components/modals/ConfirmModal";
 
+// Get Contact
+import { Platform, PermissionsAndroid } from 'react-native';
+import Contacts from 'react-native-contacts';
+
+
 type Role = "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES";
 
 type InstansiForm = {
@@ -145,9 +150,53 @@ export default function AddInstansiPage() {
   const router = useRouter();
   const { user, loading: sessionLoading } = useSession();
 
+  // const requestContactPermission = async () => {
+  //   if (Platform.OS === 'android') {
+  //     const granted = await PermissionsAndroid.request(
+  //       PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
+  //       {
+  //         title: 'Izinkan akses kontak',
+  //         message: 'Izinkan akses kontak untuk mengambil data kontak',
+  //       }
+  //     );
+  //     return granted === PermissionsAndroid.RESULTS.GRANTED;
+  //   }
+  //   return true;
+  // };
+
   // ✅ multi instansi (layout seperti yang kamu mau: scroll tengah, footer fixed)
   const [forms, setForms] = useState<InstansiForm[]>([emptyForm()]);
   const [saving, setSaving] = useState(false);
+
+  const handleGetContact = async (idx: number) => {
+    try {
+      if ('contacts' in navigator && 'ContactsManager' in window) {
+        const props = ['name', 'tel'];
+        const opts = { multiple: false };
+        const contacts = await (navigator as any).contacts.select(props, opts);
+        if (contacts && contacts.length > 0) {
+          const c = contacts[0];
+          const name = c.name?.[0] || '';
+          let phone = c.tel?.[0] || '';
+          
+          phone = phone.replace(/\D/g, '');
+          if (phone.startsWith('0') || phone.startsWith('6')) {
+            phone = phone.substring(1);
+          }
+          
+          updateForm(idx, { pic_telp: phone });
+          if (name && !forms[idx].pic_nama) {
+            updateForm(idx, { pic_nama: name });
+          }
+        }
+      } else {
+        alert("Browser Anda tidak mendukung fitur ini (Gunakan Chrome di Android).");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gagal mengambil kontak.");
+    }
+  };
 
   // parameter master list
   const [paramKotaKab, setParamKotaKab] = useState<string[]>([]);
@@ -169,7 +218,7 @@ export default function AddInstansiPage() {
           setParamPosisi(d.posisi || []);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // file upload excel (opsional, kalau kamu tetap pakai)
@@ -337,7 +386,7 @@ export default function AddInstansiPage() {
   return (
     <div className="min-h-screen bg-blue-50">
       <div className="flex">
-        
+
 
         <div className="flex-1 p-6 min-">
           <main className="w-full max-w-none">
@@ -650,7 +699,7 @@ export default function AddInstansiPage() {
                             </h4>
 
                             <div className="grid grid-cols-1 gap-y-5 gap-x-6 md:grid-cols-2">
-                              <Field label="KODE DINAS (OPSIONAL)">
+                              <Field label="KODE INSTANSI (OPSIONAL)">
                                 <Input
                                   value={form.kode_dinas}
                                   onChange={(e) =>
@@ -694,16 +743,34 @@ export default function AddInstansiPage() {
                               </Field>
 
                               <Field label="NO. TELEPON PIC (OPSIONAL)">
-                                <Input
-                                  value={form.pic_telp}
-                                  onChange={(e) =>
-                                    updateForm(idx, {
-                                      pic_telp: e.target.value,
-                                    })
-                                  }
-                                  placeholder="Contoh: 62812xxxx"
-                                  className="border-0 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 rounded-lg h-11 bg-white"
-                                />
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1">
+                                    <Input
+                                      value={form.pic_telp}
+                                      onChange={(e) => {
+                                        let val = e.target.value.replace(/\D/g, '');
+
+                                        if (val.startsWith('0') || val.startsWith('6')) {
+                                          val = val.substring(1);
+                                        }
+
+                                        updateForm(idx, { pic_telp: val });
+                                      }}
+                                      placeholder="Contoh: 62812xxxx"
+                                      className="border-0 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 rounded-lg h-11 bg-white w-full"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleGetContact(idx)}
+                                    className="h-11 px-4 flex items-center justify-center gap-2 bg-blue-50 text-blue-600 font-bold text-xs rounded-lg ring-1 ring-inset ring-blue-200 hover:bg-blue-100 transition-colors whitespace-nowrap"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                    Get Contact
+                                  </button>
+                                </div>
                               </Field>
                             </div>
 
@@ -758,10 +825,9 @@ export default function AddInstansiPage() {
                       onClick={submit}
                       disabled={saving || !canSubmit}
                       className={`w-full md:w-48 flex items-center justify-center gap-2 h-11 rounded-lg px-6 text-md font-extrabold text-white/95 shadow-sm transition-all
-                        ${
-                          !canSubmit || saving
-                            ? "bg-blue-400 cursor-not-allowed opacity-80"
-                            : "bg-blue-600 hover:bg-blue-700 hover:shadow ring-1 ring-blue-700"
+                        ${!canSubmit || saving
+                          ? "bg-blue-400 cursor-not-allowed opacity-80"
+                          : "bg-blue-600 hover:bg-blue-700 hover:shadow ring-1 ring-blue-700"
                         }`}
                     >
                       {saving ? (

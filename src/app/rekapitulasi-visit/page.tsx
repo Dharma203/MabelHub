@@ -10,6 +10,8 @@ import ExportExcelModal, {
   ExportColumn,
   ExportScope,
 } from "@/components/modals/ExportExcelModal";
+import { timeStamp } from "console";
+import { delimiter } from "path";
 
 type VisitRow = {
   _id: string;
@@ -46,6 +48,31 @@ function formatDateID(iso: string) {
       month: "short",
       year: "numeric",
     });
+  } catch {
+    return iso;
+  }
+}
+
+function formatDateWithTime(iso: string) {
+  if (!iso || iso === "-") return "-";
+  try {
+    const date = new Date(iso);
+
+    const datePart = date.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+    const timePart = date
+      .toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+      .replace(/\./g, ":");
+
+    return `${datePart}, ${timePart}`;
   } catch {
     return iso;
   }
@@ -308,7 +335,7 @@ export default function RekapitulasiVisitPage() {
           row["PIC Phone"] = r.pic_phone || "-";
         if (selectedCols.includes("ring")) row["Ring"] = r.status_ring || "-";
         if (selectedCols.includes("createdAt"))
-          row["Created At"] = formatDateID(r.created_at);
+          row["Created At"] = formatDateWithTime(r.created_at);
         if (selectedCols.includes("marketStatus"))
           row["Market Status"] = r.status_market || "-";
         if (selectedCols.includes("klpd")) row["KLPD"] = r.klpd || "-";
