@@ -169,34 +169,66 @@ export default function AddInstansiPage() {
   const [saving, setSaving] = useState(false);
 
   const handleGetContact = async (idx: number) => {
-    try {
-      if ('contacts' in navigator && 'ContactsManager' in window) {
-        const props = ['name', 'tel'];
-        const opts = { multiple: false };
-        const contacts = await (navigator as any).contacts.select(props, opts);
-        if (contacts && contacts.length > 0) {
-          const c = contacts[0];
-          const name = c.name?.[0] || '';
-          let phone = c.tel?.[0] || '';
-          
-          phone = phone.replace(/\D/g, '');
-          if (phone.startsWith('0') || phone.startsWith('6')) {
-            phone = phone.substring(1);
-          }
-          
-          updateForm(idx, { pic_telp: phone });
-          if (name && !forms[idx].pic_nama) {
-            updateForm(idx, { pic_nama: name });
-          }
-        }
-      } else {
-        alert("Browser Anda tidak mendukung fitur ini (Gunakan Chrome di Android).");
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Gagal mengambil kontak.");
+  try {
+    // ✅ Check 1: Harus HTTPS
+    if (!window.isSecureContext) {
+      alert(
+        "Fitur ini membutuhkan koneksi HTTPS.\n" +
+        `Saat ini: ${window.location.protocol}//${window.location.host}\n\n` +
+        "Hubungi developer untuk mengaktifkan HTTPS."
+      );
+      return;
     }
-  };
+
+    // ✅ Check 2: API tersedia (Android Chrome 80+, bukan iOS)
+    if (!('contacts' in navigator)) {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isAndroid = /Android/.test(navigator.userAgent);
+
+      if (isIOS) {
+        alert("Fitur ini tidak didukung di iOS/Safari.\nIsikan nomor secara manual.");
+      } else if (!isAndroid) {
+        alert("Fitur ini hanya tersedia di Chrome Android.");
+      } else {
+        alert(
+          "Fitur pilih kontak tidak tersedia.\n" +
+          "Pastikan Chrome versi 80+ dan halaman diakses via HTTPS."
+        );
+      }
+      return;
+    }
+
+    const props = ["name", "tel"];
+    const opts = { multiple: false };
+    const contacts = await (navigator as any).contacts.select(props, opts);
+
+    if (!contacts || contacts.length === 0) return;
+
+    const c = contacts[0];
+    const name = (c.name?.[0] || "").trim();
+    let phone = c.tel?.[0] || "";
+
+    phone = phone.replace(/\D/g, "");
+
+    if (phone.startsWith("62")) {
+      phone = phone.substring(2);       // "628123..." → "8123..."
+    } else if (phone.startsWith("0")) {
+      phone = phone.substring(1);       // "0812..."   → "812..."
+    }
+    // Format lokal "812..." → biarkan
+
+    updateForm(idx, { pic_telp: phone });
+
+    if (name && !forms[idx].pic_nama) {
+      updateForm(idx, { pic_nama: name });
+    }
+
+  } catch (error) {
+    if ((error as DOMException)?.name === "AbortError") return; // User cancel
+    console.error(error);
+    alert("Gagal mengambil kontak.\nPastikan izin akses kontak sudah diberikan.");
+  }
+};
 
   // parameter master list
   const [paramKotaKab, setParamKotaKab] = useState<string[]>([]);
@@ -301,7 +333,7 @@ export default function AddInstansiPage() {
           kode_dinas: f.kode_dinas.trim(),
           pic_default: {
             nama: f.pic_nama.trim(),
-            no_telp: f.pic_telp.trim(),
+            no_telp: f.pic_telp ? `62${f.pic_telp}` : "",
             jabatan: f.pic_jabatan.trim(),
             role: f.pic_role.trim(),
           },

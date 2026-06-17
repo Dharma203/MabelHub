@@ -91,7 +91,8 @@ export default function EProcurementRequestPage() {
   // ✅ assignee options (team members or all users)
   const [assigneeOptions, setAssigneeOptions] = useState<TeamMember[]>([]);
   const [assignedToUserId, setAssignedToUserId] = useState(""); // "" = self
-
+  const [statusAkhir, setStatusAkhir] = useState("");
+  const [statusUsulan, setStatusUsulan] = useState("");
   const [requestor, setRequestor] = useState("");
   const [pemohon, setPemohon] = useState("");
   const [segmen, setSegmen] = useState<string>("");
@@ -320,7 +321,9 @@ export default function EProcurementRequestPage() {
     try {
       if (!revisiId.trim()) return alert("Masukkan Request ID");
       const data = await apiLoadEProc(revisiId.trim());
-
+      
+      setStatusAkhir(data.statusAkhir ?? data.statusAkhir ?? "");
+      setStatusUsulan(data.statusUsulan ?? data.statusUsulan ?? "");
       setRequestor(data.header?.requestor ?? data.requestor ?? "");
       setPemohon(data.header?.pemohon ?? data.pemohon ?? "");
       setSegmen((data.header?.segmen ?? data.segmen ?? "") as string);

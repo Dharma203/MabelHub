@@ -57,6 +57,7 @@ type EProcDoc = {
   takenByAdminId: string | null;
   takenByAdminName: string | null;
   takenAt: Date | null;
+  statusUsulan: string | null;
 
   perusahaan?: string;
   catatanAdmin?: string; // TBD: will be obsoleted, kept for old data compat
@@ -132,7 +133,14 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const mode = (searchParams.get("mode") ?? "takeable").toLowerCase();
+
+  // ✅ Ambil parameter dengan validation
+  const statusUsulan = (searchParams.get("statusUsulan") ?? "").toLowerCase();
+  const statusAkhir = (searchParams.get("statusAkhir") ?? "").toLowerCase();
+
+  const validStatusUsulan = ["masuk", "proses", "done", "hold", "cancel"];
+  const validStatusAkhir = ["barang terkirim ke user", "terbit bast"];
+  // const mode = (searchParams.get("mode") ?? "takeable").toLowerCase();
 
   const client = await clientPromise;
   const db = client.db(process.env.MONGODB_DB || "MabelHub");
@@ -140,30 +148,36 @@ export async function GET(req: Request) {
 
   const col = db.collection<EProcDoc>("eproc_requests");
   const filter: any = {};
-
-  if (mode === "takeable") {
-    filter.takenByAdminId = null;
-  } else if (mode === "taken") {
-    filter.takenByAdminId = { $ne: null };
-  } else if (mode === "mine") {
-    // ✅ mine = createdBy OR assignedTo
-    filter.$or = [
-      { "createdBy.userId": auth.session.userId },
-      { "assignedTo.userId": auth.session.userId },
-    ];
-  } else if (mode === "all") {
-    // untuk halaman rekapitulasi & dashboard response
-    // SUPERADMIN & ADMIN: lihat semua e-proc
-    if (auth.session.role !== "SUPERADMIN" && auth.session.role !== "ADMIN") {
-      // Sales/Leader sees only their own or assigned
-      filter.$or = [
-        { "createdBy.userId": auth.session.userId },
-        { "assignedTo.userId": auth.session.userId },
-      ];
-    }
-  } else {
-    filter.takenByAdminId = null;
+  if (validStatusUsulan.includes(statusUsulan)) {
+    filter.statusUsulan = { $regex: `^${statusUsulan}$`, $options: "i" }; // case-insensitive
   }
+
+  if (validStatusAkhir.includes(statusAkhir)) {
+    filter.statusAkhir = { $regex: `^${statusAkhir}$`, $options: "i" }; // case-insensitive
+  }
+  // if (mode === "takeable") {
+  //   filter.takenByAdminId = null;
+  // } else if (mode === "taken") {
+  //   filter.takenByAdminId = { $ne: null };
+  // } else if (mode === "mine") {
+  //   // ✅ mine = createdBy OR assignedTo
+  //   filter.$or = [
+  //     { "createdBy.userId": auth.session.userId },
+  //     { "assignedTo.userId": auth.session.userId },
+  //   ];
+  // } else if (mode === "all") {
+  // //   // untuk halaman rekapitulasi & dashboard response
+  // //   // SUPERADMIN & ADMIN: lihat semua e-proc
+  //   if (auth.session.role !== "SUPERADMIN" && auth.session.role !== "ADMIN") {
+  //     // Sales/Leader sees only their own or assigned
+  //     filter.$or = [
+  //       { "createdBy.userId": auth.session.userId },
+  //       { "assignedTo.userId": auth.session.userId },
+  //     ];
+  //   }
+  // } else {
+  //   filter.takenByAdminId = null;
+  // }
 
   const items = await col
     .find(filter, { projection: { _id: 0 } })
