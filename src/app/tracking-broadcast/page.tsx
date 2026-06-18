@@ -22,7 +22,7 @@ import {
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import React from 'react'
-import { listStatusByUpdate, getDetailOptions } from '@/data/statusupdate'
+import { listStatusByUpdate, getDetailOptions } from '@/data/statusupdatebroadcast'
 
 type StatusWaSummary = {
   terkirim: number
@@ -272,58 +272,7 @@ export default function TrackingBroadcastPage() {
     { id: 'Detail Update', icon: PencilIcon, label: 'Detail Update' },
     { id: 'Ke Sales', icon: Users, label: 'Ke Sales' },
   ]
-
-  const detailOptions = [
-    { value: 'Belum ada update', label: 'Belum ada update' },
-    {
-      value: 'Baik, terima kasih informasinya.',
-      label: 'Baik, terima kasih informasinya.',
-    },
-    { value: 'Mohon ditunggu sebentar.', label: 'Mohon ditunggu sebentar.' },
-    {
-      value: 'Kami pelajari terlebih dahulu.',
-      label: 'Kami pelajari terlebih dahulu.',
-    },
-    {
-      value: 'Informasi sudah kami terima.',
-      label: 'Informasi sudah kami terima.',
-    },
-    {
-      value: 'Terima kasih sudah menghubungi kami.',
-      label: 'Terima kasih sudah menghubungi kami.',
-    },
-    { value: 'Sudah ada sales', label: 'Sudah ada sales' },
-    { value: 'Hanya Menjawab Nama', label: 'Hanya Menjawab Nama' },
-    {
-      value: 'Nanti jika ada kebutuhan kami hubungi.',
-      label: 'Nanti jika ada kebutuhan kami hubungi.',
-    },
-    { value: 'Bertanya status TKDN', label: 'Bertanya status TKDN' },
-    { value: 'Bertanya Spesifikasi', label: 'Bertanya Spesifikasi' },
-    { value: 'Bertanya Pricelist', label: 'Bertanya Pricelist' },
-    {
-      value: 'Bersedia berdiskusi lebih lanjut dengan sales',
-      label: 'Bersedia berdiskusi lebih lanjut dengan sales',
-    },
-    {
-      value: 'Bersedia di Presentasikan untuk presales',
-      label: 'Bersedia di Presentasikan untuk presales',
-    },
-    {
-      value: 'Meminta & mengisi form reseller',
-      label: 'Meminta & mengisi form reseller',
-    },
-    { value: 'Meminta SPH', label: 'Meminta SPH' },
-    { value: 'Tidak tertarik', label: 'Tidak tertarik' },
-    { value: 'Belum butuh', label: 'Belum butuh' },
-    { value: 'Budget belum ada', label: 'Budget belum ada' },
-    { value: 'Sudah pakai brand lain', label: 'Sudah pakai brand lain' },
-    { value: 'Jangan hubungi lagi', label: 'Jangan hubungi lagi' },
-    { value: 'Harga terlalu mahal', label: 'Harga terlalu mahal' },
-    { value: 'Spesifikasi tidak cocok', label: 'Spesifikasi tidak cocok' },
-    { value: 'Nomor Invalid', label: 'Nomor Invalid' },
-  ]
-
+  
   // Summary Status WA
   const [statusWaSummary, setStatusWaSummary] = useState<StatusWaSummary>({
     terkirim: 0,
@@ -739,78 +688,78 @@ export default function TrackingBroadcastPage() {
   // ---- main data fetch (paginated rows) ----
   useEffect(() => {
     let mounted = true
-    ;(async () => {
-      setLoadingRows(true)
-      if (!mounted) return
-
-      const qs = new URLSearchParams()
-      qs.set('limit', String(pageSize))
-      qs.set('page', String(page))
-
-      bulan.forEach((v) => qs.append('bulan', v))
-      perusahaan.forEach((v) => qs.append('perusahaan', v))
-      produk.forEach((v) => qs.append('produk', v))
-      provinsi.forEach((v) => qs.append('provinsi', v))
-      kota.forEach((v) => qs.append('kota', v))
-      statusWa.forEach((v) => qs.append('status_wa', v))
-      toSales.forEach((v) => qs.append('ke_sales', v))
-      if (startDate) qs.set('startDate', startDate)
-      if (endDate) qs.set('endDate', endDate)
-
-      try {
-        const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
-          cache: 'no-store',
-        })
-        const json = await res.json().catch(() => ({}))
+      ; (async () => {
+        setLoadingRows(true)
         if (!mounted) return
 
-        setRows(Array.isArray(json?.items) ? json.items : [])
-        setStatusWaSummary({
-          terkirim: json?.statusWaSummary?.terkirim ?? 0,
-          diterima: json?.statusWaSummary?.diterima ?? 0,
-          belumRespon: json?.statusWaSummary?.belumRespon ?? 0,
-          positif: json?.statusWaSummary?.positif ?? 0,
-          netral: json?.statusWaSummary?.netral ?? 0,
-          negatif: json?.statusWaSummary?.negatif ?? 0,
-          aktif: json?.statusWaSummary?.aktif ?? 0,
-          kosong: json?.statusWaSummary?.kosong ?? 0,
-          total: json?.statusWaSummary?.total ?? 0,
-        })
-        setStats({
-          total_no_telp: json?.summaryStats?.total_no_telp ?? 0,
-          total_provinsi: json?.summaryStats?.total_provinsi ?? 0,
-          total_kota: json?.summaryStats?.total_kota ?? 0,
-          total_nama: json?.summaryStats?.total_nama ?? 0,
-          total_merek: json?.summaryStats?.total_merek ?? 0,
-          total_kontak_unik: json?.summaryStats?.total_kontak_unik ?? 0,
-          total_wa_unik: json?.summaryStats?.total_wa_unik ?? 0,
-          provinsi_kota: json?.summaryStats?.provinsi_kota ?? [],
-          wa_provinsi_kota: json?.summaryStats?.wa_provinsi_kota ?? [],
-          ke_sales_provinsi: json?.summaryStats?.ke_sales_provinsi ?? [],
-          per_sales: json?.summaryStats?.per_sales ?? [],
-        })
-        setKeSalesSummary({
-          arie: json?.keSalesSummary?.arie ?? 0,
-          beffry: json?.keSalesSummary?.beffry ?? 0,
-          ferrie: json?.keSalesSummary?.ferrie ?? 0,
-          kosong: json?.keSalesSummary?.kosong ?? 0,
-        })
-        const pg = json?.pagination ?? {}
-        setTotal(Number(pg?.total ?? 0))
-        setTotalPages(Number(pg?.totalPages ?? 1))
-        setSelected(null)
-      } catch {
-        if (!mounted) return
-        setRows([])
-        setTotal(0)
-        setTotalPages(1)
-        setSelected(null)
-      } finally {
-        if (mounted) {
-          setLoadingRows(false)
+        const qs = new URLSearchParams()
+        qs.set('limit', String(pageSize))
+        qs.set('page', String(page))
+
+        bulan.forEach((v) => qs.append('bulan', v))
+        perusahaan.forEach((v) => qs.append('perusahaan', v))
+        produk.forEach((v) => qs.append('produk', v))
+        provinsi.forEach((v) => qs.append('provinsi', v))
+        kota.forEach((v) => qs.append('kota', v))
+        statusWa.forEach((v) => qs.append('status_wa', v))
+        toSales.forEach((v) => qs.append('ke_sales', v))
+        if (startDate) qs.set('startDate', startDate)
+        if (endDate) qs.set('endDate', endDate)
+
+        try {
+          const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
+            cache: 'no-store',
+          })
+          const json = await res.json().catch(() => ({}))
+          if (!mounted) return
+
+          setRows(Array.isArray(json?.items) ? json.items : [])
+          setStatusWaSummary({
+            terkirim: json?.statusWaSummary?.terkirim ?? 0,
+            diterima: json?.statusWaSummary?.diterima ?? 0,
+            belumRespon: json?.statusWaSummary?.belumRespon ?? 0,
+            positif: json?.statusWaSummary?.positif ?? 0,
+            netral: json?.statusWaSummary?.netral ?? 0,
+            negatif: json?.statusWaSummary?.negatif ?? 0,
+            aktif: json?.statusWaSummary?.aktif ?? 0,
+            kosong: json?.statusWaSummary?.kosong ?? 0,
+            total: json?.statusWaSummary?.total ?? 0,
+          })
+          setStats({
+            total_no_telp: json?.summaryStats?.total_no_telp ?? 0,
+            total_provinsi: json?.summaryStats?.total_provinsi ?? 0,
+            total_kota: json?.summaryStats?.total_kota ?? 0,
+            total_nama: json?.summaryStats?.total_nama ?? 0,
+            total_merek: json?.summaryStats?.total_merek ?? 0,
+            total_kontak_unik: json?.summaryStats?.total_kontak_unik ?? 0,
+            total_wa_unik: json?.summaryStats?.total_wa_unik ?? 0,
+            provinsi_kota: json?.summaryStats?.provinsi_kota ?? [],
+            wa_provinsi_kota: json?.summaryStats?.wa_provinsi_kota ?? [],
+            ke_sales_provinsi: json?.summaryStats?.ke_sales_provinsi ?? [],
+            per_sales: json?.summaryStats?.per_sales ?? [],
+          })
+          setKeSalesSummary({
+            arie: json?.keSalesSummary?.arie ?? 0,
+            beffry: json?.keSalesSummary?.beffry ?? 0,
+            ferrie: json?.keSalesSummary?.ferrie ?? 0,
+            kosong: json?.keSalesSummary?.kosong ?? 0,
+          })
+          const pg = json?.pagination ?? {}
+          setTotal(Number(pg?.total ?? 0))
+          setTotalPages(Number(pg?.totalPages ?? 1))
+          setSelected(null)
+        } catch {
+          if (!mounted) return
+          setRows([])
+          setTotal(0)
+          setTotalPages(1)
+          setSelected(null)
+        } finally {
+          if (mounted) {
+            setLoadingRows(false)
+          }
         }
-      }
-    })()
+      })()
     return () => {
       mounted = false
     }
@@ -932,11 +881,11 @@ export default function TrackingBroadcastPage() {
                   const search = dropdownSearch[btn.id] ?? ''
                   const filtered = search
                     ? opts.filter((o) => {
-                        const display = btn.id === 'Bulan' ? formatBulan(o) : o
-                        return display
-                          .toLowerCase()
-                          .includes(search.toLowerCase())
-                      })
+                      const display = btn.id === 'Bulan' ? formatBulan(o) : o
+                      return display
+                        .toLowerCase()
+                        .includes(search.toLowerCase())
+                    })
                     : opts
                   const allSelected =
                     opts.length > 0 && opts.every((o) => activeArr.includes(o))
@@ -950,13 +899,12 @@ export default function TrackingBroadcastPage() {
                       <button
                         type='button'
                         onClick={() => setOpenDropdown(isOpen ? null : btn.id)}
-                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${
-                          isOpen
+                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${isOpen
                             ? 'border-2 border-blue-500 bg-white text-blue-600 shadow-md'
                             : isActive
                               ? 'border-2 border-blue-400 bg-white text-blue-700'
                               : 'border border-slate-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600'
-                        }`}
+                          }`}
                       >
                         <span className='flex items-center gap-1.5 min-w-0'>
                           <IconComponent
@@ -1075,10 +1023,10 @@ export default function TrackingBroadcastPage() {
                 {(filterButtons.some((b) => getFilterArr(b.id).length > 0) ||
                   startDate ||
                   endDate) && (
-                  <span className='text-blue-600 font-semibold ml-1'>
-                    Menampilkan {total.toLocaleString()} data
-                  </span>
-                )}
+                    <span className='text-blue-600 font-semibold ml-1'>
+                      Menampilkan {total.toLocaleString()} data
+                    </span>
+                  )}
               </div>
 
               {/* ---- Chips row: active selections ---- */}
@@ -1386,9 +1334,9 @@ export default function TrackingBroadcastPage() {
                       {loadingRows
                         ? '...'
                         : (stats?.provinsi_kota.reduce(
-                            (acc, row) => acc + row.unik,
-                            0,
-                          ) ?? 0)}
+                          (acc, row) => acc + row.unik,
+                          0,
+                        ) ?? 0)}
                     </span>
                     <span>total</span>
                   </div>
@@ -1506,9 +1454,9 @@ export default function TrackingBroadcastPage() {
                       {loadingRows
                         ? '...'
                         : (stats?.per_sales?.reduce(
-                            (acc, r) => acc + r.unik,
-                            0,
-                          ) ?? 0)}
+                          (acc, r) => acc + r.unik,
+                          0,
+                        ) ?? 0)}
                     </span>
                     <span>total</span>
                   </div>
@@ -1657,9 +1605,9 @@ export default function TrackingBroadcastPage() {
                         onChange={handleSelectAll}
                         checked={
                           rows.filter((r) => r.tipe === 'WhatsApp').length >
-                            0 &&
+                          0 &&
                           selectedIds.length ===
-                            rows.filter((r) => r.tipe === 'WhatsApp').length
+                          rows.filter((r) => r.tipe === 'WhatsApp').length
                         }
                         className='w-3.5 h-3.5 accent-blue-500 cursor-pointer'
                       />
@@ -1865,18 +1813,18 @@ export default function TrackingBroadcastPage() {
                                         value={
                                           selected.created_at
                                             ? new Date(selected.created_at)
-                                                .toLocaleDateString('sv-SE', {
-                                                  day: '2-digit',
-                                                  month: '2-digit',
-                                                  year: 'numeric',
-                                                  hour: '2-digit',
-                                                  minute: '2-digit',
-                                                  second: '2-digit',
-                                                  hour12: false,
-                                                })
-                                                .replace('pukul', '')
-                                                .replace(' ', ' ')
-                                                .trim()
+                                              .toLocaleDateString('sv-SE', {
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                                hour12: false,
+                                              })
+                                              .replace('pukul', '')
+                                              .replace(' ', ' ')
+                                              .trim()
                                             : '-'
                                         }
                                       />
@@ -1914,7 +1862,7 @@ export default function TrackingBroadcastPage() {
                                         label='Sumber Lain'
                                         value={
                                           selected.sumber_data ===
-                                          'Sales Internal'
+                                            'Sales Internal'
                                             ? selected.sales_internal
                                             : '-'
                                         }
@@ -2050,7 +1998,7 @@ export default function TrackingBroadcastPage() {
                                             <span className='border rounded-sm border-gray-300 py-1 px-1.5 text-[10.5px] text-slate-700 font-medium'>
                                               📦
                                               {selected.merek_tayang &&
-                                              selected.merek_tayang.trim() !==
+                                                selected.merek_tayang.trim() !==
                                                 ''
                                                 ? `${selected.produk} / ${selected.merek_tayang}`
                                                 : selected.produk}

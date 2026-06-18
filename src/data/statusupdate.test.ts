@@ -1,4 +1,4 @@
-import { getDetailOptions, listStatusUpdate, listStatusByUpdate } from '@/data/statusupdate'
+import { getDetailOptions, listStatusUpdate, listStatusByUpdate } from '@/data/statusupdatebroadcast'
 
 describe('getDetailOptions', () => {
   describe('cascading filter functionality', () => {
