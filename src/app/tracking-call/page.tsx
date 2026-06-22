@@ -572,7 +572,7 @@ export default function TrackingCallPage() {
                     return provinsi
                 case 'Kota':
                     return kota
-                case 'Status Wa':
+                case 'Status Call':
                     return statusCall
                 case 'Ke Sales':
                     return toSales
@@ -595,13 +595,13 @@ export default function TrackingCallPage() {
             case 'Produk':
                 setProduk(vals)
                 break
-            case 'ProVinsi':
+            case 'Provinsi':
                 setProvinsi(vals)
                 break
             case 'Kota':
                 setKota(vals)
                 break
-            case 'Status Wa':
+            case 'Status Call':
                 setStatusCall(vals)
                 break
             case 'Ke Sales':
@@ -650,7 +650,7 @@ export default function TrackingCallPage() {
                 return filterOptions.provinsi
             case 'Kota':
                 return filterOptions.kota
-            case 'Status Wa':
+            case 'Status Call':
                 return filterOptions.status_call
             case 'Ke Sales':
                 return filterOptions.ke_sales
@@ -759,20 +759,20 @@ export default function TrackingCallPage() {
     return (
         <div className='min-h-screen bg-blue-50'>
             <div className='flex'>
-                <div className='flex-1 p-3 sm:p-6'>
-                    <div className='bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-100'>
+                <div className='flex-1 p-2 sm:p-4 md:p-6 max-w-full overflow-x-hidden'>
+                    <div className='bg-white rounded-xl shadow-md p-4 sm:p-6 mb-4 sm:mb-6 border border-gray-100'>
                         <div className='flex flex-col'>
-                            <h4 className='text-[20px] mb-1 font-extrabold text-(--gray-800) m-0 tracking-[-0.5px]'>
+                            <h4 className='text-[16px] sm:text-[20px] mb-1 font-extrabold text-(--gray-800) m-0 tracking-[-0.5px]'>
                                 Tracking Call
                             </h4>
-                            <p className='text-sm ml-1 text-slate-500 font-medium'>
+                            <p className='text-xs sm:text-sm ml-1 text-slate-500 font-medium'>
                                 Monitor status pengiriman pesan
                             </p>
                         </div>
                     </div>
                     <section className='bg-white rounded-xl shadow-sm border border-gray-200'>
                         {/* Header - biru cerah seperti gambar */}
-                        <div className='bg-[#44625e] text-white px-5 h-10 flex items-center justify-between rounded-t-xl'>
+                        <div className='bg-[#28207b] text-white px-5 h-10 flex items-center justify-between rounded-t-xl'>
                             <div className='flex items-center gap-2'>
                                 <Filter size={13} strokeWidth={2.5} className='text-white' />
                                 <strong className='text-[11px] font-bold tracking-wide'>
@@ -840,7 +840,7 @@ export default function TrackingCallPage() {
                             {/* Baris 2: Tombol Filter dengan Dropdown */}
                             <div
                                 ref={dropdownRef}
-                                className='flex flex-wrap lg:flex-nowrap gap-2 w-full'
+                                className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:flex lg:flex-nowrap gap-2 w-full'
                             >
                                 {filterButtons.map((btn) => {
                                     const IconComponent = btn.icon
@@ -863,7 +863,7 @@ export default function TrackingCallPage() {
                                     return (
                                         <div
                                             key={btn.id}
-                                            className='relative inline-block flex-1 min-w-[110px]'
+                                            className='relative inline-block lg:flex-1 min-w-0'
                                         >
                                             {/* Trigger button - pill putih, border highlight biru saat diklik */}
                                             <button
@@ -1034,8 +1034,8 @@ export default function TrackingCallPage() {
                         </div>
                     </section>
 
-                    <section className='bg-white mt-4 rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
-                        <div className='bg-[#09365d] text-white px-6 h-10 flex items-center justify-between'>
+                    <section className='bg-white mt-3 sm:mt-4 rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
+                        <div className='bg-[#09365d] text-white px-3 sm:px-6 h-10 flex items-center justify-between'>
                             <div className='flex items-center'>
                                 <BarChart2 size={12} className='mr-2' strokeWidth={2.5} />
                                 <strong className='text-[8px] font-bold tracking-wide'>
@@ -1066,7 +1066,7 @@ export default function TrackingCallPage() {
                             <div className='flex flex-col sm:flex-row gap-3 w-full'>
                                 {/* Card Kiri: Total Unik No HP */}
                                 <div className='shrink-0 md:w-auto w-full'>
-                                    <div className='flex items-center gap-3 bg-white border border-gray-200 rounded-lg shadow-sm px-4 py-3 h-full min-w-[200px]'>
+                                    <div className='flex items-center gap-3 bg-white border border-gray-200 rounded-lg shadow-sm px-3 sm:px-4 py-3 h-full min-w-0 sm:min-w-[200px]'>
                                         <div className='rounded-full flex items-center justify-center text-white shrink-0 w-9 h-9 bg-gradient-to-br from-green-500 to-teal-600'>
                                             <PhoneCallIcon
                                                 size={14}
@@ -1103,7 +1103,7 @@ export default function TrackingCallPage() {
                                                 Distribusi Status WA
                                             </span>
                                         </div>
-                                        <div className='flex flex-wrap gap-1.5'>
+                                        <div className='grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap gap-1.5'>
                                             {/* Tidak Tersedia */}
                                             <button
                                                 onClick={() => handleFilterByStatus('Tidak Tersedia')}
@@ -1236,7 +1236,7 @@ export default function TrackingCallPage() {
                                 <div
                                     className='flex items-center justify-between px-3 py-[6px]'
                                     style={{
-                                        background: 'linear-gradient(135deg, #eff6ff, #dbeafe)',
+                                        background: '#dbeafe',
                                         borderBottom: '2px solid #2563eb',
                                     }}
                                 >
@@ -1344,7 +1344,7 @@ export default function TrackingCallPage() {
                                                             </div>
                                                         </td>
                                                         <td className='px-2 py-1.5 text-right'>
-                                                            <span className='inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
+                                                            <span className='inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-900 text-white'>
                                                                 {row.unik}
                                                             </span>
                                                         </td>
@@ -1357,12 +1357,12 @@ export default function TrackingCallPage() {
                             </div>
 
                             {/* Panel Kanan: Unik No HP per Ke Sales */}
-                            <div className='flex flex-col flex-1 rounded-lg border border-[#FDE68A] overflow-hidden shadow-sm'>
+                            <div className='flex flex-col flex-1 rounded-lg border border-[#fde88a] overflow-hidden shadow-sm'>
                                 {/* Header Panel Kanan */}
                                 <div
                                     className='flex items-center justify-between px-3 py-[6px]'
                                     style={{
-                                        background: 'linear-gradient(135deg, #FEF9C3, #FDE68A)',
+                                        background: 'linear-gradient(135deg, #fde88a, #fde88a)',
                                         borderBottom: '2px solid #D97706',
                                     }}
                                 >
@@ -1506,8 +1506,8 @@ export default function TrackingCallPage() {
                                 </button>
                             </div>
                         )}
-                        <div className='overflow-x-auto'>
-                            <table className='min-w-full text-left border-collapse'>
+                        <div className='overflow-x-auto -mx-0 sm:mx-0'>
+                            <table className='min-w-[900px] sm:min-w-full text-left border-collapse'>
                                 {/* Header */}
                                 <thead className='sticky top-0 z-10'>
                                     <tr className='bg-[#1a2c4e] text-white'>
@@ -1629,17 +1629,17 @@ export default function TrackingCallPage() {
                                                                 </span>
                                                             </div>
                                                         </td>
-                                                        {/* STATUS WA */}
+                                                        {/* STATUS CALL */}
                                                         <td className='px-1 py-1 text-[10px] text-slate-600'>
                                                             <SearchableSelect
                                                                 value={row.status_call || ''}
                                                                 onChange={(val: string) => {
                                                                     updateRowStatusCall(row._id, val)
-                                                                    // Reset detail_update saat status berubah (seperti reset kota saat provinsi berubah)
+                                                                    // Reset detail_update saat status berubah
                                                                     updateRowDetailUpdate(row._id, '')
                                                                 }}
                                                                 options={listStatusByUpdate}
-                                                                className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-57 h-12 cursor-pointer'
+                                                                className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-40 sm:w-57 h-12 cursor-pointer'
                                                                 placeholder='Pilih Status...'
                                                             />
                                                         </td>
@@ -1652,17 +1652,17 @@ export default function TrackingCallPage() {
                                                                 }
                                                                 isDisabled={!row.status_call}
                                                                 options={getDetailOptions(row.status_call || '')}
-                                                                className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-57 h-12 cursor-pointer'
+                                                                className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-40 sm:w-57 h-12 cursor-pointer'
                                                                 placeholder='Pilih Detail...'
                                                             />
                                                         </td>
-                                                        <td className='px-5 py-3 text-[10px] text-slate-600'>
+                                                        <td className='px-2 sm:px-5 py-3 text-[10px] text-slate-600'>
                                                             <select
                                                                 value={row.ke_sales || ''}
                                                                 onChange={(e) =>
                                                                     updateRowKeSales(row._id, e.target.value)
                                                                 }
-                                                                className='text-[10px] border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 w-45 h-12 cursor-pointer'
+                                                                className='text-[10px] border border-gray-300 rounded-lg px-2 sm:px-4 py-3 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 w-36 sm:w-45 h-12 cursor-pointer'
                                                             >
                                                                 <option value=''>- Pilih Sales -</option>
                                                                 <option value='Arie Muhamad Fajar'>
@@ -1939,13 +1939,13 @@ export default function TrackingCallPage() {
                             </table>
                         </div>
                     </div>
-                    <section className='mt-6 flex flex-col gap-3 rounded-2xl bg-white px-6 py-4 shadow-sm ring-1 ring-blue-100 md:flex-row md:items-center md:justify-between'>
+                    <section className='mt-4 sm:mt-6 flex flex-col gap-3 rounded-2xl bg-white px-3 sm:px-6 py-3 sm:py-4 shadow-sm ring-1 ring-blue-100 md:flex-row md:items-center md:justify-between'>
                         <div className='text-sm text-gray-500 font-medium'>
                             <p className='font-medium text-gray-700'>
                                 Showing <strong>{showingFrom}</strong> to{' '}
                                 <strong>{showingTo}</strong> of <strong>{total}</strong> entries
                             </p>
-                            <div className='flex flex-wrap items-center gap-3'>
+                            <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
                                 <select
                                     value={pageSize}
                                     onChange={(e) => {
@@ -1959,7 +1959,7 @@ export default function TrackingCallPage() {
                                     <option value={50}>50 / Halaman</option>
                                     <option value={100}>100 / Halaman</option>
                                 </select>
-                                <div className='flex items-center gap-2'>
+                                <div className='flex items-center gap-1 sm:gap-2 flex-wrap'>
                                     <PageBtn onClick={() => gotoPage(1)} ariaLabel='First'>
                                         ⏮
                                     </PageBtn>
@@ -1976,7 +1976,7 @@ export default function TrackingCallPage() {
                                             type='button'
                                             onClick={() => gotoPage(p)}
                                             aria-label={p.toString()}
-                                            className='grid h-10 w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40'
+                                            className='grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40 text-xs sm:text-sm'
                                         >
                                             {p}
                                         </button>
@@ -2040,7 +2040,7 @@ function PageBtn({
             type='button'
             onClick={onClick}
             aria-label={ariaLabel}
-            className='grid h-10 w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40'
+            className='grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40 text-xs sm:text-sm'
         >
             {children}
         </button>
