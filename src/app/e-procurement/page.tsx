@@ -7,6 +7,12 @@ import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 
+type ToastProps = {
+  message: string
+  duration?: number;
+  onDone?: () => void;
+}
+
 type TeamMember = {
   userId: string;
   fullName: string;
@@ -84,6 +90,32 @@ async function apiUpdateEProc(requestId: string, payload: any) {
   return json?.data;
 }
 
+export function Toast({ message, duration = 2500, onDone }: ToastProps) {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setVisible(false);
+      setTimeout(() => onDone?.(), 300); // tunggu animasi fade selesai
+    }, duration);
+
+    return () => clearTimeout(timer);
+  }, [duration, onDone]);
+
+  return (
+    <div
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999]
+        flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl
+        bg-green-600 text-white text-sm font-semibold
+        transition-all duration-300
+        ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+    >
+      <span className="text-lg">✓</span>
+      {message}
+    </div>
+  );
+}
+
 export default function EProcurementRequestPage() {
   const router = useRouter();
   const { user, loading: sessionLoading } = useSession();
@@ -97,6 +129,7 @@ export default function EProcurementRequestPage() {
   const [pemohon, setPemohon] = useState("");
   const [segmen, setSegmen] = useState<string>("");
   const [deadline, setDeadline] = useState<string>("");
+  const [toast, setToast] = useState<string | null>(null);
 
   const deadlineWarning = useMemo(() => {
     if (!deadline) return null;
@@ -321,7 +354,7 @@ export default function EProcurementRequestPage() {
     try {
       if (!revisiId.trim()) return alert("Masukkan Request ID");
       const data = await apiLoadEProc(revisiId.trim());
-      
+
       setStatusAkhir(data.statusAkhir ?? data.statusAkhir ?? "");
       setStatusUsulan(data.statusUsulan ?? data.statusUsulan ?? "");
       setRequestor(data.header?.requestor ?? data.requestor ?? "");
@@ -457,10 +490,11 @@ export default function EProcurementRequestPage() {
 
       if (infoId && infoId !== "REQ-") {
         await apiUpdateEProc(infoId, payload);
-        window.location.reload();
+        setToast("Request berhasil diperbarui!");
+
       } else {
         const created = await apiCreateEProc(payload);
-        window.location.reload();
+        setToast(`Request berhasil diajukan! REQ ID: ${created.infoId}`);
       }
     } catch (e: any) {
       setIsSubmitting(false);
@@ -595,8 +629,13 @@ export default function EProcurementRequestPage() {
                     type='date'
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
                     className={cn(
-                      'h-12 w-full rounded-xl border px-4 pr-12 text-sm outline-none focus:ring-2',
+                      'h-12 w-full rounded-xl border px-4 pr-12 text-sm outline-none focus:ring-2 cursor-pointer',
                       deadlineWarning
                         ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
                         : 'border-gray-200 focus:ring-blue-200'
@@ -985,6 +1024,16 @@ export default function EProcurementRequestPage() {
               </div>
             </div>
           </div>
+        )}
+        {toast && (
+          <Toast
+            message={toast}
+            duration={2500}
+            onDone={() => {
+              setToast(null);
+              window.location.reload(); // reload setelah toast hilang
+            }}
+          />
         )}
       </div>
     </div>

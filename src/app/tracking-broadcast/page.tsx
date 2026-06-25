@@ -781,6 +781,41 @@ export default function TrackingBroadcastPage() {
     () => Math.min(Math.max(1, page), Math.max(1, totalPages)),
     [page, totalPages],
   )
+
+  // Merge listStatusByUpdate (hardcoded) with DB-sourced values from filterOptions
+  const mergedStatusOptions = useMemo(() => {
+    const baseOptions = [...listStatusByUpdate]
+    const existingValues = new Set(baseOptions.map((o) => o.value))
+
+    // Tambahkan status dari DB yang belum ada di list hardcoded
+    filterOptions.status_wa.forEach((s) => {
+      if (s && !existingValues.has(s)) {
+        baseOptions.push({ value: s, label: s })
+        existingValues.add(s)
+      }
+    })
+
+    return baseOptions
+  }, [filterOptions.status_wa])
+
+  // Untuk setiap baris, pastikan status_wa saat ini selalu ada di options
+  const getStatusOptionsForRow = useCallback(
+    (currentStatus: string) => {
+      if (
+        !currentStatus ||
+        mergedStatusOptions.some((o) => o.value === currentStatus)
+      ) {
+        return mergedStatusOptions
+      }
+      // Tambahkan value yang ada di DB tapi belum ada di options
+      return [
+        ...mergedStatusOptions,
+        { value: currentStatus, label: currentStatus },
+      ]
+    },
+    [mergedStatusOptions],
+  )
+
   const showingFrom = total === 0 ? 0 : (safePage - 1) * pageSize + 1
   const showingTo = Math.min(total, safePage * pageSize)
   const gotoPage = (p: number) =>
@@ -1136,7 +1171,7 @@ export default function TrackingBroadcastPage() {
                     <div className='grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap gap-1.5'>
                       {/* Terkirim (1C) */}
                       <button
-                        onClick={() => handleFilterByStatus('Terkirim(1C)')}
+                        onClick={() => handleFilterByStatus('Terkirim (1C)')}
                         className='cursor-pointer hover:bg-slate-400 hover:rounded-2xl'
                       >
                         <div className='flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-full px-3 py-0.5'>
@@ -1152,7 +1187,7 @@ export default function TrackingBroadcastPage() {
 
                       {/* Diterima (2C) */}
                       <button
-                        onClick={() => handleFilterByStatus('Diterima(2C)')}
+                        onClick={() => handleFilterByStatus('Diterima (2C)')}
                         className='cursor-pointer hover:bg-blue-400 hover:rounded-2xl'
                       >
                         <div className='flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full px-2.5 py-0.5'>
@@ -1193,7 +1228,7 @@ export default function TrackingBroadcastPage() {
                       {/* Dibaca - Respons Positif */}
                       <button
                         onClick={() =>
-                          handleFilterByStatus('Dibaca - Respons - Positif')
+                          handleFilterByStatus('Dibaca - Respons Positif')
                         }
                         className='cursor-pointer hover:bg-green-500 hover:rounded-2xl'
                       >
@@ -1214,7 +1249,7 @@ export default function TrackingBroadcastPage() {
                       {/* Dibaca - Respon Netral */}
                       <button
                         onClick={() =>
-                          handleFilterByStatus('Dibaca - Respons - Netral')
+                          handleFilterByStatus('Dibaca - Respons Netral')
                         }
                         className='cursor-pointer hover:bg-green-700 hover:rounded-2xl'
                       >
@@ -1718,7 +1753,7 @@ export default function TrackingBroadcastPage() {
                                   // Reset detail_update saat status berubah
                                   updateRowDetailUpdate(row._id, '')
                                 }}
-                                options={listStatusByUpdate}
+                                options={getStatusOptionsForRow(row.status_wa)}
                                 className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-40 sm:w-57 h-12 cursor-pointer'
                                 placeholder='Pilih Status...'
                               />
@@ -1731,7 +1766,13 @@ export default function TrackingBroadcastPage() {
                                   updateRowDetailUpdate(row._id, val)
                                 }
                                 isDisabled={!row.status_wa}
-                                options={getDetailOptions(row.status_wa || '')}
+                                options={(() => {
+                                  const base = getDetailOptions(row.status_wa || '')
+                                  if (row.detail_update && !base.some(o => o.value === row.detail_update)) {
+                                    return [...base, { value: row.detail_update, label: row.detail_update }]
+                                  }
+                                  return base
+                                })()}
                                 className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-40 sm:w-57 h-12 cursor-pointer'
                                 placeholder='Pilih Detail...'
                               />

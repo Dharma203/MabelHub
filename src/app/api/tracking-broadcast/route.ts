@@ -1,9 +1,28 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { findSourceMap } from 'module'
-import { data } from '@/app/tracking-database/filterUtils'
-import { request } from 'http'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+/**
+ * Normaliza status_wa: konversi en-dash (–) / em-dash (—) → hyphen (-),
+ * trim spasi berlebih, dan mapping alias ke nilai canonical.
+ */
+function normalizeStatusWa(val: string | null | undefined): string {
+  if (!val) return ''
+  let s = val
+    .replace(/[\u2013\u2014]/g, '-')   // en-dash & em-dash → hyphen
+    .replace(/\s+/g, ' ')              // collapse multi-spaces
+    .trim()
+  // Hapus value yang hanya berisi dash
+  if (s === '-') return ''
+  // Alias mapping ke canonical values
+  const aliases: Record<string, string> = {
+    'Aktif Broadcast': 'Aktif Progres',
+  }
+  return aliases[s] ?? s
+}
 
 type KontakTrackingItem = {
   id: string
@@ -50,6 +69,7 @@ export async function GET(req: NextRequest) {
     const keSalesArr = searchParams.getAll('ke_sales')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+    const showOnlyWithStatus = searchParams.get('has_status') === 'true'
 
     const page = Math.max(1, Number(searchParams.get('page') ?? 1))
     const limit = Math.min(
@@ -110,10 +130,26 @@ export async function GET(req: NextRequest) {
       const hasKosong = statusWaArr.includes('')
       const nonKosong = statusWaArr.filter((s) => s !== '')
 
+      // Expand ke semua variant dash (hyphen & en-dash) agar cocok di DB
+      const expandDashVariants = (vals: string[]): string[] => {
+        const expanded = new Set<string>()
+        for (const v of vals) {
+          expanded.add(v)                                   // original (hyphen)
+          expanded.add(v.replace(/-/g, '\u2013'))           // en-dash variant
+          expanded.add(v.replace(/\u2013/g, '-'))           // hyphen variant
+          // Also handle alias: Aktif Progres <-> Aktif Broadcast
+          if (v === 'Aktif Progres') expanded.add('Aktif Broadcast')
+          if (v === 'Aktif Broadcast') expanded.add('Aktif Progres')
+        }
+        return [...expanded]
+      }
+
+      const expandedNonKosong = expandDashVariants(nonKosong)
+
       if (hasKosong && nonKosong.length > 0) {
         // Filter kosong + status lain sekaligus
         matchAfterLookup['$or'] = [
-          { 'broadcast.status_wa': { $in: nonKosong } },
+          { 'broadcast.status_wa': { $in: expandedNonKosong } },
           { 'broadcast.status_wa': { $in: ['', null] } },
           { broadcast: null },
         ]
@@ -125,7 +161,11 @@ export async function GET(req: NextRequest) {
         ]
       } else {
         // Filter status biasa (tanpa kosong)
-        matchAfterLookup['broadcast.status_wa'] = { $in: nonKosong }
+        matchAfterLookup['broadcast.status_wa'] = { $in: expandedNonKosong }
+      }
+      if (showOnlyWithStatus) {
+        matchAfterLookup['broadcast'] = { $ne: null }
+        matchAfterLookup['broadcast.status_wa'] = { $nin: ['', null] }
       }
     }
     if (keSalesArr.length > 0) {
@@ -156,14 +196,27 @@ export async function GET(req: NextRequest) {
       {
         $lookup: {
           from: 'tracking_broadcast',
-          localField: 'code_input',
-          foreignField: 'kode',
+          let: { codeInput: '$code_input', docId: { $toString: '$_id' } },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $eq: ['$kode', '$$codeInput'] },
+                    { $eq: ['$source_id', '$$docId'] },
+                  ],
+                },
+              },
+            },
+            { $sort: { _id: -1 } },
+            { $limit: 1 }
+          ],
           as: 'broadcast',
         },
       },
       {
         $addFields: {
-          broadcast: { $arrayElemAt: ['$broadcast', -1] },
+          broadcast: { $arrayElemAt: ['$broadcast', 0] },
         },
       },
       ...(Object.keys(matchAfterLookup).length > 0
@@ -232,14 +285,27 @@ export async function GET(req: NextRequest) {
           {
             $lookup: {
               from: 'tracking_broadcast',
-              localField: 'code_input',
-              foreignField: 'kode',
+              let: { codeInput: '$code_input', docId: { $toString: '$_id' } },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $or: [
+                        { $eq: ['$kode', '$$codeInput'] },
+                        { $eq: ['$source_id', '$$docId'] },
+                      ],
+                    },
+                  },
+                },
+                { $sort: { _id: -1 } },
+                { $limit: 1 }
+              ],
               as: 'broadcast',
             },
           },
           {
             $addFields: {
-              broadcast: { $arrayElemAt: ['$broadcast', -1] },
+              broadcast: { $arrayElemAt: ['$broadcast', 0] },
             },
           },
           {
@@ -257,8 +323,21 @@ export async function GET(req: NextRequest) {
           {
             $lookup: {
               from: 'tracking_broadcast',
-              localField: 'code_input',
-              foreignField: 'kode',
+              let: { codeInput: '$code_input', docId: { $toString: '$_id' } },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $or: [
+                        { $eq: ['$kode', '$$codeInput'] },
+                        { $eq: ['$source_id', '$$docId'] },
+                      ],
+                    },
+                  },
+                },
+                { $sort: { _id: -1 } },
+                { $limit: 1 }
+              ],
               as: 'broadcast',
             },
           },
@@ -267,7 +346,7 @@ export async function GET(req: NextRequest) {
               broadcast: {
                 $cond: {
                   if: { $isArray: '$broadcast' },
-                  then: { $arrayElemAt: ['$broadcast', -1] },
+                  then: { $arrayElemAt: ['$broadcast', 0] },
                   else: null,
                 },
               },
@@ -300,8 +379,21 @@ export async function GET(req: NextRequest) {
           {
             $lookup: {
               from: 'tracking_broadcast',
-              localField: 'code_input',
-              foreignField: 'kode',
+              let: { codeInput: '$code_input', docId: { $toString: '$_id' } },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $or: [
+                        { $eq: ['$kode', '$$codeInput'] },
+                        { $eq: ['$source_id', '$$docId'] },
+                      ],
+                    },
+                  },
+                },
+                { $sort: { _id: -1 } },
+                { $limit: 1 }
+              ],
               as: 'broadcast',
             },
           },
@@ -310,7 +402,7 @@ export async function GET(req: NextRequest) {
               broadcast: {
                 $cond: {
                   if: { $isArray: '$broadcast' },
-                  then: { $arrayElemAt: ['$broadcast', -1] },
+                  then: { $arrayElemAt: ['$broadcast', 0] },
                   else: null,
                 },
               },
@@ -334,6 +426,24 @@ export async function GET(req: NextRequest) {
             },
           },
           {
+            $addFields: {
+              _hasStatus: {
+                $cond: {
+                  if: {
+                    $and: [
+                      { $ne: ['$broadcast', null] },
+                      { $ne: ['$broadcast.status_wa', ''] },
+                      { $ne: ['$broadcast.status_wa', null] }
+                    ]
+                  },
+                  then: 0, // muncul duluan
+                  else: 1  // muncul belakangan
+                }
+              }
+            }
+          },
+          { $sort: { _hasStatus: 1, _sortDate: -1, _sortCounter: -1 } },
+          {
             $group: {
               _id: '$sales_label',
               unik: { $sum: 1 },
@@ -345,9 +455,12 @@ export async function GET(req: NextRequest) {
     ])
 
     const totalCount = countResult[0]?.total ?? 0
-    const countMap = Object.fromEntries(
-      statusWaCounts.map((s: any) => [s._id, s.count]),
-    )
+    const countMap: Record<string, number> = {}
+    for (const s of statusWaCounts) {
+      const key = normalizeStatusWa(s._id)
+      countMap[key] = (countMap[key] ?? 0) + s.count
+    }
+
     const totalKeSalesUnik = keSalesProvinsi.reduce(
       (sum: number, r: any) => sum + r.unik,
       0,
@@ -512,10 +625,6 @@ export async function GET(req: NextRequest) {
       pct: totalWaSeluruh > 0 ? Math.round((r.unik / totalWaSeluruh) * 100) : 0,
     }))
 
-    console.log('keSalesArr:', keSalesArr)
-    console.log('matchAfterLookup:', JSON.stringify(matchAfterLookup))
-    console.log('pipeline:', JSON.stringify(pipeline))
-
     const items = pageRows.map((r) => ({
       _id: r._id?.toString() ?? '',
       kode: r.code_input ?? '',
@@ -546,7 +655,8 @@ export async function GET(req: NextRequest) {
       jenis_entitas: r.jenis_entitas ?? '',
       keterangan_update: r.keterangan_update ?? '',
       bulan_data: r.bulan_data ?? '',
-      status_wa: r.broadcast?.status_wa ?? '',
+      status_wa: normalizeStatusWa(r.broadcast?.status_wa),
+      detail_update: normalizeStatusWa(r.broadcast?.detail_update),
       ke_sales: r.broadcast?.ke_sales ?? '',
       created_at: r.created_at ?? '',
       updated_at: r.updated_at
@@ -577,12 +687,12 @@ export async function GET(req: NextRequest) {
         totalPages: Math.max(1, Math.ceil(totalCount / limit)),
       },
       statusWaSummary: {
-        terkirim: countMap['Terkirim(1C)'] ?? 0,
-        diterima: countMap['Diterima(2C)'] ?? 0,
+        terkirim: countMap['Terkirim (1C)'] ?? 0,
+        diterima: countMap['Diterima (2C)'] ?? 0,
         belumRespon: countMap['Dibaca - Belum Respons'] ?? 0,
-        positif: countMap['Dibaca - Respons - Positif'] ?? 0,
-        netral: countMap['Dibaca - Respons - Netral'] ?? 0,
-        negatif: countMap['Dibaca - Respons - Negatif'] ?? 0,
+        positif: countMap['Dibaca - Respons Positif'] ?? 0,
+        netral: countMap['Dibaca - Respons Netral'] ?? 0,
+        negatif: countMap['Dibaca - Respons Negatif'] ?? 0,
         aktif: countMap['Aktif Progres'] ?? 0,
         kosong: countMap[''] ?? 0,
         total: statusWaCounts.reduce((acc, s) => acc + s.count, 0),
@@ -620,11 +730,14 @@ export async function POST(req: Request) {
     const now = new Date()
 
     const docs = items.map((item: KontakTrackingItem) => ({
-      nama_perusahaan: header.namaPerusahaan || '',
-      produk_relevan: header.produkRelevan || '',
-      alamat: header.alamat || '',
-      nama: header.nama || '',
-      no_telp: header.noTelp || '',
+      kode: item.id,                        // ← WAJIB ada untuk $lookup
+      nama_perusahaan: item.nama_perusahaan || header.namaPerusahaan || '',
+      produk_relevan: item.produk_relevan || header.produkRelevan || '',
+      alamat: item.alamat || header.alamat || '',
+      nama: item.nama || header.nama || '',
+      no_telp: item.no_telp || header.noTelp || '',
+      status_wa: '',                        // default kosong
+      ke_sales: '',                         // default kosong
       created_at: now,
       updated_at: now,
     }))
