@@ -23,6 +23,7 @@ type EProcDoc = {
   requestor: string;
   pemohon: string;
   lokasi: string;
+  statusUsulan: string;
   segmen: string;
   deadlineUsulan: string;
   tanggalSubmit: string;
@@ -116,19 +117,18 @@ export async function GET(
 
   const doc = await col.findOne({ requestId: rid }, { projection: { _id: 0 } });
   if (!doc) {
-    return NextResponse.json(
-      { error: "Request tidak ditemukan" },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: "Request tidak ditemukan" }, { status: 404 });
   }
 
   if (!canAccess(auth.session, doc)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
-  if (doc.takenByAdminId) {
+  // ✅ Satu-satunya kondisi yang mengunci revisi
+  const statusAkhirNow = (doc.statusAkhir || "").trim().toLowerCase();
+  if (statusAkhirNow === "rilis kontrak") {
     return NextResponse.json(
-      { error: "Request sudah diambil admin, tidak bisa direvisi" },
+      { error: "Request sudah rilis kontrak, tidak bisa direvisi" },
       { status: 409 },
     );
   }
@@ -227,9 +227,11 @@ export async function PUT(
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
-  if (existing.takenByAdminId) {
+
+  const statusAkhirNow = (existing.statusAkhir || "").trim().toLowerCase();
+  if (statusAkhirNow === "rilis kontrak") {
     return NextResponse.json(
-      { error: "Request sudah diambil admin, tidak bisa direvisi" },
+      { error: "Request sudah rilis kontrak, tidak bisa di edit" },
       { status: 409 },
     );
   }
@@ -376,7 +378,6 @@ export async function PUT(
   const rawResult = await col.findOneAndUpdate(
     {
       requestId: rid,
-      takenByAdminId: null,
     },
     updateDoc,
     {

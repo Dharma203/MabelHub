@@ -91,7 +91,8 @@ export default function EProcurementRequestPage() {
   // ✅ assignee options (team members or all users)
   const [assigneeOptions, setAssigneeOptions] = useState<TeamMember[]>([]);
   const [assignedToUserId, setAssignedToUserId] = useState(""); // "" = self
-
+  const [statusAkhir, setStatusAkhir] = useState("");
+  const [statusUsulan, setStatusUsulan] = useState("");
   const [requestor, setRequestor] = useState("");
   const [pemohon, setPemohon] = useState("");
   const [segmen, setSegmen] = useState<string>("");
@@ -172,6 +173,7 @@ export default function EProcurementRequestPage() {
   const [openUpload, setOpenUpload] = useState(false);
   const [revisiId, setRevisiId] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canPickAssignee =
     user?.role === "LEADER" ||
@@ -319,7 +321,9 @@ export default function EProcurementRequestPage() {
     try {
       if (!revisiId.trim()) return alert("Masukkan Request ID");
       const data = await apiLoadEProc(revisiId.trim());
-
+      
+      setStatusAkhir(data.statusAkhir ?? data.statusAkhir ?? "");
+      setStatusUsulan(data.statusUsulan ?? data.statusUsulan ?? "");
       setRequestor(data.header?.requestor ?? data.requestor ?? "");
       setPemohon(data.header?.pemohon ?? data.pemohon ?? "");
       setSegmen((data.header?.segmen ?? data.segmen ?? "") as string);
@@ -410,7 +414,34 @@ export default function EProcurementRequestPage() {
       return;
     }
 
+    // Validasi kelengkapan data produk
+    const hasActiveItem = items.some((it) => it.qty > 0);
+    if (!hasActiveItem) {
+      alert("Minimal harus ada 1 produk.");
+      return;
+    }
+
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.qty > 0) {
+        if (
+          !String(it.merek).trim() ||
+          !String(it.subKategori).trim() ||
+          !it.qty ||
+          !String(it.spesifikasi).trim() ||
+          it.paguPerItem === "" ||
+          it.hargaTayang === "" ||
+          !String(it.linkInaproc).trim() ||
+          !String(it.linkEcom).trim()
+        ) {
+          alert(`Data produk ke-${i + 1} belum lengkap. Harap isi semua kolom (Merek, SubKategori, Qty, Spesifikasi, Pagu, Harga, Link Inaproc, Link Ecom).`);
+          return;
+        }
+      }
+    }
+
     try {
+      setIsSubmitting(true);
       const payload = {
         header: {
           requestor,
@@ -426,13 +457,13 @@ export default function EProcurementRequestPage() {
 
       if (infoId && infoId !== "REQ-") {
         await apiUpdateEProc(infoId, payload);
-        alert("Revisi tersimpan ✅");
+        window.location.reload();
       } else {
         const created = await apiCreateEProc(payload);
-        setInfoId(created.requestId);
-        alert(`Request terkirim ✅ ID: ${created.requestId}`);
+        window.location.reload();
       }
     } catch (e: any) {
+      setIsSubmitting(false);
       alert(e?.message ?? "Gagal kirim");
     }
   };
@@ -677,6 +708,7 @@ export default function EProcurementRequestPage() {
                       </label>
                       <input
                         disabled={it.qty === 0}
+                        required
                         value={it.merek}
                         onChange={(e) =>
                           updateItem(it.id, 'merek', e.target.value)
@@ -691,6 +723,7 @@ export default function EProcurementRequestPage() {
                       </label>
                       <SearchableSelect
                         isDisabled={it.qty === 0}
+                        required
                         value={it.subKategori}
                         onChange={(val: string) => updateItem(it.id, 'subKategori', val)}
                         options={[
@@ -709,6 +742,7 @@ export default function EProcurementRequestPage() {
                       <input
                         type="number"
                         min={0}
+                        required
                         disabled={it.qty === 0}
                         value={it.qty}
                         onChange={(e) => {
@@ -725,6 +759,7 @@ export default function EProcurementRequestPage() {
                       SPESIFIKASI DETAIL
                     </label>
                     <textarea
+                      required
                       disabled={it.qty === 0}
                       value={it.spesifikasi}
                       onChange={(e) =>
@@ -741,6 +776,7 @@ export default function EProcurementRequestPage() {
                         PAGU PER ITEM
                       </label>
                       <input
+                        required
                         disabled={it.qty === 0}
                         type="number"
                         value={it.paguPerItem}
@@ -760,6 +796,7 @@ export default function EProcurementRequestPage() {
                         HARGA TAYANG
                       </label>
                       <input
+                        required
                         disabled={it.qty === 0}
                         type="number"
                         min={0}
@@ -780,6 +817,7 @@ export default function EProcurementRequestPage() {
                         LINK INAPROC
                       </label>
                       <input
+                        required
                         disabled={it.qty === 0}
                         value={it.linkInaproc}
                         onChange={(e) =>
@@ -794,6 +832,7 @@ export default function EProcurementRequestPage() {
                         LINK E-COM
                       </label>
                       <input
+                        required
                         disabled={it.qty === 0}
                         value={it.linkEcom}
                         onChange={(e) =>
@@ -827,9 +866,36 @@ export default function EProcurementRequestPage() {
 
                 <button
                   onClick={handleKirim}
-                  className="h-14 rounded-full bg-green-600 px-32 text-md font-extrabold tracking-wide text-gray-50 shadow-sm hover:bg-green-700"
+                  disabled={isSubmitting}
+                  className="inline-flex h-14 items-center justify-center rounded-full bg-green-600 px-32 text-md font-extrabold tracking-wide text-gray-50 shadow-sm hover:bg-green-700 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  KIRIM REQUEST
+                  {isSubmitting ? (
+                    <>
+                      <svg
+                        className="mr-3 h-5 w-5 animate-spin text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      MENGIRIM...
+                    </>
+                  ) : (
+                    "KIRIM REQUEST"
+                  )}
                 </button>
               </div>
             </div>

@@ -28,6 +28,7 @@ export default function EditVisitModal({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fileObj, setFileObj] = useState<File | null>(null);
+  const [visitDate, setVisitDate] = useState<string>("");
 
   const [form, setForm] = useState({
     pic_name: "",
@@ -75,6 +76,7 @@ export default function EditVisitModal({
       })
       .then((data) => {
         if (!isMounted) return;
+        setVisitDate(data.visit_date || "");
         setOwnerId(data.user_id || "");
         setForm({
           pic_name: data.pic_name || "",
@@ -149,7 +151,18 @@ export default function EditVisitModal({
     currentUserRole === "ADMIN" ||
     currentUserRole === "SUPERADMIN" ||
     currentUserRole === "LEADER";
-  const canEdit = isOwner || isPrivileged;
+  const isAlreadyVisited = form.status_visit.toLowerCase() === "visited";
+  const isOverdueNotVisited = (() => {
+    if (isAlreadyVisited || !visitDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const visit = new Date(visitDate);
+    visit.setHours(0, 0, 0, 0);
+    return visit < today;
+  })();
+
+  const isEditLocked = isAlreadyVisited || isOverdueNotVisited;
+  const canEdit = isPrivileged || (isOwner && !isEditLocked);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -168,6 +181,26 @@ export default function EditVisitModal({
             X
           </button>
         </div>
+
+        {/* Info lock message */}
+        {!loading && !canEdit && (
+          <div className="mx-6 mb-4 px-4 py-3 rounded-lg bg-yellow-50 border border-yellow-300 text-sm text-yellow-800">
+            {isAlreadyVisited ? (
+              <span>⚠️ Kunjungan ini sudah <strong>Visited</strong> dan tidak dapat diedit.</span>
+            ) : isOverdueNotVisited ? (
+              <span>
+                ⚠️ Tanggal kunjungan sudah <strong>terlewat</strong> dan status masih Not Visited.{" "}
+                <button
+                  onClick={onClose}
+                  className="underline font-semibold hover:text-yellow-900"
+                >
+                  Buat Plan Visit baru
+                </button>{" "}
+                untuk melanjutkan.
+              </span>
+            ) : null}
+          </div>
+        )}
 
         {/* Body */}
         <div className="px-6 pb-6 overflow-y-auto w-full">
@@ -188,11 +221,10 @@ export default function EditVisitModal({
                     setForm((prev) => ({ ...prev, pic_name: e.target.value }))
                   }
                   readOnly={!canEdit}
-                  className={` rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${
-                    canEdit
+                  className={` rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${canEdit
                       ? "focus:ring-1 focus:ring-blue-300 text-black"
                       : "text-black cursor-not-allowed"
-                  }`}
+                    }`}
                 />
               </div>
               <div>
@@ -206,11 +238,10 @@ export default function EditVisitModal({
                   }
                   placeholder="08XXX"
                   readOnly={!canEdit}
-                  className={`rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${
-                    canEdit
+                  className={`rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${canEdit
                       ? "focus:ring-1 focus:ring-blue-300 text-black"
                       : "text-black cursor-not-allowed"
-                  }`}
+                    }`}
                 />
               </div>
 
@@ -225,11 +256,10 @@ export default function EditVisitModal({
                     setForm((prev) => ({ ...prev, pic_role: e.target.value }))
                   }
                   readOnly={!canEdit}
-                  className={`rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${
-                    canEdit
+                  className={`rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${canEdit
                       ? "focus:ring-1 focus:ring-blue-300 text-black"
                       : "text-black cursor-not-allowed"
-                  }`}
+                    }`}
                 />
               </div>
               <div>
@@ -246,11 +276,10 @@ export default function EditVisitModal({
                       }))
                     }
                     disabled={!canEdit}
-                    className={`rounded-lg h-10 w-full appearance-none bg-white border border-gray-300 outline-none px-3 pr-8 shadow-sm ${
-                      canEdit
+                    className={`rounded-lg h-10 w-full appearance-none bg-white border border-gray-300 outline-none px-3 pr-8 shadow-sm ${canEdit
                         ? "focus:ring-1 focus:ring-blue-300 text-black"
                         : "text-black cursor-not-allowed"
-                    }`}
+                      }`}
                   >
                     <option value="">-</option>
                     {posisiOptions.map((opt) => (
@@ -280,11 +309,10 @@ export default function EditVisitModal({
                       }))
                     }
                     disabled={!canEdit}
-                    className={`rounded-lg h-10 w-full appearance-none bg-white border border-gray-300 outline-none px-3 pr-8 shadow-sm ${
-                      canEdit
+                    className={`rounded-lg h-10 w-full appearance-none bg-white border border-gray-300 outline-none px-3 pr-8 shadow-sm ${canEdit
                         ? "focus:ring-1 focus:ring-blue-300 text-black"
                         : "text-black cursor-not-allowed"
-                    }`}
+                      }`}
                   >
                     <option value="">-</option>
                     {statusKunjunganOptions.map((opt) => (
@@ -316,11 +344,10 @@ export default function EditVisitModal({
                         }))
                       }
                       readOnly={!canEdit}
-                      className={`rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${
-                        canEdit
+                      className={`rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${canEdit
                           ? "focus:ring-1 focus:ring-blue-300 text-black"
                           : "text-black cursor-not-allowed"
-                      }`}
+                        }`}
                     />
                   </div>
                   <div>
@@ -337,11 +364,10 @@ export default function EditVisitModal({
                       }
                       placeholder="Alasan reschedule..."
                       readOnly={!canEdit}
-                      className={`rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${
-                        canEdit
+                      className={`rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${canEdit
                           ? "focus:ring-1 focus:ring-blue-300 text-black"
                           : "text-black cursor-not-allowed"
-                      }`}
+                        }`}
                     />
                   </div>
                 </>
@@ -360,11 +386,10 @@ export default function EditVisitModal({
                       }))
                     }
                     disabled={!canEdit}
-                    className={`rounded-lg h-10 w-full appearance-none bg-white border border-gray-300 outline-none px-3 pr-8 shadow-sm ${
-                      canEdit
+                    className={`rounded-lg h-10 w-full appearance-none bg-white border border-gray-300 outline-none px-3 pr-8 shadow-sm ${canEdit
                         ? "focus:ring-1 focus:ring-blue-300 text-black"
                         : "text-black cursor-not-allowed"
-                    }`}
+                      }`}
                   >
                     <option value="">-</option>
                     {kegiatanOptions.map((opt) => (
@@ -393,11 +418,10 @@ export default function EditVisitModal({
                     }))
                   }
                   readOnly={!canEdit}
-                  className={`rounded-lg h-28 w-full bg-white resize-none border border-gray-300 outline-none p-3 ${
-                    canEdit
+                  className={`rounded-lg h-28 w-full bg-white resize-none border border-gray-300 outline-none p-3 ${canEdit
                       ? "focus:ring-1 focus:ring-blue-300 text-black"
                       : "text-black cursor-not-allowed"
-                  }`}
+                    }`}
                 />
               </div>
 
@@ -415,11 +439,10 @@ export default function EditVisitModal({
                     }))
                   }
                   readOnly={!canEdit}
-                  className={`rounded-lg h-28 w-full bg-white resize-none border border-gray-300 outline-none p-3 ${
-                    canEdit
+                  className={`rounded-lg h-28 w-full bg-white resize-none border border-gray-300 outline-none p-3 ${canEdit
                       ? "focus:ring-1 focus:ring-blue-300 text-black"
                       : "text-black cursor-not-allowed"
-                  }`}
+                    }`}
                 />
               </div>
 
@@ -470,11 +493,10 @@ export default function EditVisitModal({
 
                 <div className="flex items-center h-10 w-full bg-white px-2 rounded">
                   <label
-                    className={`bg-gray-100 px-3 py-1 rounded-lg text-sm font-bold ring-1 ring-gray-300 text-black ${
-                      canEdit
+                    className={`bg-gray-100 px-3 py-1 rounded-lg text-sm font-bold ring-1 ring-gray-300 text-black ${canEdit
                         ? "cursor-pointer hover:bg-gray-200"
                         : "opacity-50 cursor-not-allowed"
-                    }`}
+                      }`}
                   >
                     Choose File
                     <input

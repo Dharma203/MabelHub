@@ -109,7 +109,7 @@ function AddPlansContent() {
         const d = json?.data;
         if (d) setParamRing(d.ring || []);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Guard & Access Control
@@ -383,6 +383,7 @@ function AddPlansContent() {
                     type="date"
                     value={tanggal}
                     onChange={(e) => setTanggal(e.target.value)}
+                    onClick={() => console.log("date clicked")}
                     className="mt-2 block w-full rounded-lg border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition-all"
                   />
                 </div>
@@ -456,7 +457,7 @@ function AddPlansContent() {
                       <label className="text-xs font-bold tracking-wide text-gray-500 uppercase">
                         Institusi <span className="text-gray-400 lowercase font-normal">(Sesuai Ring)</span>
                       </label>
-                      
+
                       <div className="relative mt-2">
                         <input
                           value={it.institusiQuery}
@@ -470,9 +471,8 @@ function AddPlansContent() {
                           }}
                           disabled={!it.status_ring}
                           placeholder={!it.status_ring ? "Pilih Ring dahulu" : "Ketik untuk mencari institusi..."}
-                          className={`block w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${
-                            !it.status_ring ? "bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed" : "bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600"
-                          }`}
+                          className={`block w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${!it.status_ring ? "bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed" : "bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600"
+                            }`}
                         />
 
                         {it.showSug && it.status_ring && (

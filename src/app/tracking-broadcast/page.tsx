@@ -22,7 +22,7 @@ import {
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import React from 'react'
-import { listStatusByUpdate, getDetailOptions } from '@/data/statusupdate'
+import { listStatusByUpdate, getDetailOptions } from '@/data/statusupdatebroadcast'
 
 type StatusWaSummary = {
   terkirim: number
@@ -272,58 +272,7 @@ export default function TrackingBroadcastPage() {
     { id: 'Detail Update', icon: PencilIcon, label: 'Detail Update' },
     { id: 'Ke Sales', icon: Users, label: 'Ke Sales' },
   ]
-
-  const detailOptions = [
-    { value: 'Belum ada update', label: 'Belum ada update' },
-    {
-      value: 'Baik, terima kasih informasinya.',
-      label: 'Baik, terima kasih informasinya.',
-    },
-    { value: 'Mohon ditunggu sebentar.', label: 'Mohon ditunggu sebentar.' },
-    {
-      value: 'Kami pelajari terlebih dahulu.',
-      label: 'Kami pelajari terlebih dahulu.',
-    },
-    {
-      value: 'Informasi sudah kami terima.',
-      label: 'Informasi sudah kami terima.',
-    },
-    {
-      value: 'Terima kasih sudah menghubungi kami.',
-      label: 'Terima kasih sudah menghubungi kami.',
-    },
-    { value: 'Sudah ada sales', label: 'Sudah ada sales' },
-    { value: 'Hanya Menjawab Nama', label: 'Hanya Menjawab Nama' },
-    {
-      value: 'Nanti jika ada kebutuhan kami hubungi.',
-      label: 'Nanti jika ada kebutuhan kami hubungi.',
-    },
-    { value: 'Bertanya status TKDN', label: 'Bertanya status TKDN' },
-    { value: 'Bertanya Spesifikasi', label: 'Bertanya Spesifikasi' },
-    { value: 'Bertanya Pricelist', label: 'Bertanya Pricelist' },
-    {
-      value: 'Bersedia berdiskusi lebih lanjut dengan sales',
-      label: 'Bersedia berdiskusi lebih lanjut dengan sales',
-    },
-    {
-      value: 'Bersedia di Presentasikan untuk presales',
-      label: 'Bersedia di Presentasikan untuk presales',
-    },
-    {
-      value: 'Meminta & mengisi form reseller',
-      label: 'Meminta & mengisi form reseller',
-    },
-    { value: 'Meminta SPH', label: 'Meminta SPH' },
-    { value: 'Tidak tertarik', label: 'Tidak tertarik' },
-    { value: 'Belum butuh', label: 'Belum butuh' },
-    { value: 'Budget belum ada', label: 'Budget belum ada' },
-    { value: 'Sudah pakai brand lain', label: 'Sudah pakai brand lain' },
-    { value: 'Jangan hubungi lagi', label: 'Jangan hubungi lagi' },
-    { value: 'Harga terlalu mahal', label: 'Harga terlalu mahal' },
-    { value: 'Spesifikasi tidak cocok', label: 'Spesifikasi tidak cocok' },
-    { value: 'Nomor Invalid', label: 'Nomor Invalid' },
-  ]
-
+  
   // Summary Status WA
   const [statusWaSummary, setStatusWaSummary] = useState<StatusWaSummary>({
     terkirim: 0,
@@ -672,7 +621,7 @@ export default function TrackingBroadcastPage() {
       case 'Produk':
         setProduk(vals)
         break
-      case 'ProVinsi':
+      case 'Provinsi':
         setProvinsi(vals)
         break
       case 'Kota':
@@ -739,78 +688,78 @@ export default function TrackingBroadcastPage() {
   // ---- main data fetch (paginated rows) ----
   useEffect(() => {
     let mounted = true
-    ;(async () => {
-      setLoadingRows(true)
-      if (!mounted) return
-
-      const qs = new URLSearchParams()
-      qs.set('limit', String(pageSize))
-      qs.set('page', String(page))
-
-      bulan.forEach((v) => qs.append('bulan', v))
-      perusahaan.forEach((v) => qs.append('perusahaan', v))
-      produk.forEach((v) => qs.append('produk', v))
-      provinsi.forEach((v) => qs.append('provinsi', v))
-      kota.forEach((v) => qs.append('kota', v))
-      statusWa.forEach((v) => qs.append('status_wa', v))
-      toSales.forEach((v) => qs.append('ke_sales', v))
-      if (startDate) qs.set('startDate', startDate)
-      if (endDate) qs.set('endDate', endDate)
-
-      try {
-        const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
-          cache: 'no-store',
-        })
-        const json = await res.json().catch(() => ({}))
+      ; (async () => {
+        setLoadingRows(true)
         if (!mounted) return
 
-        setRows(Array.isArray(json?.items) ? json.items : [])
-        setStatusWaSummary({
-          terkirim: json?.statusWaSummary?.terkirim ?? 0,
-          diterima: json?.statusWaSummary?.diterima ?? 0,
-          belumRespon: json?.statusWaSummary?.belumRespon ?? 0,
-          positif: json?.statusWaSummary?.positif ?? 0,
-          netral: json?.statusWaSummary?.netral ?? 0,
-          negatif: json?.statusWaSummary?.negatif ?? 0,
-          aktif: json?.statusWaSummary?.aktif ?? 0,
-          kosong: json?.statusWaSummary?.kosong ?? 0,
-          total: json?.statusWaSummary?.total ?? 0,
-        })
-        setStats({
-          total_no_telp: json?.summaryStats?.total_no_telp ?? 0,
-          total_provinsi: json?.summaryStats?.total_provinsi ?? 0,
-          total_kota: json?.summaryStats?.total_kota ?? 0,
-          total_nama: json?.summaryStats?.total_nama ?? 0,
-          total_merek: json?.summaryStats?.total_merek ?? 0,
-          total_kontak_unik: json?.summaryStats?.total_kontak_unik ?? 0,
-          total_wa_unik: json?.summaryStats?.total_wa_unik ?? 0,
-          provinsi_kota: json?.summaryStats?.provinsi_kota ?? [],
-          wa_provinsi_kota: json?.summaryStats?.wa_provinsi_kota ?? [],
-          ke_sales_provinsi: json?.summaryStats?.ke_sales_provinsi ?? [],
-          per_sales: json?.summaryStats?.per_sales ?? [],
-        })
-        setKeSalesSummary({
-          arie: json?.keSalesSummary?.arie ?? 0,
-          beffry: json?.keSalesSummary?.beffry ?? 0,
-          ferrie: json?.keSalesSummary?.ferrie ?? 0,
-          kosong: json?.keSalesSummary?.kosong ?? 0,
-        })
-        const pg = json?.pagination ?? {}
-        setTotal(Number(pg?.total ?? 0))
-        setTotalPages(Number(pg?.totalPages ?? 1))
-        setSelected(null)
-      } catch {
-        if (!mounted) return
-        setRows([])
-        setTotal(0)
-        setTotalPages(1)
-        setSelected(null)
-      } finally {
-        if (mounted) {
-          setLoadingRows(false)
+        const qs = new URLSearchParams()
+        qs.set('limit', String(pageSize))
+        qs.set('page', String(page))
+
+        bulan.forEach((v) => qs.append('bulan', v))
+        perusahaan.forEach((v) => qs.append('perusahaan', v))
+        produk.forEach((v) => qs.append('produk', v))
+        provinsi.forEach((v) => qs.append('provinsi', v))
+        kota.forEach((v) => qs.append('kota', v))
+        statusWa.forEach((v) => qs.append('status_wa', v))
+        toSales.forEach((v) => qs.append('ke_sales', v))
+        if (startDate) qs.set('startDate', startDate)
+        if (endDate) qs.set('endDate', endDate)
+
+        try {
+          const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
+            cache: 'no-store',
+          })
+          const json = await res.json().catch(() => ({}))
+          if (!mounted) return
+
+          setRows(Array.isArray(json?.items) ? json.items : [])
+          setStatusWaSummary({
+            terkirim: json?.statusWaSummary?.terkirim ?? 0,
+            diterima: json?.statusWaSummary?.diterima ?? 0,
+            belumRespon: json?.statusWaSummary?.belumRespon ?? 0,
+            positif: json?.statusWaSummary?.positif ?? 0,
+            netral: json?.statusWaSummary?.netral ?? 0,
+            negatif: json?.statusWaSummary?.negatif ?? 0,
+            aktif: json?.statusWaSummary?.aktif ?? 0,
+            kosong: json?.statusWaSummary?.kosong ?? 0,
+            total: json?.statusWaSummary?.total ?? 0,
+          })
+          setStats({
+            total_no_telp: json?.summaryStats?.total_no_telp ?? 0,
+            total_provinsi: json?.summaryStats?.total_provinsi ?? 0,
+            total_kota: json?.summaryStats?.total_kota ?? 0,
+            total_nama: json?.summaryStats?.total_nama ?? 0,
+            total_merek: json?.summaryStats?.total_merek ?? 0,
+            total_kontak_unik: json?.summaryStats?.total_kontak_unik ?? 0,
+            total_wa_unik: json?.summaryStats?.total_wa_unik ?? 0,
+            provinsi_kota: json?.summaryStats?.provinsi_kota ?? [],
+            wa_provinsi_kota: json?.summaryStats?.wa_provinsi_kota ?? [],
+            ke_sales_provinsi: json?.summaryStats?.ke_sales_provinsi ?? [],
+            per_sales: json?.summaryStats?.per_sales ?? [],
+          })
+          setKeSalesSummary({
+            arie: json?.keSalesSummary?.arie ?? 0,
+            beffry: json?.keSalesSummary?.beffry ?? 0,
+            ferrie: json?.keSalesSummary?.ferrie ?? 0,
+            kosong: json?.keSalesSummary?.kosong ?? 0,
+          })
+          const pg = json?.pagination ?? {}
+          setTotal(Number(pg?.total ?? 0))
+          setTotalPages(Number(pg?.totalPages ?? 1))
+          setSelected(null)
+        } catch {
+          if (!mounted) return
+          setRows([])
+          setTotal(0)
+          setTotalPages(1)
+          setSelected(null)
+        } finally {
+          if (mounted) {
+            setLoadingRows(false)
+          }
         }
-      }
-    })()
+      })()
     return () => {
       mounted = false
     }
@@ -840,13 +789,13 @@ export default function TrackingBroadcastPage() {
   return (
     <div className='min-h-screen bg-blue-50'>
       <div className='flex'>
-        <div className='flex-1 p-3 sm:p-6'>
-          <div className='bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-100'>
+        <div className='flex-1 p-2 sm:p-4 md:p-6 max-w-full overflow-x-hidden'>
+          <div className='bg-white rounded-xl shadow-md p-4 sm:p-6 mb-4 sm:mb-6 border border-gray-100'>
             <div className='flex flex-col'>
-              <h4 className='text-[20px] mb-1 font-extrabold text-(--gray-800) m-0 tracking-[-0.5px]'>
+              <h4 className='text-[16px] sm:text-[20px] mb-1 font-extrabold text-(--gray-800) m-0 tracking-[-0.5px]'>
                 Tracking Broadcast WA
               </h4>
-              <p className='text-sm ml-1 text-slate-500 font-medium'>
+              <p className='text-xs sm:text-sm ml-1 text-slate-500 font-medium'>
                 Monitor status pengiriman pesan dari sheet DATA WA
               </p>
             </div>
@@ -921,7 +870,7 @@ export default function TrackingBroadcastPage() {
               {/* Baris 2: Tombol Filter dengan Dropdown */}
               <div
                 ref={dropdownRef}
-                className='flex flex-wrap lg:flex-nowrap gap-2 w-full'
+                className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:flex lg:flex-nowrap gap-2 w-full'
               >
                 {filterButtons.map((btn) => {
                   const IconComponent = btn.icon
@@ -932,11 +881,11 @@ export default function TrackingBroadcastPage() {
                   const search = dropdownSearch[btn.id] ?? ''
                   const filtered = search
                     ? opts.filter((o) => {
-                        const display = btn.id === 'Bulan' ? formatBulan(o) : o
-                        return display
-                          .toLowerCase()
-                          .includes(search.toLowerCase())
-                      })
+                      const display = btn.id === 'Bulan' ? formatBulan(o) : o
+                      return display
+                        .toLowerCase()
+                        .includes(search.toLowerCase())
+                    })
                     : opts
                   const allSelected =
                     opts.length > 0 && opts.every((o) => activeArr.includes(o))
@@ -944,19 +893,18 @@ export default function TrackingBroadcastPage() {
                   return (
                     <div
                       key={btn.id}
-                      className='relative inline-block flex-1 min-w-[110px]'
+                      className='relative inline-block lg:flex-1 min-w-0'
                     >
                       {/* Trigger button - pill putih, border highlight biru saat diklik */}
                       <button
                         type='button'
                         onClick={() => setOpenDropdown(isOpen ? null : btn.id)}
-                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${
-                          isOpen
+                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${isOpen
                             ? 'border-2 border-blue-500 bg-white text-blue-600 shadow-md'
                             : isActive
                               ? 'border-2 border-blue-400 bg-white text-blue-700'
                               : 'border border-slate-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600'
-                        }`}
+                          }`}
                       >
                         <span className='flex items-center gap-1.5 min-w-0'>
                           <IconComponent
@@ -1075,10 +1023,10 @@ export default function TrackingBroadcastPage() {
                 {(filterButtons.some((b) => getFilterArr(b.id).length > 0) ||
                   startDate ||
                   endDate) && (
-                  <span className='text-blue-600 font-semibold ml-1'>
-                    Menampilkan {total.toLocaleString()} data
-                  </span>
-                )}
+                    <span className='text-blue-600 font-semibold ml-1'>
+                      Menampilkan {total.toLocaleString()} data
+                    </span>
+                  )}
               </div>
 
               {/* ---- Chips row: active selections ---- */}
@@ -1116,8 +1064,8 @@ export default function TrackingBroadcastPage() {
             </div>
           </section>
 
-          <section className='bg-white mt-4 rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
-            <div className='bg-[#095D4B] text-white px-6 h-10 flex items-center justify-between'>
+          <section className='bg-white mt-3 sm:mt-4 rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
+            <div className='bg-[#095D4B] text-white px-3 sm:px-6 h-10 flex items-center justify-between'>
               <div className='flex items-center'>
                 <BarChart2 size={12} className='mr-2' strokeWidth={2.5} />
                 <strong className='text-[8px] font-bold tracking-wide'>
@@ -1148,7 +1096,7 @@ export default function TrackingBroadcastPage() {
               <div className='flex flex-col sm:flex-row gap-3 w-full'>
                 {/* Card Kiri: Total Unik No HP */}
                 <div className='shrink-0 md:w-auto w-full'>
-                  <div className='flex items-center gap-3 bg-white border border-gray-200 rounded-lg shadow-sm px-4 py-3 h-full min-w-[200px]'>
+                  <div className='flex items-center gap-3 bg-white border border-gray-200 rounded-lg shadow-sm px-3 sm:px-4 py-3 h-full min-w-0 sm:min-w-[200px]'>
                     <div className='rounded-full flex items-center justify-center text-white shrink-0 w-9 h-9 bg-gradient-to-br from-green-500 to-teal-600'>
                       <PhoneCallIcon
                         size={14}
@@ -1185,7 +1133,7 @@ export default function TrackingBroadcastPage() {
                         Distribusi Status WA
                       </span>
                     </div>
-                    <div className='flex flex-wrap gap-1.5'>
+                    <div className='grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap gap-1.5'>
                       {/* Terkirim (1C) */}
                       <button
                         onClick={() => handleFilterByStatus('Terkirim(1C)')}
@@ -1386,9 +1334,9 @@ export default function TrackingBroadcastPage() {
                       {loadingRows
                         ? '...'
                         : (stats?.provinsi_kota.reduce(
-                            (acc, row) => acc + row.unik,
-                            0,
-                          ) ?? 0)}
+                          (acc, row) => acc + row.unik,
+                          0,
+                        ) ?? 0)}
                     </span>
                     <span>total</span>
                   </div>
@@ -1506,9 +1454,9 @@ export default function TrackingBroadcastPage() {
                       {loadingRows
                         ? '...'
                         : (stats?.per_sales?.reduce(
-                            (acc, r) => acc + r.unik,
-                            0,
-                          ) ?? 0)}
+                          (acc, r) => acc + r.unik,
+                          0,
+                        ) ?? 0)}
                     </span>
                     <span>total</span>
                   </div>
@@ -1626,8 +1574,8 @@ export default function TrackingBroadcastPage() {
                 </button>
               </div>
             )}
-            <div className='overflow-x-auto'>
-              <table className='min-w-full text-left border-collapse'>
+            <div className='overflow-x-auto -mx-0 sm:mx-0'>
+              <table className='min-w-[900px] sm:min-w-full text-left border-collapse'>
                 {/* Header */}
                 <thead className='sticky top-0 z-10'>
                   <tr className='bg-[#1a2c4e] text-white'>
@@ -1657,9 +1605,9 @@ export default function TrackingBroadcastPage() {
                         onChange={handleSelectAll}
                         checked={
                           rows.filter((r) => r.tipe === 'WhatsApp').length >
-                            0 &&
+                          0 &&
                           selectedIds.length ===
-                            rows.filter((r) => r.tipe === 'WhatsApp').length
+                          rows.filter((r) => r.tipe === 'WhatsApp').length
                         }
                         className='w-3.5 h-3.5 accent-blue-500 cursor-pointer'
                       />
@@ -1767,11 +1715,11 @@ export default function TrackingBroadcastPage() {
                                 value={row.status_wa || ''}
                                 onChange={(val: string) => {
                                   updateRowStatusWa(row._id, val)
-                                  // Reset detail_update saat status berubah (seperti reset kota saat provinsi berubah)
+                                  // Reset detail_update saat status berubah
                                   updateRowDetailUpdate(row._id, '')
                                 }}
                                 options={listStatusByUpdate}
-                                className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-57 h-12 cursor-pointer'
+                                className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-40 sm:w-57 h-12 cursor-pointer'
                                 placeholder='Pilih Status...'
                               />
                             </td>
@@ -1784,17 +1732,17 @@ export default function TrackingBroadcastPage() {
                                 }
                                 isDisabled={!row.status_wa}
                                 options={getDetailOptions(row.status_wa || '')}
-                                className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-57 h-12 cursor-pointer'
+                                className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-40 sm:w-57 h-12 cursor-pointer'
                                 placeholder='Pilih Detail...'
                               />
                             </td>
-                            <td className='px-5 py-3 text-[10px] text-slate-600'>
+                            <td className='px-2 sm:px-5 py-3 text-[10px] text-slate-600'>
                               <select
                                 value={row.ke_sales || ''}
                                 onChange={(e) =>
                                   updateRowKeSales(row._id, e.target.value)
                                 }
-                                className='text-[10px] border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 w-45 h-12 cursor-pointer'
+                                className='text-[10px] border border-gray-300 rounded-lg px-2 sm:px-4 py-3 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 w-36 sm:w-45 h-12 cursor-pointer'
                               >
                                 <option value=''>- Pilih Sales -</option>
                                 <option value='Arie Muhamad Fajar'>
@@ -1865,18 +1813,18 @@ export default function TrackingBroadcastPage() {
                                         value={
                                           selected.created_at
                                             ? new Date(selected.created_at)
-                                                .toLocaleDateString('sv-SE', {
-                                                  day: '2-digit',
-                                                  month: '2-digit',
-                                                  year: 'numeric',
-                                                  hour: '2-digit',
-                                                  minute: '2-digit',
-                                                  second: '2-digit',
-                                                  hour12: false,
-                                                })
-                                                .replace('pukul', '')
-                                                .replace(' ', ' ')
-                                                .trim()
+                                              .toLocaleDateString('sv-SE', {
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                                hour12: false,
+                                              })
+                                              .replace('pukul', '')
+                                              .replace(' ', ' ')
+                                              .trim()
                                             : '-'
                                         }
                                       />
@@ -1914,7 +1862,7 @@ export default function TrackingBroadcastPage() {
                                         label='Sumber Lain'
                                         value={
                                           selected.sumber_data ===
-                                          'Sales Internal'
+                                            'Sales Internal'
                                             ? selected.sales_internal
                                             : '-'
                                         }
@@ -2050,7 +1998,7 @@ export default function TrackingBroadcastPage() {
                                             <span className='border rounded-sm border-gray-300 py-1 px-1.5 text-[10.5px] text-slate-700 font-medium'>
                                               📦
                                               {selected.merek_tayang &&
-                                              selected.merek_tayang.trim() !==
+                                                selected.merek_tayang.trim() !==
                                                 ''
                                                 ? `${selected.produk} / ${selected.merek_tayang}`
                                                 : selected.produk}
@@ -2071,13 +2019,13 @@ export default function TrackingBroadcastPage() {
               </table>
             </div>
           </div>
-          <section className='mt-6 flex flex-col gap-3 rounded-2xl bg-white px-6 py-4 shadow-sm ring-1 ring-blue-100 md:flex-row md:items-center md:justify-between'>
+          <section className='mt-4 sm:mt-6 flex flex-col gap-3 rounded-2xl bg-white px-3 sm:px-6 py-3 sm:py-4 shadow-sm ring-1 ring-blue-100 md:flex-row md:items-center md:justify-between'>
             <div className='text-sm text-gray-500 font-medium'>
               <p className='font-medium text-gray-700'>
                 Showing <strong>{showingFrom}</strong> to{' '}
                 <strong>{showingTo}</strong> of <strong>{total}</strong> entries
               </p>
-              <div className='flex flex-wrap items-center gap-3'>
+              <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
                 <select
                   value={pageSize}
                   onChange={(e) => {
@@ -2091,7 +2039,7 @@ export default function TrackingBroadcastPage() {
                   <option value={50}>50 / Halaman</option>
                   <option value={100}>100 / Halaman</option>
                 </select>
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1 sm:gap-2 flex-wrap'>
                   <PageBtn onClick={() => gotoPage(1)} ariaLabel='First'>
                     ⏮
                   </PageBtn>
@@ -2108,7 +2056,7 @@ export default function TrackingBroadcastPage() {
                       type='button'
                       onClick={() => gotoPage(p)}
                       aria-label={p.toString()}
-                      className='grid h-10 w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40'
+                      className='grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40 text-xs sm:text-sm'
                     >
                       {p}
                     </button>
@@ -2172,7 +2120,7 @@ function PageBtn({
       type='button'
       onClick={onClick}
       aria-label={ariaLabel}
-      className='grid h-10 w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40'
+      className='grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40 text-xs sm:text-sm'
     >
       {children}
     </button>

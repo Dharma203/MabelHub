@@ -1,29 +1,23 @@
 "use client";
-import { useState } from "react";
-import { ChevronUp, Filter, Calendar, Users, MapIcon, Phone, CheckCircle, Briefcase, PieChartIcon, PhoneCallIcon, TrendingUpIcon, User, CalendarCheckIcon, SearchXIcon, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ChevronUp, Filter, Calendar, Users, MapIcon, Phone, CheckCircle, Briefcase, PieChartIcon, PhoneCallIcon, TrendingUpIcon, User, CalendarCheckIcon, SearchXIcon, ChevronDown, Loader2 } from "lucide-react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, CartesianGrid, XAxis, YAxis, AreaChart, Area } from "recharts";
 
 type DashboardStats = {
-    totalVisits: number;
-    visited: number;
-    stayOffice: number;
-    notVisited: number;
-    salesCount: number;
-    satkerCount: number;
-    cityCount: number;
-    ring: {
-        ring1: number;
-        ring2: number;
-        ring3: number;
-        ring4: number;
-    };
-    trend?: { date: string; count: number }[];
-    topSales?: { name: string; count: number }[];
-    klpd?: { name: string; count: number }[];
+    totalLaporanSales: number;
+    totalReportWa: number;
+    unikPerusahaan: number;
+    aktifPicSales: number;
+    chartValiditas: { name: string; value: number }[];
+    chartStatusWa: { name: string; value: number }[];
+    chartTren: { name: string; validasiSales: number; reportWa: number }[];
+    chartProvinsi: { name: string; value: number }[];
+    progressPicSales: { no: number; pic: string; unik: number; progress: number }[];
+    detailData: { no: number; tanggal: string; pic: string; perusahaan: string; kota: string; provinsi: string; validitas: string; source: string }[];
+    filterOptions: Record<string, string[]>;
 };
 
-const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
-
+const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f43f5e', '#14b8a6', '#f97316'];
 
 export default function ReportProgresPage() {
     const filterButtons = [
@@ -31,74 +25,92 @@ export default function ReportProgresPage() {
         { id: 'validitas', icon: CheckCircle, label: 'Validitas' },
         { id: 'provinsi', icon: MapIcon, label: 'Provinsi' },
         { id: 'status_wa', icon: Phone, label: 'Status WA' },
-    ]
+    ];
+
     const [isFilterOpen, setIsFilterOpen] = useState(true);
+    const [sumberData, setSumberData] = useState('Semua');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [page, setPage] = useState(1);
-    const [selected, setSelected] = useState<string[]>([])
+    
+    const [openFilterDropdown, setOpenFilterDropdown] = useState<string | null>(null);
+    const [filterValues, setFilterValues] = useState<Record<string, string[]>>({
+        pic_sales: [],
+        validitas: [],
+        provinsi: [],
+        status_wa: []
+    });
+
     const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [loading, setLoading] = useState(true);
+    const filterRef = useRef<HTMLDivElement>(null);
 
-    const data = [
-        { name: "Valid", value: 120 },
-        { name: "Invalid", value: 40 },
-        { name: "Not Yet", value: 60 },
-    ];
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+                setOpenFilterDropdown(null);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
-    const dataStatusWa = [
-        { name: "Diterima (2C)", value: 100 },
-        { name: "Dibaca - Belum Respons", value: 40 },
-        { name: "Dibaca - Respons Positif", value: 60 },
-        { name: "Terkirim (1C)", value: 100 },
-        { name: "Aktif Broadcast", value: 40 },
-    ];
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const params = new URLSearchParams();
+                params.append('sumberData', sumberData);
+                if (startDate) params.append('startDate', startDate);
+                if (endDate) params.append('endDate', endDate);
+                
+                Object.entries(filterValues).forEach(([key, values]) => {
+                    values.forEach(val => params.append(key, val));
+                });
 
-    const dataTren = [
-        { name: "Jan", validasiSales: 170, reportWa: 90 },
-        { name: "Feb", validasiSales: 40, reportWa: 60 },
-        { name: "Mar", validasiSales: 60, reportWa: 75 },
-        { name: "Apr", validasiSales: 100, reportWa: 80 },
-        { name: "Mei", validasiSales: 40, reportWa: 55 },
-        { name: "Jun", validasiSales: 80, reportWa: 70 },
-        { name: "Jul", validasiSales: 30, reportWa: 50 },
-        { name: "Agu", validasiSales: 70, reportWa: 65 },
-        { name: "Sep", validasiSales: 120, reportWa: 85 },
-        { name: "Okt", validasiSales: 40, reportWa: 55 },
-        { name: "Nov", validasiSales: 60, reportWa: 70 },
-        { name: "Des", validasiSales: 100, reportWa: 90 },
-    ];
+                const res = await fetch(`/api/report-progres?${params.toString()}`);
+                const data = await res.json();
+                setStats(data);
+            } catch (error) {
+                console.error("Failed to fetch report progress stats", error);
+            }
+            setLoading(false);
+        };
+        fetchData();
+    }, [sumberData, startDate, endDate, filterValues]);
 
-    const dataProvinsi = [
-        { name: "DKI Jakarta", value: 195 },
-        { name: "Jawa Barat", value: 40 },
-        { name: "Jawa Tengah", value: 60 },
-        { name: "Banten", value: 40 },
-        { name: "Jawa Timur", value: 60 },
-        { name: "Jawa Barat", value: 40 },
-        { name: "Jawa Tengah", value: 60 },
-        { name: "Banten", value: 40 },
-        { name: "Jawa Timur", value: 60 },
-        { name: "Jawa Barat", value: 40 },
-        { name: "Jawa Tengah", value: 60 },
-        { name: "Banten", value: 40 },
-        { name: "Jawa Timur", value: 60 },
-    ];
+    const handleFilterChange = (filterId: string, value: string) => {
+        setFilterValues(prev => {
+            const current = prev[filterId] || [];
+            if (current.includes(value)) {
+                return { ...prev, [filterId]: current.filter(v => v !== value) };
+            } else {
+                return { ...prev, [filterId]: [...current, value] };
+            }
+        });
+    };
 
+    const dataValiditas = stats?.chartValiditas || [];
+    const dataStatusWa = stats?.chartStatusWa || [];
+    const dataTren = stats?.chartTren || [];
+    const dataProvinsi = stats?.chartProvinsi || [];
 
+    const formatFilterButtonClass = (isActive: boolean) => 
+        `text-sm border rounded-lg mb-3 px-3 py-2 h-9 border-slate-300 bg-white ${isActive ? 'border-blue-500 text-blue-600 bg-blue-50' : 'text-slate-500'} hover:border-blue-400 hover:text-blue-500 transition-all duration-200 cursor-pointer whitespace-nowrap`;
 
     return (
         <div className="min-h-screen bg-blue-50">
             <div className="flex">
                 <div className="flex-1 p-6">
-                    <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-100">
+                    <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-100 flex justify-between items-center">
                         <div className="flex flex-col">
-                            <h4 className="text-[16px] mb-1 font-extrabold  text-(--gray-800) m-0 tracking-[0-.5px]">
+                            <h4 className="text-[16px] mb-1 font-extrabold text-(--gray-800) m-0 tracking-[0-.5px]">
                                 Report Progres
                             </h4>
                             <p className="text-sm ml-0.5 text-slate-500 font-bold">
                                 Analisa & grafik dari VALIDASI_SALES dan REPORT_WA
                             </p>
                         </div>
+                        {loading && <Loader2 className="animate-spin text-blue-500" />}
                     </div>
                     <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className="bg-blue-500 text-white px-6 h-10 flex items-center justify-between">
@@ -117,7 +129,6 @@ export default function ReportProgresPage() {
                                     strokeWidth={2.5}
                                     onClick={() => setIsFilterOpen(!isFilterOpen)}
                                     className={isFilterOpen ? "rotate-180" : ""}
-
                                 />
                             </button>
                         </div>
@@ -127,15 +138,15 @@ export default function ReportProgresPage() {
                         >
                             <div className="flex items-center gap-3 justify-start">
                                 <span className="text-md text-slate-500 items-center pl-1 h-10">Sumber:</span>
-                                <button className="text-sm border rounded-lg mb-3 px-3 py-2 h-9 border-slate-300 bg-white text-slate-500 hover:border-blue-400 hover:text-blue-500 transition-all duration-200 cursor-pointer whitespace-nowrap">
-                                    Semua
-                                </button>
-                                <button className="text-sm border rounded-lg mb-3 px-3 py-2 h-9 border-slate-300 bg-white text-slate-500 hover:border-blue-400 hover:text-blue-500 transition-all duration-200 cursor-pointer whitespace-nowrap">
-                                    Validasi Sales
-                                </button>
-                                <button className="text-sm border rounded-lg mb-3 px-3 py-2 h-9 border-slate-300 bg-white text-slate-500 hover:border-blue-400 hover:text-blue-500 transition-all duration-200 cursor-pointer whitespace-nowrap">
-                                    Report WA
-                                </button>
+                                {['Semua', 'Validasi Sales', 'Report WA'].map(s => (
+                                    <button 
+                                        key={s}
+                                        onClick={() => setSumberData(s)}
+                                        className={formatFilterButtonClass(sumberData === s)}
+                                    >
+                                        {s}
+                                    </button>
+                                ))}
                             </div>
                             {/* Baris 1: Filter Tanggal Input */}
                             <div className="border border-slate-200 rounded-lg p-2 flex flex-col sm:flex-row items-start sm:items-center bg-white shadow-sm max-w-full ">
@@ -153,7 +164,7 @@ export default function ReportProgresPage() {
                                         className="w-30 text-xs h-8 shadow-none border-1 border-slate-300 rounded-lg"
                                         placeholder="Dari"
                                         value={startDate}
-                                        onChange={(e) => { setStartDate(e.target.value); setPage(1); setSelected([]); }}
+                                        onChange={(e) => setStartDate(e.target.value)}
                                     />
                                     <span className="text-gray-400 font-semibold">-</span>
                                     <input
@@ -161,25 +172,53 @@ export default function ReportProgresPage() {
                                         className="w-30 text-xs h-8 shadow-none border-1 border-slate-300 rounded-lg"
                                         placeholder="Sampai"
                                         value={endDate}
-                                        onChange={(e) => { setEndDate(e.target.value); setPage(1); setSelected([]); }}
+                                        onChange={(e) => setEndDate(e.target.value)}
                                     />
                                 </div>
                             </div>
-                            <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full mt-1">
+                            <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full mt-1" ref={filterRef}>
                                 {filterButtons.map((btn, idx) => {
-                                    const IconComponent = btn.icon
+                                    const IconComponent = btn.icon;
+                                    const isActive = filterValues[btn.id]?.length > 0;
+                                    const options = stats?.filterOptions[btn.id] || [];
+                                    const isOpen = openFilterDropdown === btn.id;
+
                                     return (
-                                        <button
-                                            key={idx}
-                                            className="flex flex-1 items-center justify-center gap-1.5 py-[7px] px-2 text-xs font-semibold border-[1.5px] border-[#ced4da] rounded-lg bg-white cursor-pointer text-[#495057] transition-all duration-150 select-none box-border truncate hover:bg-slate-50 hover:border-slate-400 min-w-[120px]"
-                                        >
-                                            <IconComponent
-                                                size={10}
-                                                className="text-slate-500 shrink-0"
-                                                strokeWidth={2}
-                                            />
-                                            <span className="truncate">{btn.label}</span>
-                                        </button>
+                                        <div key={idx} className="relative flex-1 min-w-[120px]">
+                                            <button
+                                                onClick={() => setOpenFilterDropdown(isOpen ? null : btn.id)}
+                                                className={`w-full flex items-center justify-center gap-1.5 py-[7px] px-2 text-xs font-semibold border-[1.5px] rounded-lg cursor-pointer transition-all duration-150 select-none box-border truncate ${isActive ? 'bg-blue-50 border-blue-400 text-blue-700' : 'bg-white border-[#ced4da] text-[#495057] hover:bg-slate-50 hover:border-slate-400'}`}
+                                            >
+                                                <IconComponent
+                                                    size={10}
+                                                    className={isActive ? "text-blue-500 shrink-0" : "text-slate-500 shrink-0"}
+                                                    strokeWidth={2}
+                                                />
+                                                <span className="truncate">
+                                                    {btn.label} {isActive ? `(${filterValues[btn.id].length})` : ''}
+                                                </span>
+                                            </button>
+                                            
+                                            {isOpen && (
+                                                <div className="absolute top-full left-0 mt-1 w-full min-w-[200px] max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50">
+                                                    {options.length === 0 ? (
+                                                        <div className="p-3 text-xs text-slate-500 text-center">Tidak ada data</div>
+                                                    ) : (
+                                                        options.map(opt => (
+                                                            <label key={opt} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={filterValues[btn.id]?.includes(opt)}
+                                                                    onChange={() => handleFilterChange(btn.id, opt)}
+                                                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                                />
+                                                                <span className="text-xs text-slate-700">{opt || "(Kosong)"}</span>
+                                                            </label>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     )
                                 })}
                             </div>
@@ -196,7 +235,7 @@ export default function ReportProgresPage() {
                                     Total Laporan Sales
                                 </div>
                                 <div className="text-[1.6rem] font-extrabold leading-tight text-blue-900">
-                                    184
+                                    {stats?.totalLaporanSales ?? 0}
                                 </div>
                                 <div className="text-[10px] text-slate-400 truncate">
                                     entri di VALIDASI_SALES
@@ -213,7 +252,7 @@ export default function ReportProgresPage() {
                                     Total Report WA
                                 </div>
                                 <div className="text-[1.6rem] font-extrabold leading-tight text-green-700">
-                                    281
+                                    {stats?.totalReportWa ?? 0}
                                 </div>
                                 <div className="text-[10px] text-slate-400 truncate">
                                     entri di REPORT_WA
@@ -231,7 +270,7 @@ export default function ReportProgresPage() {
                                     Unik Perusahaan
                                 </div>
                                 <div className="text-[1.6rem] font-extrabold leading-tight text-orange-500">
-                                    207
+                                    {stats?.unikPerusahaan ?? 0}
                                 </div>
                                 <div className="text-[10px] text-slate-400 truncate">
                                     perusahaan berbeda
@@ -249,7 +288,7 @@ export default function ReportProgresPage() {
                                     Aktif PIC Sales
                                 </div>
                                 <div className="text-[1.6rem] font-extrabold leading-tight text-teal-700">
-                                    3
+                                    {stats?.aktifPicSales ?? 0}
                                 </div>
                                 <div className="text-[10px] text-slate-400 truncate">
                                     PIC Sales berkontribusi
@@ -270,7 +309,7 @@ export default function ReportProgresPage() {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
-                                            data={data}
+                                            data={dataValiditas}
                                             cx="40%"
                                             cy="50%"
                                             dataKey="value"
@@ -279,7 +318,7 @@ export default function ReportProgresPage() {
                                             innerRadius={45}
                                             paddingAngle={3}
                                         >
-                                            {data.map((entry, index) => (
+                                            {dataValiditas.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
@@ -451,12 +490,12 @@ export default function ReportProgresPage() {
                                     </p>
                                 </div>
                                 <p className="text-xs px-2 py-0.5 rounded-full text-yellow-900">
-                                    3 Pic Sales
+                                    {stats?.progressPicSales?.length || 0} Pic Sales
                                 </p>
                             </div>
-                            <div className="flex flex-col overflow-hidden shadow-sm">
-                                <table className="w-ful text-left border-collapse">
-                                    <thead className="sticky top-0 z-10">
+                            <div className="flex flex-col overflow-hidden shadow-sm overflow-y-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="sticky top-0 z-10 bg-white">
                                         <tr>
                                             <th className="px-2 py-1.5 text-[10px] font-semibold text-slate-500">
                                                 #
@@ -476,52 +515,37 @@ export default function ReportProgresPage() {
                                         id='tbodyPicSales'
                                         className='divide-y divide-gray-300'
                                     >
-                                        {[
-                                            {
-                                                no: 1,
-                                                pic: 'Arie Muhammad Fajar',
-                                                unik: 50,
-                                                progress: 80,
-                                            },
-                                            {
-                                                no: 2,
-                                                pic: 'Beffry',
-                                                unik: 20,
-                                                progress: 40,
-                                            },
-                                            {
-                                                no: 3,
-                                                pic: 'Ferrie',
-                                                unik: 40,
-                                                progress: 60,
-                                            },
-                                        ].map((row) => (
-                                            <tr
-                                                key={row.no}
-                                                className='hover:bg-green-50/50 transition-colors cursor-pointer'
-                                            >
-                                                <td className='px-2 py-1.5 text-[10px] text-slate-900 font-bold'>
-                                                    {row.no}
-                                                </td>
-                                                <td className='px-2 py-1.5 text-[10px] text-slate-900 font-medium'>
-                                                    {row.pic}
-                                                </td>
-
-                                                <td className='px-2 py-1.5 text-[10px] text-slate-600'>
-                                                    <div className='flex-1 min-w-[36px] bg-blue-100 rounded-full h-[4px] overflow-hidden'>
-                                                        <div
-                                                            className='bg-blue-600 h-full rounded-full'
-                                                            style={{ width: `${row.unik}%` }}
-                                                        />
-                                                    </div>
-                                                </td>
-                                                <td className="px-2 py-1.5 text-[10px] text-slate-700 font-medium">
-                                                    <div className='items-center inline-flex justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-700 text-white'>
-                                                        {row.unik}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {(stats?.progressPicSales || []).map((row) => {
+                                            const maxUnik = Math.max(...(stats?.progressPicSales.map(r => r.unik) || [1]));
+                                            const percent = (row.unik / maxUnik) * 100;
+                                            return (
+                                                <tr
+                                                    key={row.no}
+                                                    className='hover:bg-green-50/50 transition-colors cursor-pointer bg-white'
+                                                >
+                                                    <td className='px-2 py-1.5 text-[10px] text-slate-900 font-bold'>
+                                                        {row.no}
+                                                    </td>
+                                                    <td className='px-2 py-1.5 text-[10px] text-slate-900 font-medium truncate max-w-[100px]'>
+                                                        {row.pic || "(Kosong)"}
+                                                    </td>
+    
+                                                    <td className='px-2 py-1.5 text-[10px] text-slate-600'>
+                                                        <div className='flex-1 min-w-[36px] bg-blue-100 rounded-full h-[4px] overflow-hidden'>
+                                                            <div
+                                                                className='bg-blue-600 h-full rounded-full'
+                                                                style={{ width: `${percent}%` }}
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-2 py-1.5 text-[10px] text-slate-700 font-medium">
+                                                        <div className='items-center inline-flex justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-700 text-white'>
+                                                            {row.unik}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
                                 </tbody>
                             </table>
                         </div>
@@ -587,7 +611,7 @@ export default function ReportProgresPage() {
                         <div className="flex items-center gap-1.5 px-2 pt-3 pb-2 border-b-2 bg-white-100 border-blue-600">
                             <CalendarCheckIcon size={12} strokeWidth={2} className="text-blue-600" />
                             <p className="text-[11px] font-bold text-[#1e293b]">
-                                Detail Data
+                                Detail Data {stats?.detailData?.length ? `(Menampilkan ${stats.detailData.length} data)` : ''}
                             </p>
                         </div>
                         <div className="overflow-y-auto max-h-[320px] shadow-sm" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
@@ -616,55 +640,62 @@ export default function ReportProgresPage() {
                                             Validitas
                                         </th>
                                         <th className="px-2 py-1.5 text-[10px] text-black font-bold border-b border-slate-200">
-                                            Detail
+                                            Sumber
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody
                                     id="tbodyDetailData"
                                     className="block lg:table-row-group divide-y divide-gray-200 px-2 bg-white">
-                                    {Array(15).fill(0).map((_, index) => (
-                                        <tr key={index} className="block lg:table-row mb-4 lg:mb-0 bg-white lg:bg-transparent rounded-xl lg:rounded-none shadow-md lg:shadow-none border border-gray-200 lg:border-b lg:border-t-0 lg:border-x-0 p-3 lg:p-0">
+                                    {(stats?.detailData || []).map((row, index) => (
+                                        <tr key={index} className="block lg:table-row mb-4 lg:mb-0 bg-white lg:bg-transparent rounded-xl lg:rounded-none shadow-md lg:shadow-none border border-gray-200 lg:border-b lg:border-t-0 lg:border-x-0 p-3 lg:p-0 hover:bg-slate-50">
                                             <td className='flex justify-between items-center lg:table-cell py-1.5 lg:py-1 px-2 text-xs font-medium text-slate-900 border-b border-slate-200 border-dashed lg:border-solid lg:border-0 lg:border-b'>
                                                 <span className="lg:hidden font-bold text-gray-500">No</span>
-                                                <span>{index + 1}</span>
+                                                <span>{row.no}</span>
                                             </td>
                                             <td className='flex justify-between items-center lg:table-cell py-1.5 lg:py-1 px-2 text-xs font-medium text-slate-900 border-b border-slate-200 border-dashed lg:border-solid lg:border-0 lg:border-b'>
                                                 <span className="lg:hidden font-bold text-gray-500">Tanggal</span>
-                                                <span>01/02/2024</span>
+                                                <span>{row.tanggal}</span>
                                             </td>
                                             <td className='flex justify-between items-center lg:table-cell py-1.5 lg:py-1 px-2 text-xs font-medium text-slate-900 border-b border-slate-200 border-dashed lg:border-solid lg:border-0 lg:border-b'>
                                                 <span className="lg:hidden font-bold text-gray-500">PIC Sales</span>
-                                                <span>Budi</span>
+                                                <span>{row.pic || "-"}</span>
                                             </td>
                                             <td className='flex justify-between items-center lg:table-cell py-1.5 lg:py-1 px-2 text-xs font-medium text-slate-900 border-b border-slate-200 border-dashed lg:border-solid lg:border-0 lg:border-b'>
                                                 <span className="lg:hidden font-bold text-gray-500">Perusahaan</span>
-                                                <span>PT. Maju Mundur</span>
+                                                <span className="max-w-[200px] truncate">{row.perusahaan || "-"}</span>
                                             </td>
                                             <td className='flex justify-between items-center lg:table-cell py-1.5 lg:py-1 px-2 text-xs font-medium text-slate-900 border-b border-slate-200 border-dashed lg:border-solid lg:border-0 lg:border-b'>
                                                 <span className="lg:hidden font-bold text-gray-500">Kota</span>
-                                                <span>Jakarta</span>
+                                                <span>{row.kota || "-"}</span>
                                             </td>
                                             <td className='flex justify-between items-center lg:table-cell py-1.5 lg:py-1 px-2 text-xs font-medium text-slate-900 border-b border-slate-200 border-dashed lg:border-solid lg:border-0 lg:border-b'>
                                                 <span className="lg:hidden font-bold text-gray-500">Provinsi</span>
-                                                <span>Indonesia</span>
+                                                <span>{row.provinsi || "-"}</span>
                                             </td>
                                             <td className='flex justify-between items-center lg:table-cell py-1.5 lg:py-1 px-2 text-xs font-medium text-slate-900 border-b border-slate-200 border-dashed lg:border-solid lg:border-0 lg:border-b'>
                                                 <span className="lg:hidden font-bold text-gray-500">Validitas</span>
-                                                <div className="flex items-center justify-center gap-1.5 px-2 py-1 bg-green-100 border border-green-200 rounded-full text-xs font-medium text-green-700">
-                                                    <span className="flex h-2 w-2 rounded-full bg-green-500"></span>
-                                                    Valid
+                                                <div className={`flex items-center justify-center gap-1.5 px-2 py-1 border rounded-full text-xs font-medium ${row.validitas === 'Valid' ? 'bg-green-100 border-green-200 text-green-700' : row.validitas === 'Invalid' ? 'bg-red-100 border-red-200 text-red-700' : 'bg-orange-100 border-orange-200 text-orange-700'}`}>
+                                                    <span className={`flex h-2 w-2 rounded-full ${row.validitas === 'Valid' ? 'bg-green-500' : row.validitas === 'Invalid' ? 'bg-red-500' : 'bg-orange-500'}`}></span>
+                                                    {row.validitas}
                                                 </div>
                                             </td>
                                             <td className='flex justify-between items-center lg:table-cell py-1.5 lg:py-1 px-2 text-xs font-medium text-slate-700 border-b border-slate-200 border-dashed lg:border-solid lg:border-0 lg:border-b'>
-                                                <span className="lg:hidden font-bold text-gray-500">Detail</span>
-                                                <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-100 border border-blue-200 rounded-full text-xs font-medium text-blue-700">
-                                                    <span className="flex h-2 w-2 rounded-full bg-blue-500"></span>
-                                                    View
+                                                <span className="lg:hidden font-bold text-gray-500">Sumber</span>
+                                                <div className={`flex items-center gap-1.5 px-2 py-1 border rounded-full text-xs font-medium ${row.source === 'Validasi Sales' ? 'bg-blue-100 border-blue-200 text-blue-700' : 'bg-purple-100 border-purple-200 text-purple-700'}`}>
+                                                    <span className={`flex h-2 w-2 rounded-full ${row.source === 'Validasi Sales' ? 'bg-blue-500' : 'bg-purple-500'}`}></span>
+                                                    {row.source}
                                                 </div>
                                             </td>
                                         </tr>
                                     ))}
+                                    {stats?.detailData?.length === 0 && (
+                                        <tr>
+                                            <td colSpan={8} className="py-8 text-center text-sm text-slate-500">
+                                                Tidak ada data
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -674,4 +705,4 @@ export default function ReportProgresPage() {
         </div>
         </div >
     );
-}   
+}

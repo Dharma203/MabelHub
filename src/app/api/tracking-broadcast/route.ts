@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl
 
     const filter: Record<string, any> = {}
-    
+
     const createdAt = searchParams.get('createdAt')
     if (createdAt) {
       // Filter berdasarkan rentang tanggal createdAt

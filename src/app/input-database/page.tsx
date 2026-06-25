@@ -319,10 +319,10 @@ function InputDatabaseContent() {
       }
       setRequestor(
         header?.requestor ??
-          user?.fullName ??
-          user?.username ??
-          user?.userId ??
-          '',
+        user?.fullName ??
+        user?.username ??
+        user?.userId ??
+        '',
       )
       setSegmen(header?.segmen ?? '')
       setNamaPerusahaan(header?.namaPerusahaan ?? '')
@@ -512,7 +512,7 @@ function InputDatabaseContent() {
           ? 'Data berhasil direvisi!'
           : 'Database berhasil disimpan!',
       )
-      
+
       router.push('/input-database')
       setSegmen('')
       setKota('')
