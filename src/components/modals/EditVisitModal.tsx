@@ -57,31 +57,35 @@ export default function EditVisitModal({
     if (!isOpen || !editId) return;
 
     let isMounted = true;
-    setLoading(true);
-    setFileObj(null);
-    setForm({
-      pic_name: "",
-      pic_phone: "",
-      pic_role: "",
-      pic_position: "",
-      status_visit: "",
-      kegiatan_status: "",
-      descriptions: "",
-      tindak_lanjut: "",
-      visit_image: "",
-      reschedule_date: "",
-      reschedule_note: "",
-      company_id: "",
-    });
 
-    fetch(`/api/visits/${editId}`)
-      .then(async (res) => {
+    const fetchData = async () => {
+      // ✅ setState di dalam async function — aman
+      if (isMounted) setLoading(true);
+      if (isMounted) setFileObj(null);
+      if (isMounted) setForm({
+        pic_name: "",
+        pic_phone: "",
+        pic_role: "",
+        pic_position: "",
+        status_visit: "",
+        kegiatan_status: "",
+        descriptions: "",
+        tindak_lanjut: "",
+        visit_image: "",
+        reschedule_date: "",
+        reschedule_note: "",
+        company_id: "",
+      });
+
+      try {
+        // ✅ Fetch spesifik berdasarkan editId
+        const res = await fetch(`/api/visits/${editId}`);
         const json = await res.json();
         if (!res.ok) throw new Error(json.error);
-        return json.data;
-      })
-      .then((data) => {
+
+        const data = json.data;
         if (!isMounted) return;
+
         setVisitDate(data.visit_date || data.tanggal || "");
         setSavedStatusVisit(data.status_visit || "");
         setOwnerId(data.user_id || "");
@@ -106,14 +110,17 @@ export default function EditVisitModal({
           pic_position: data.pic_position || "",
         });
         setPicChangeHistory(data.pic_change_history || []);
-      })
-      .catch((e: any) => {
+
+      } catch (e: any) {
         alert("Gagal load data edit: " + e.message);
         onClose();
-      })
-      .finally(() => {
+      } finally {
+        // ✅ setLoading hanya dipanggil sekali
         if (isMounted) setLoading(false);
-      });
+      }
+    };
+
+    fetchData(); // ✅ Hanya satu fetch call
 
     return () => {
       isMounted = false;
@@ -233,7 +240,7 @@ export default function EditVisitModal({
     if (isAlreadyVisited) {
       return true;
     }
-      
+
 
     // Lewat deadline (H+1 09:00 WIB) → hanya reschedule field yang bisa diisi
     if (isPastDeadline) {
