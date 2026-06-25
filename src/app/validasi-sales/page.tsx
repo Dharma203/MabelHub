@@ -147,7 +147,7 @@ export default function ValidasiSalesPage() {
     const [saving, setSaving] = useState(false)
 
     // Debounced search
-    const searchTimer = useRef<NodeJS.Timeout | null>(null)
+    const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [debouncedSearch, setDebouncedSearch] = useState('')
 
     useEffect(() => {
