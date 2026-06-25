@@ -320,6 +320,7 @@ export async function POST(req: Request) {
     requestor,
     pemohon,
     lokasi,
+    statusUsulan: "masuk",
     segmen,
     deadlineUsulan: deadlineUsulan || "",
     tanggalSubmit: now.toISOString(),
