@@ -73,7 +73,9 @@ type ExportField = {
 }
 
 const EXPORT_FIELDS: ExportField[] = [
+  { key: 'created_at', label: 'Tanggal Input' },
   { key: 'kode', label: 'Kode' },
+  { key: 'penginput', label: 'Penginput' },
   { key: 'nama_perusahaan', label: 'Nama Perusahaan' },
   { key: 'segmen', label: 'Segmen' },
   { key: 'segmentasi', label: 'Segmentasi' },
@@ -95,12 +97,10 @@ const EXPORT_FIELDS: ExportField[] = [
   { key: 'link_produk', label: 'Link Produk' },
   { key: 'link_toko', label: 'Link Toko' },
   { key: 'alamat', label: 'Alamat' },
-  { key: 'penginput', label: 'Penginput' },
   { key: 'requestor', label: 'Requestor' },
   { key: 'jenis_entitas', label: 'Jenis Entitas' },
   { key: 'keterangan_update', label: 'Keterangan Update' },
   { key: 'bulan_data', label: 'Bulan Data' },
-  { key: 'created_at', label: 'Tanggal Input' },
   { key: 'updated_at', label: 'Tanggal Update' },
 ]
 
@@ -271,6 +271,19 @@ export default function TrackingDatabasePage() {
     tipe: [],
   })
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const handleWhatsAppClick = (telp: unknown) => {
+    const raw = String(telp ?? '').trim()
+    if (!raw) return
+    let cleanNumber = raw.replace(/\D/g, '')
+    if (cleanNumber.startsWith('0')) {
+      cleanNumber = '62' + cleanNumber.slice(1)
+    } else if (!cleanNumber.startsWith('62')) {
+      cleanNumber = '62' + cleanNumber
+    }
+    if (cleanNumber.length < 10) return // nomor tidak balid
+    window.open(`https://wa.me/${cleanNumber}`, '_blank', 'noopener, noreferrer')
+    }
 
   // pagination
   const [pageSize, setPageSize] = useState(25)
@@ -693,6 +706,11 @@ export default function TrackingDatabasePage() {
                       setPage(1)
                       setSelected(null)
                     }}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
                   />
                   <span className='text-gray-400 font-semibold'>-</span>
                   <input
@@ -704,6 +722,11 @@ export default function TrackingDatabasePage() {
                       setEndDate(e.target.value)
                       setPage(1)
                       setSelected(null)
+                    }}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
                     }}
                   />
                 </div>
@@ -1452,14 +1475,15 @@ export default function TrackingDatabasePage() {
                               <span className='lg:hidden font-bold text-gray-400'>
                                 📱 TIPE
                               </span>
-                              <span
-                                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold ${row.tipe === 'WhatsApp'
+                              <button
+                              onClick={() => handleWhatsAppClick(row.telp)}
+                                className={`inline-flex items-center px-1.5 py-0.5 rounded-full cursor-pointer transition-all duration-150 hover:opacity-50 text-[9px] font-bold ${row.tipe === 'WhatsApp'
                                   ? 'bg-green-100 text-green-700'
                                   : 'bg-slate-100 text-slate-600'
                                   }`}
                               >
                                 {row.tipe}
-                              </span>
+                              </button>
                             </td>
                           </tr>
                           {active && (
@@ -1821,6 +1845,11 @@ export default function TrackingDatabasePage() {
                     type='date'
                     value={exportStartDate}
                     onChange={(e) => setExportStartDate(e.target.value)}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
                     className='flex-1 text-sm h-10 px-3 border border-gray-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400'
                   />
                   <span className='text-gray-400 font-semibold text-sm'>—</span>
@@ -1828,6 +1857,11 @@ export default function TrackingDatabasePage() {
                     type='date'
                     value={exportEndDate}
                     onChange={(e) => setExportEndDate(e.target.value)}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
                     className='flex-1 text-sm h-10 px-3 border border-gray-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400'
                   />
                 </div>

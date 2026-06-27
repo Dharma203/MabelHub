@@ -106,10 +106,55 @@ export async function GET(req: Request) {
   // =========================
   // ACCESS FILTER (ROLE)
   // =========================
+  // Many legacy VisitActivity docs have no user_id field —
+  // they only carry nama_sales. To support both old and new data
+  // we build an $or filter that matches:
+  //   (a) user_id == targetId, OR
+  //   (b) nama_sales == fullName AND user_id is absent/null (legacy docs)
+  // =========================
   const match: any = {};
 
+  /** Condition: document has no user_id (legacy data) */
+  const NO_USER_ID = {
+    $or: [{ user_id: { $exists: false } }, { user_id: null }],
+  };
+
+  /**
+   * Build an ownership filter for a single user that covers both
+   * new docs (with user_id) and legacy docs (only nama_sales).
+   */
+  function ownerFilter(userId: string, fullName: string | null) {
+    const conditions: any[] = [{ user_id: userId }];
+    if (fullName) {
+      // Legacy docs: match by nama_sales where user_id is absent
+      conditions.push({
+        $and: [{ nama_sales: fullName }, NO_USER_ID],
+      });
+    }
+    return { $or: conditions };
+  }
+
+  /**
+   * Build an ownership filter for multiple users (team scenario).
+   */
+  function multiOwnerFilter(userIds: string[], fullNames: string[]) {
+    const conditions: any[] = [{ user_id: { $in: userIds } }];
+    if (fullNames.length > 0) {
+      conditions.push({
+        $and: [{ nama_sales: { $in: fullNames } }, NO_USER_ID],
+      });
+    }
+    return { $or: conditions };
+  }
+
+  /** Merge an ownership filter into the match object via $and */
+  function applyOwnerFilter(ownerCondition: any) {
+    if (!match.$and) match.$and = [];
+    match.$and.push(ownerCondition);
+  }
+
   if (session.role === "SALES") {
-    match.user_id = session.userId;
+    applyOwnerFilter(ownerFilter(session.userId, session.fullName || null));
   } else if (session.role === "LEADER") {
     const allowed = await getLeaderAllowedUserIds(db, session.userId);
 
@@ -120,13 +165,23 @@ export async function GET(req: Request) {
           { status: 403 },
         );
       }
-      match.user_id = assignedTo;
+      const targetUser = await getUserLiteById(db, assignedTo);
+      applyOwnerFilter(ownerFilter(assignedTo, targetUser?.fullName || null));
     } else {
-      match.user_id = { $in: allowed };
+      // Resolve fullNames for all allowed userIds
+      const fullNames: string[] = [];
+      for (const uid of allowed) {
+        const u = await getUserLiteById(db, uid);
+        if (u?.fullName) fullNames.push(u.fullName);
+      }
+      applyOwnerFilter(multiOwnerFilter(allowed, fullNames));
     }
   } else {
     // ADMIN/SUPERADMIN
-    if (assignedTo) match.user_id = assignedTo;
+    if (assignedTo) {
+      const targetUser = await getUserLiteById(db, assignedTo);
+      applyOwnerFilter(ownerFilter(assignedTo, targetUser?.fullName || null));
+    }
   }
 
   // =========================

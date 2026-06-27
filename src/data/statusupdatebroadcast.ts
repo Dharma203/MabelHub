@@ -6,6 +6,7 @@ const rawData: { status: string; update: string }[] = [
   { status: 'Dibaca - Respons Netral', update: 'Terima kasih sudah menghubungi kami.' },
   { status: 'Dibaca - Respons Netral', update: 'Hanya Menjawab Nama' },
   { status: 'Dibaca - Respons Netral', update: 'Nanti jika ada kebutuhan kami hubungi.' },
+  { status: 'Dibaca - Respons Netral', update: 'Diberikan Nomor PIC' },
   { status: 'Dibaca - Respons Positif', update: 'Bertanya status TKDN' },
   { status: 'Dibaca - Respons Positif', update: 'Bertanya Spesifikasi' },
   { status: 'Dibaca - Respons Positif', update: 'Bertanya Pricelist' },
