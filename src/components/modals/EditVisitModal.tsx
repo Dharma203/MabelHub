@@ -481,6 +481,11 @@ export default function EditVisitModal({
                           reschedule_date: e.target.value,
                         }))
                       }
+                      onClick={(e) => {
+                        if ('showPicker' in HTMLInputElement.prototype) {
+                          e.currentTarget.showPicker();
+                        }
+                      }}
                       readOnly={isFieldLocked("reschedule_date")}
                       className={` rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${!isFieldLocked("reschedule_date")
                         ? "focus:ring-1 focus:ring-blue-300 text-black"

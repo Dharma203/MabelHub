@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 
+import { ObjectId } from "mongodb";
+
 type TeamDoc = {
   leaderId: string;
   memberIds: string[];
@@ -14,6 +16,23 @@ async function getLeaderAllowedUserIds(db: any, leaderId: string) {
 
   const ids = [leaderId, ...(team?.memberIds ?? [])];
   return Array.from(new Set(ids));
+}
+
+async function getUserLiteById(db: any, userId: string) {
+  if (!ObjectId.isValid(userId)) return null;
+  const u = await db
+    .collection("users")
+    .findOne(
+      { _id: new ObjectId(userId) },
+      { projection: { _id: 1, role: 1, username: 1, fullName: 1 } },
+    );
+  if (!u) return null;
+  return {
+    userId: String((u as any)._id),
+    role: String((u as any).role || ""),
+    username: String((u as any).username || ""),
+    fullName: String((u as any).fullName || ""),
+  };
 }
 
 export async function GET(req: Request) {
@@ -48,11 +67,45 @@ export async function GET(req: Request) {
   // =========================
   // ACCESS FILTER (ROLE)
   // =========================
+  const NO_USER_ID = {
+    $or: [{ user_id: { $exists: false } }, { user_id: null }],
+  };
+
+  function ownerFilter(userId: string, fullName: string | null) {
+    const conditions: any[] = [{ user_id: userId }];
+    if (fullName) {
+      conditions.push({
+        $and: [{ nama_sales: fullName }, NO_USER_ID],
+      });
+    }
+    return { $or: conditions };
+  }
+
+  function multiOwnerFilter(userIds: string[], fullNames: string[]) {
+    const conditions: any[] = [{ user_id: { $in: userIds } }];
+    if (fullNames.length > 0) {
+      conditions.push({
+        $and: [{ nama_sales: { $in: fullNames } }, NO_USER_ID],
+      });
+    }
+    return { $or: conditions };
+  }
+
+  function applyOwnerFilter(ownerCondition: any) {
+    if (!matchQuery.$and) matchQuery.$and = [];
+    matchQuery.$and.push(ownerCondition);
+  }
+
   if (session.role === "SALES") {
-    matchQuery.user_id = session.userId;
+    applyOwnerFilter(ownerFilter(session.userId, session.fullName || null));
   } else if (session.role === "LEADER") {
     const allowed = await getLeaderAllowedUserIds(db, session.userId);
-    matchQuery.user_id = { $in: allowed };
+    const fullNames: string[] = [];
+    for (const uid of allowed) {
+      const u = await getUserLiteById(db, uid);
+      if (u?.fullName) fullNames.push(u.fullName);
+    }
+    applyOwnerFilter(multiOwnerFilter(allowed, fullNames));
   } else {
     // ADMIN/SUPERADMIN can see all - no strict user_id filter applied
   }
@@ -62,16 +115,11 @@ export async function GET(req: Request) {
   }
 
   if (statusGroup) {
-    // Mimic the aggregation condition logic
     if (statusGroup === "Visits") {
       matchQuery.status_visit = { $regex: /visited|visit|sudah_visit/i };
-      // Filter out 'not_visited'/'belum_visit' implicitly depending on regex, or do negative lookahead
-      // Better to use an $in logic or simpler regex with negative check, but simplest is to just regex match
-      // but exclude 'not' / 'belum'
-      matchQuery.$and = [
-        { status_visit: { $regex: /visit/i } },
-        { status_visit: { $not: /not|belum/i } },
-      ];
+      if (!matchQuery.$and) matchQuery.$and = [];
+      matchQuery.$and.push({ status_visit: { $regex: /visit/i } });
+      matchQuery.$and.push({ status_visit: { $not: /not|belum/i } });
     } else if (statusGroup === "Stay Office") {
       matchQuery.status_visit = { $regex: /stay[\s_]*office/i };
     } else if (statusGroup === "Not Visited") {
@@ -198,7 +246,6 @@ export async function GET(req: Request) {
         { $group: { _id: "$nama_sales", count: { $sum: 1 } } },
         { $match: { _id: { $nin: [null, ""] }, count: { $gt: 0 } } },
         { $sort: { count: -1 } },
-        { $limit: 5 },
       ])
       .toArray(),
 

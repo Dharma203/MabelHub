@@ -436,11 +436,21 @@ export default function RekapitulasiVisitPage() {
                   label="TANGGAL MULAI"
                   value={fStart}
                   onChange={(v) => onChangeFilter(setFStart, v)}
+                  onClick={(e) => {
+                    if ('showPicker' in HTMLInputElement.prototype) {
+                      e.currentTarget.showPicker();
+                    }
+                  }}
                 />
                 <FilterDate
                   label="TANGGAL AKHIR"
                   value={fEnd}
                   onChange={(v) => onChangeFilter(setFEnd, v)}
+                  onClick={(e) => {
+                    if ('showPicker' in HTMLInputElement.prototype) {
+                      e.currentTarget.showPicker();
+                    }
+                  }}
                 />
 
                 <FilterSelect
@@ -908,10 +918,12 @@ function FilterDate({
   label,
   value,
   onChange,
+  onClick,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  onClick: (e: React.MouseEvent<HTMLInputElement>) => void;
 }) {
   return (
     <div>
@@ -923,6 +935,7 @@ function FilterDate({
           type="date"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onClick={onClick}
           className="h-12 w-full rounded-xl border border-blue-200 bg-white px-4 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-200"
         />
       </div>

@@ -878,7 +878,7 @@ export default function TrackingBroadcastPage() {
                 <div className='flex items-center gap-2'>
                   <input
                     type='date'
-                    className='w-30 text-xs h-8 px-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400'
+                    className='w-30 text-xs h-8 px-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 cursor-pointer'
                     placeholder='mm/dd/yyyy'
                     value={startDate}
                     onChange={(e) => {
@@ -886,17 +886,27 @@ export default function TrackingBroadcastPage() {
                       setPage(1)
                       setSelected(null)
                     }}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
                   />
                   <span className='text-gray-400 font-semibold'>-</span>
                   <input
                     type='date'
-                    className='w-30 text-xs h-8 px-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400'
+                    className='w-30 text-xs h-8 px-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:outline-none cursor-pointer focus:ring-1 focus:ring-blue-400 focus:border-blue-400'
                     placeholder='mm/dd/yyyy'
                     value={endDate}
                     onChange={(e) => {
                       setEndDate(e.target.value)
                       setPage(1)
                       setSelected(null)
+                    }}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
                     }}
                   />
                 </div>

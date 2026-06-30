@@ -275,6 +275,8 @@ export default function PlanActivityPage() {
     }
   }, [sessionLoading, user, router]);
 
+  // 
+
   // Fetch plans based on calendar view date range
   const fetchPlans = useCallback(async () => {
     if (!user) return;
