@@ -90,6 +90,7 @@ export async function GET(req: NextRequest) {
 
     const matchStage: Record<string, any> = {
       tipe_kontak: 'WhatsApp',
+      no_telp: { $nin: ['', null] }
     }
     if (produkArr.length > 0) matchStage['produk_relevan'] = { $in: produkArr }
     if (perusahaanArr.length > 0)
@@ -283,6 +284,12 @@ export async function GET(req: NextRequest) {
       col
         .aggregate([
           {
+            $match: {
+              tipe_kontak: 'WhatsApp',
+              no_telp: { $nin: ['', null] },
+            },
+          },
+          {
             $lookup: {
               from: 'tracking_broadcast',
               let: { codeInput: '$code_input', docId: { $toString: '$_id' } },
@@ -320,6 +327,12 @@ export async function GET(req: NextRequest) {
 
       col
         .aggregate([
+          {
+            $match: {
+              tipe_kontak: 'WhatsApp',
+              no_telp: { $nin: ['', null] },
+            },
+          },
           {
             $lookup: {
               from: 'tracking_broadcast',
@@ -376,6 +389,12 @@ export async function GET(req: NextRequest) {
       // Agregasi per ke_sales saja (untuk tabel "Unik No HP per Ke Sales")
       col
         .aggregate([
+          {
+            $match: {
+              tipe_kontak: 'WhatsApp',
+              no_telp: { $nin: ['', null] },
+            },
+          },
           {
             $lookup: {
               from: 'tracking_broadcast',
@@ -528,7 +547,7 @@ export async function GET(req: NextRequest) {
       ...matchStage,
       tipe_kontak: 'WhatsApp',
       nama: { $ne: '' },
-      no_telp: { $ne: '' },
+      no_telp: { $nin: ['', null] },
     }
     const uniqueWaAgg = await col
       .aggregate([
@@ -548,7 +567,7 @@ export async function GET(req: NextRequest) {
             provinsi: { $ne: '' },
             kota: { $ne: '' },
             nama: { $ne: '' },
-            no_telp: { $ne: '' },
+            no_telp: { $nin: ['', null] },
           },
         },
         {
@@ -593,7 +612,7 @@ export async function GET(req: NextRequest) {
             provinsi: { $ne: '' },
             kota: { $ne: '' },
             nama: { $ne: '' },
-            no_telp: { $ne: '' },
+            no_telp: { $nin: ['', null] },
           },
         },
         {

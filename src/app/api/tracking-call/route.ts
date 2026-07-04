@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
         // Filter tipe_kontak selain WhatsApp
         const matchStage: Record<string, any> = {
             tipe_kontak: { $ne: 'WhatsApp' },
+            no_telp: { $nin: ['', null] },
         }
         if (produkArr.length > 0) matchStage['produk_relevan'] = { $in: produkArr }
         if (perusahaanArr.length > 0)
@@ -214,7 +215,7 @@ export async function GET(req: NextRequest) {
             // Hitung per status_call (dari tracking_call collection)
             col
                 .aggregate([
-                    { $match: { tipe_kontak: { $ne: 'WhatsApp' } } },
+                    { $match: { tipe_kontak: { $ne: 'WhatsApp' }, no_telp: { $nin: ['', null] } } },
                     {
                         $lookup: {
                             from: 'tracking_call',
@@ -241,7 +242,7 @@ export async function GET(req: NextRequest) {
             // Agregasi ke_sales per provinsi & kota
             col
                 .aggregate([
-                    { $match: { tipe_kontak: { $ne: 'WhatsApp' } } },
+                    { $match: { tipe_kontak: { $ne: 'WhatsApp' }, no_telp: { $nin: ['', null] } } },
                     {
                         $lookup: {
                             from: 'tracking_call',
@@ -332,7 +333,6 @@ export async function GET(req: NextRequest) {
                 ])
                 .toArray() as Promise<any[]>,
         ])
-
         const totalCount = countResult[0]?.total ?? 0
         const countMap = Object.fromEntries(
             statusCallCounts.map((s: any) => [s._id, s.count]),
