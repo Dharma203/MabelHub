@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useSession } from "@/components/session/SessionProvider";
 import EditVisitModal from "@/components/modals/EditVisitModal";
-import {Pen, ChevronRight} from "lucide-react";
+import { Pen, ChevronLeft, ChevronRight, X, Eye, Calendar, Clock, MapPin, Building2, Briefcase, ImageIcon, User } from "lucide-react";
+
+// ─── TYPES ────────────────────────────────────────────────────────────────────
 
 type VisitRow = {
   _id: string;
@@ -13,6 +15,7 @@ type VisitRow = {
   created_at?: string; // "2025-12-03 16:15:30" (string)
   city?: string;
   klpd?: string;
+  nama_sales?: string;
   institusi_kerja?: string;
   satuan_kerja?: string;
   status_visit?: string; // "Visited"
@@ -22,6 +25,7 @@ type VisitRow = {
 
 type PlanRow = {
   id: string; // _id
+  nama_sales: string;
   tanggal: string; // visit_date
   kota: string;
   klpd: string;
@@ -31,27 +35,19 @@ type PlanRow = {
   visit_image: string;
   reschedule_date: string;
   _sortTs: number; // untuk sorting (baru -> besar)
+  _date: Date | null; // parsed Date object for calendar placement
 };
+
+type CalendarView = "month" | "week" | "day" | "reschedule";
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function monthIndex(mon: string) {
   const m = mon.toLowerCase();
   const map: Record<string, number> = {
-    jan: 0,
-    feb: 1,
-    mar: 2,
-    apr: 3,
-    may: 4,
-    mei: 4,
-    jun: 5,
-    jul: 6,
-    aug: 7,
-    agu: 7,
-    sep: 8,
-    oct: 9,
-    okt: 9,
-    nov: 10,
-    dec: 11,
-    des: 11,
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, mei: 4,
+    jun: 5, jul: 6, aug: 7, agu: 7, sep: 8,
+    oct: 9, okt: 9, nov: 10, dec: 11, des: 11,
   };
   return map[m] ?? -1;
 }
@@ -67,29 +63,146 @@ function parseVisitDateToTs(v?: string) {
   const year = Number(parts[2]);
   if (!day || mon < 0 || !year) return 0;
 
-  const d = new Date(year, mon, day, 12, 0, 0); // jam 12 biar aman timezone
+  const d = new Date(year, mon, day, 12, 0, 0);
   return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+// parse "3-Dec-2025" -> Date object
+function parseVisitDateToDate(v?: string): Date | null {
+  if (!v) return null;
+  const parts = v.split("-");
+  if (parts.length !== 3) return null;
+
+  const day = Number(parts[0]);
+  const mon = monthIndex(parts[1]);
+  const year = Number(parts[2]);
+  if (!day || mon < 0 || !year) return null;
+
+  const d = new Date(year, mon, day);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 // parse "2025-12-03 16:15:30" -> timestamp
 function parseCreatedAtToTs(v?: string) {
   if (!v) return 0;
-  // ubah "YYYY-MM-DD HH:mm:ss" jadi ISO "YYYY-MM-DDTHH:mm:ss"
   const iso = v.includes("T") ? v : v.replace(" ", "T");
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
-function formatTanggalHeader(dateStr: string) {
-  if (!dateStr) return "-";
-  const parts = dateStr.split("-");
-  if (parts.length === 3) {
-    const day = parts[0];
-    const month = String(parts[1] || "").toUpperCase();
-    return `${day} ${month}`;
-  }
-  return dateStr;
+// "YYYY-MM-DD" for consistent date keys
+function dateToKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
+
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+}
+
+function isToday(d: Date): boolean {
+  return isSameDay(d, new Date());
+}
+
+// Format: "Juni 2026"
+const MONTH_NAMES_ID = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+];
+const DAY_NAMES = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+const DAY_NAMES_FULL = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+
+function formatMonthYear(d: Date): string {
+  return `${MONTH_NAMES_ID[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function formatFullDate(d: Date): string {
+  const dayIdx = (d.getDay() + 6) % 7; // Monday = 0
+  return `${DAY_NAMES_FULL[dayIdx]}, ${d.getDate()} ${MONTH_NAMES_ID[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// Get calendar grid days for a month (includes padding from prev/next months)
+function getMonthGridDays(year: number, month: number): Date[] {
+  const firstDay = new Date(year, month, 1);
+  const startDow = (firstDay.getDay() + 6) % 7; // Monday = 0
+
+  const days: Date[] = [];
+
+  // Previous month padding
+  for (let i = startDow - 1; i >= 0; i--) {
+    days.push(new Date(year, month, -i));
+  }
+
+  // Current month
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let i = 1; i <= daysInMonth; i++) {
+    days.push(new Date(year, month, i));
+  }
+
+  // Next month padding (fill to 42 = 6 rows, or 35 = 5 rows)
+  const totalCells = days.length <= 35 ? 35 : 42;
+  while (days.length < totalCells) {
+    days.push(new Date(year, month + 1, days.length - startDow - daysInMonth + 1));
+  }
+
+  return days;
+}
+
+// Get the week (Mon-Sun) that contains the given date
+function getWeekDays(d: Date): Date[] {
+  const dow = (d.getDay() + 6) % 7; // Monday = 0
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - dow);
+
+  const days: Date[] = [];
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(monday);
+    day.setDate(monday.getDate() + i);
+    days.push(day);
+  }
+  return days;
+}
+
+// date range for fetching
+function getViewDateRange(view: CalendarView, d: Date): { start: string; end: string } {
+  if (view === "day") {
+    const key = dateToKey(d);
+    return { start: key, end: key };
+  }
+  if (view === "week") {
+    const weekDays = getWeekDays(d);
+    return { start: dateToKey(weekDays[0]), end: dateToKey(weekDays[6]) };
+  }
+  // month or reschedule: fetch the full month + padding
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  // Include padding days
+  const startDow = (first.getDay() + 6) % 7;
+  const paddedStart = new Date(first);
+  paddedStart.setDate(first.getDate() - startDow);
+  const daysInMonth = last.getDate();
+  const totalCells = (startDow + daysInMonth) <= 35 ? 35 : 42;
+  const paddedEnd = new Date(paddedStart);
+  paddedEnd.setDate(paddedStart.getDate() + totalCells - 1);
+
+  return { start: dateToKey(paddedStart), end: dateToKey(paddedEnd) };
+}
+
+// Status badge color
+function getStatusColor(status: string): { bg: string; text: string; dot: string; border: string } {
+  const s = status?.toLowerCase() || "";
+  if (s.includes("visit") && !s.includes("not")) return { bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500", border: "#10b981" };
+  if (s === "planned" || s === "") return { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500", border: "#3b82f6" };
+  if (s.includes("reschedule")) return { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500", border: "#f59e0b" };
+  if (s.includes("stay")) return { bg: "bg-purple-100", text: "text-purple-700", dot: "bg-purple-500", border: "#a855f7" };
+  return { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400", border: "#9ca3af" };
+}
+
+// ─── COMPONENT ────────────────────────────────────────────────────────────────
 
 export default function PlanActivityPage() {
   const router = useRouter();
@@ -98,20 +211,20 @@ export default function PlanActivityPage() {
   const [search, setSearch] = useState("");
 
   const [plans, setPlans] = useState<PlanRow[]>([]);
-  const [openDates, setOpenDates] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
 
-  // pagination
-  const [page, setPage] = useState(1);
-  const limit = 25;
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalRows, setTotalRows] = useState(0);
+  // Calendar state
+  const [calendarView, setCalendarView] = useState<CalendarView>("month");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [detailPlan, setDetailPlan] = useState<PlanRow | null>(null);
+
+  // popup ref
+  const popupRef = useRef<HTMLDivElement>(null);
 
   // parameter options
   const [posisiOptions, setPosisiOptions] = useState<string[]>([]);
-  const [statusKunjunganOptions, setStatusKunjunganOptions] = useState<
-    string[]
-  >([]);
+  const [statusKunjunganOptions, setStatusKunjunganOptions] = useState<string[]>([]);
   const [kegiatanOptions, setKegiatanOptions] = useState<string[]>([]);
 
   // edit modal state
@@ -138,7 +251,7 @@ export default function PlanActivityPage() {
 
   function handleEditSuccess() {
     setEditModalOpen(false);
-    fetchPlans(page, search);
+    fetchPlans();
   }
 
   function openImageBase64(base64: string) {
@@ -162,25 +275,24 @@ export default function PlanActivityPage() {
     }
   }, [sessionLoading, user, router]);
 
-  function groupByTanggal(rows: PlanRow[]) {
-    return rows.reduce<Record<string, PlanRow[]>>((acc, r) => {
-      const key = r.tanggal || "UNKNOWN";
-      acc[key] = acc[key] || [];
-      acc[key].push(r);
-      return acc;
-    }, {});
-  }
+  // 
 
-  async function fetchPlans(nextPage: number, q: string) {
+  // Fetch plans based on calendar view date range
+  const fetchPlans = useCallback(async () => {
+    if (!user) return;
+
     try {
       setLoading(true);
 
+      const range = getViewDateRange(calendarView, currentDate);
       const qs = new URLSearchParams({
-        page: String(nextPage),
-        limit: String(limit),
+        limit: "100000",
+        page: "1",
+        start: range.start,
+        end: range.end,
       });
 
-      if (q.trim()) qs.set("q", q.trim());
+      if (search.trim()) qs.set("q", search.trim());
 
       const res = await fetch(`/api/visits?${qs.toString()}`, {
         cache: "no-store",
@@ -189,397 +301,771 @@ export default function PlanActivityPage() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         setPlans([]);
-        setTotalPages(1);
-        setTotalRows(0);
-        setOpenDates({});
         return;
       }
 
       const items: VisitRow[] = Array.isArray(json?.items) ? json.items : [];
 
-      // map + hitung sortTs (visit_date utama, fallback created_at)
       const mapped: PlanRow[] = items.map((v) => {
         const visitTs = parseVisitDateToTs(v.visit_date);
         const createdTs = parseCreatedAtToTs(v.created_at);
         const sortTs = visitTs || createdTs || 0;
+        const parsedDate = parseVisitDateToDate(v.visit_date);
 
         return {
           id: String(v._id),
           tanggal: v.visit_date || "",
           kota: v.city || "",
           klpd: v.klpd || "",
+          nama_sales: v.nama_sales || "",
           institusi_kerja: v.institusi_kerja || "",
           satuan_kerja: v.satuan_kerja || "",
           status: v.status_visit || "",
           visit_image: v.visit_image || "",
           reschedule_date: v.reschedule_date || "",
           _sortTs: sortTs,
+          _date: parsedDate,
         };
       });
 
-      // pastikan urutan terbaru di page ini
       mapped.sort((a, b) => b._sortTs - a._sortTs);
-
       setPlans(mapped);
-
-      const tp = Number(json?.pagination?.totalPages || 1);
-      setTotalPages(tp > 0 ? tp : 1);
-
-      const total = Number(json?.pagination?.total || 0);
-      setTotalRows(total > 0 ? total : 0);
-
-      // buka group tanggal paling baru
-      const grouped = groupByTanggal(mapped);
-      const firstKey = Object.keys(grouped).sort((a, b) => {
-        if (a === "UNKNOWN") return 1;
-        if (b === "UNKNOWN") return -1;
-        return parseVisitDateToTs(b) - parseVisitDateToTs(a);
-      })[0];
-
-      if (firstKey) setOpenDates({ [firstKey]: true });
-      else setOpenDates({});
     } finally {
       setLoading(false);
     }
-  }
+  }, [user, calendarView, currentDate, search]);
 
-  // fetch awal & saat page berubah
+  // Fetch on mount and when dependencies change
   useEffect(() => {
     if (sessionLoading) return;
     if (!user) return;
-    fetchPlans(page, search);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, sessionLoading, user]);
+    fetchPlans();
+  }, [sessionLoading, user, fetchPlans]);
 
-  // debounce search + reset page
+  // Debounce search
   useEffect(() => {
-    if (sessionLoading) return;
-    if (!user) return;
-
-    const t = setTimeout(() => {
-      setPage(1);
-      fetchPlans(1, search);
-    }, 350);
-
+    if (sessionLoading || !user) return;
+    const t = setTimeout(() => fetchPlans(), 350);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  const grouped = useMemo(() => {
-    // plans sudah di-sort terbaru, groupnya ikutin
-    const g = groupByTanggal(plans);
-    const keys = Object.keys(g).sort((a, b) => {
-      if (a === "UNKNOWN") return 1;
-      if (b === "UNKNOWN") return -1;
-      return parseVisitDateToTs(b) - parseVisitDateToTs(a);
-    });
-    return { keys, map: g };
-  }, [plans]);
+  // Group plans by date key
+  const plansByDate = useMemo(() => {
+    const map: Record<string, PlanRow[]> = {};
+    const filteredPlans = calendarView === "reschedule"
+      ? plans.filter((p) => p.status?.toLowerCase().includes("reschedule"))
+      : plans;
 
-  function toggleDate(key: string) {
-    setOpenDates((prev) => ({ ...prev, [key]: !prev[key] }));
+    for (const p of filteredPlans) {
+      if (!p._date) continue;
+      const key = dateToKey(p._date);
+      if (!map[key]) map[key] = [];
+      map[key].push(p);
+    }
+    return map;
+  }, [plans, calendarView]);
+
+  // Close popup when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
+        setSelectedDate(null);
+        setDetailPlan(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Navigation
+  function navigatePrev() {
+    const d = new Date(currentDate);
+    if (calendarView === "month" || calendarView === "reschedule") {
+      d.setMonth(d.getMonth() - 1);
+    } else if (calendarView === "week") {
+      d.setDate(d.getDate() - 7);
+    } else {
+      d.setDate(d.getDate() - 1);
+    }
+    setCurrentDate(d);
+    setSelectedDate(null);
+    setDetailPlan(null);
   }
 
-  return (
-    <div className="min-h-screen bg-blue-50">
-      <div className="flex">
-        
+  function navigateNext() {
+    const d = new Date(currentDate);
+    if (calendarView === "month" || calendarView === "reschedule") {
+      d.setMonth(d.getMonth() + 1);
+    } else if (calendarView === "week") {
+      d.setDate(d.getDate() + 7);
+    } else {
+      d.setDate(d.getDate() + 1);
+    }
+    setCurrentDate(d);
+    setSelectedDate(null);
+    setDetailPlan(null);
+  }
 
-        <div className="flex-1  p-6">
-          <main className="w-full max-w-none">
-        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  function navigateToday() {
+    setCurrentDate(new Date());
+    setSelectedDate(null);
+    setDetailPlan(null);
+  }
 
-  <div className="ml-4 px-4 pt-2 pb-4 space-y-1">
-    <h2 className="text-3xl font-extrabold text-black drop-shadow-sm">
-      PLAN ACTIVITY
-    </h2>
-    <p className="text-sm text-neutral-600">
-      Monitoring dan Pengelolaan Rencana Kunjungan Lapangan
-    </p>
-  </div>
+  function handleDateClick(date: Date) {
+    if (selectedDate && isSameDay(selectedDate, date)) {
+      setSelectedDate(null);
+      setDetailPlan(null);
+    } else {
+      setSelectedDate(date);
+      setDetailPlan(null);
+    }
+  }
 
-  <div className="relative w-full md:w-80">
-    <input
-      value={search}
-      onChange={(e) => setSearch(e.target.value)}
-      placeholder="Search..."
-      className="h-11 w-full rounded-full bg-white px-5 pr-11 text-sm outline-none ring-1 ring-black/10 focus:ring-2 focus:ring-black/20"
-    />
-    <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M10.5 18.5a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"
-          stroke="currentColor"
-          strokeWidth="2"
-        />
-        <path
-          d="M16.5 16.5 21 21"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
-    </span>
-  </div>
-</div>
-            
+  function getHeaderLabel(): string {
+    if (calendarView === "day") return formatFullDate(currentDate);
+    if (calendarView === "week") {
+      const week = getWeekDays(currentDate);
+      const start = week[0];
+      const end = week[6];
+      if (start.getMonth() === end.getMonth()) {
+        return `${start.getDate()} - ${end.getDate()} ${MONTH_NAMES_ID[start.getMonth()]} ${start.getFullYear()}`;
+      }
+      return `${start.getDate()} ${MONTH_NAMES_ID[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_ID[end.getMonth()]} ${end.getFullYear()}`;
+    }
+    return formatMonthYear(currentDate);
+  }
 
-            {/* ACTIONS */}
-            <div className="mb-6 flex items-center justify-between bg-white p-4 rounded-xl shadow-sm ring-1 ring-black/5">
-              <div className="text-sm font-medium text-gray-500">
-                {loading
-                  ? "Loading..."
-                  : `Total ${totalRows || "-"} Data • Page ${page} of ${totalPages}`}
-              </div>
+  // ─── RENDER HELPERS ───────────────────────────────────────────────────────
 
-              <button
-                onClick={() => router.push("/plan-activity/add")}
-                className="flex items-center gap-2 h-10 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white shadow-sm ring-1 ring-blue-700 hover:bg-blue-700 hover:shadow transition-all"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+  function renderPlanChip(plan: PlanRow) {
+    const colors = getStatusColor(plan.status);
+    return (
+      <div
+        key={plan.id}
+        className={`text-[10px] leading-tight px-1.5 py-0.5 rounded ${colors.bg} ${colors.text} font-medium truncate cursor-pointer hover:opacity-80 transition-opacity`}
+        title={`${plan.institusi_kerja || plan.kota || "Plan"} — ${plan.status || "No Status"}`}
+      >
+        {plan.institusi_kerja || plan.kota || "Plan"}
+      </div>
+    );
+  }
+
+  // ─── POPUP ──────────────────────────────────────────────────────────────────
+
+  function renderPopup() {
+    if (!selectedDate) return null;
+
+    const key = dateToKey(selectedDate);
+    const dayPlans = plansByDate[key] || [];
+
+    // Detail view
+    if (detailPlan) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => { setDetailPlan(null); }}>
+          <div
+            ref={popupRef}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            style={{ animation: "fadeInScale 0.2s ease-out" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-lg">Detail Aktivitas</h3>
+                <button
+                  onClick={() => setDetailPlan(null)}
+                  className="w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                ADD PLANS
-              </button>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-blue-100 text-sm mt-0.5">{detailPlan.tanggal}</p>
             </div>
 
-            {/* TABLE */}
-            <div className="w-full overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5">
-              <div className="hidden md:grid grid-cols-8 bg-blue-100 px-4 py-3 text-sm font-semibold text-black uppercase tracking-wider border-b border-gray-200">
-                <div>Tanggal</div>
-                <div>Kota</div>
-                <div>K/L/PD</div>
-                <div>Institusi Kerja</div>
-                <div>Satuan Kerja</div>
-                <div className="text-center">Bukti</div>
-                <div className="text-center">Status</div>
-                <div className="text-center">Aksi</div>
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <User className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Sales</p>
+                  <p className="text-sm font-medium text-gray-800">{detailPlan.nama_sales || "-"}</p>
+                </div>
               </div>
 
-              {grouped.keys.length === 0 ? (
-                <div className="px-4 py-16 text-center text-gray-600 bg-gray-50/30">
-                  {loading ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
-                      <span>Memuat data...</span>
-                    </div>
-                  ) : (
-                    "Belum ada data plan activity."
-                  )}
+              <div className="flex items-start gap-3">
+                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Kota</p>
+                  <p className="text-sm font-medium text-gray-800">{detailPlan.kota || "-"}</p>
                 </div>
-              ) : (
-                grouped.keys.map((dateKey) => {
-                  const rows = grouped.map[dateKey] || [];
-                  const isOpen = !!openDates[dateKey];
+              </div>
 
-                  return (
+              <div className="flex items-start gap-3">
+                <Building2 className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">K/L/PD</p>
+                  <p className="text-sm font-medium text-gray-800">{detailPlan.klpd || "-"}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Institusi Kerja</p>
+                  <p className="text-sm font-medium text-gray-800">{detailPlan.institusi_kerja || "-"}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Satuan Kerja</p>
+                  <p className="text-sm font-medium text-gray-800">{detailPlan.satuan_kerja || "-"}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Clock className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Status</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {(() => {
+                      const c = getStatusColor(detailPlan.status);
+                      return (
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${c.bg} ${c.text}`}>
+                          {detailPlan.status || "No Status"}
+                        </span>
+                      );
+                    })()}
+                    {detailPlan.status?.toLowerCase() === "reschedule" && detailPlan.reschedule_date && (
+                      <span className="text-[10px] text-amber-600 font-semibold">
+                        📅 {detailPlan.reschedule_date}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {detailPlan.visit_image && (
+                <div className="flex items-start gap-3">
+                  <ImageIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Bukti Kunjungan</p>
                     <div
-                      key={dateKey}
-                      className="group border-b border-gray-100 last:border-none"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleDate(dateKey)}
-                        className={`flex w-full items-center justify-between px-4 py-3 text-sm font-semibold transition-colors ${
-                          isOpen
-                            ? "bg-blue-50/50 text-blue-800"
-                            : "bg-white text-gray-800 hover:bg-gray-50"
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <ChevronRight className={`w-4 h-4 transition-transform ${isOpen ? "rotate-90 text-blue-600" : "text-gray-400 group-hover:text-gray-600"}`}
-                          />
-                          {dateKey === "UNKNOWN"
-                            ? "-"
-                            : formatTanggalHeader(dateKey)}
-                        </span>
-                        <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                          {rows.length} {rows.length > 1 ? "Plans" : "Plan"}
-                        </span>
-                      </button>
-
-                      <div
-                        className={`overflow-hidden transition-all duration-300 ${
-                          isOpen
-                            ? "max-h-[5000px] opacity-100"
-                            : "max-h-0 opacity-0"
-                        }`}
-                      >
-                        <div className="bg-gray-50/30">
-                          {rows.map((r, index) => (
-                            <div
-                              key={r.id}
-                              className={`flex flex-col md:grid md:grid-cols-8 md:items-center px-4 py-4 md:py-3 text-sm text-gray-700 transition-colors hover:bg-blue-50/50 gap-3 md:gap-0 ${
-                                index !== rows.length - 1
-                                  ? "border-b border-gray-100"
-                                  : ""
-                              }`}
-                            >
-                              <div className="hidden md:block opacity-0 select-none">
-                                {r.tanggal}
-                              </div>
-
-                              <div className="flex md:block flex-col">
-                                <span className="lg:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Kota</span>
-                                <div
-                                  className="uppercase text-xs font-medium truncate pr-2"
-                                  title={r.kota || "-"}
-                                >
-                                  {r.kota || "-"}
-                                </div>
-                              </div>
-                              <div className="flex md:block flex-col">
-                                <span className="lg:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">K/L/PD</span>
-                                <div
-                                  className="uppercase text-xs font-medium truncate pr-2"
-                                  title={r.klpd || "-"}
-                                >
-                                  {r.klpd || "-"}
-                                </div>
-                              </div>
-                              <div className="flex md:block flex-col">
-                                <span className="lg:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Institusi Kerja</span>
-                                <div
-                                  className="uppercase text-xs font-medium truncate pr-2"
-                                  title={r.institusi_kerja || "-"}
-                                >
-                                  {r.institusi_kerja || "-"}
-                                </div>
-                              </div>
-                              <div className="flex md:block flex-col">
-                                <span className="lg:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Satuan Kerja</span>
-                                <div
-                                  className="uppercase text-xs font-medium truncate pr-2"
-                                  title={r.satuan_kerja || "-"}
-                                >
-                                  {r.satuan_kerja || "-"}
-                                </div>
-                              </div>
-                              <div className="flex justify-between items-center md:justify-center lg:table-cell">
-                                <span className="lg:hidden text-[10px] font-bold text-gray-400 uppercase">Bukti</span>
-                                {r.visit_image ? (
-                                  <div
-                                    className="w-10 h-10 rounded-lg cursor-pointer ring-1 ring-gray-200 hover:ring-blue-400 hover:shadow-md transition-all flex-shrink-0 bg-cover bg-center"
-                                    style={{
-                                      backgroundImage: `url(${r.visit_image})`,
-                                    }}
-                                    onClick={() =>
-                                      openImageBase64(r.visit_image!)
-                                    }
-                                    title="Lihat foto bukti"
-                                  />
-                                ) : (
-                                  <span className="text-gray-300 text-xs font-medium bg-gray-100 px-2 py-1 rounded">
-                                    N/A
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex justify-between items-center md:justify-center lg:table-cell">
-                                <span className="lg:hidden text-[10px] font-bold text-gray-400 uppercase">Status</span>
-                                <span
-                                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                    r.status?.toLowerCase() === "visited"
-                                      ? "bg-green-100 text-green-700"
-                                      : r.status?.toLowerCase() === "planned"
-                                        ? "bg-blue-100 text-blue-700"
-                                        : r.status?.toLowerCase() === "reschedule"
-                                          ? "bg-amber-100 text-amber-700"
-                                          : "bg-gray-100 text-gray-600"
-                                  }`}
-                                >
-                                  {r.status || "-"}
-                                </span>
-                                {r.status?.toLowerCase() === "reschedule" && r.reschedule_date && (
-                                  <div className="text-[10px] text-amber-600 font-semibold mt-0.5">
-                                    📅 {r.reschedule_date}
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex justify-between items-center md:justify-center pt-2 md:pt-0 border-t md:border-t-0 border-dashed border-gray-200 lg:table-cell">
-                                <span className="lg:hidden text-[10px] font-bold text-gray-400 uppercase">Aksi</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEdit(r.id)}
-                                  className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
-                                  title="Edit Plan"
-                                >
-                                  <Pen className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
+                      className="mt-1 w-20 h-20 rounded-xl cursor-pointer ring-1 ring-gray-200 hover:ring-blue-400 hover:shadow-lg transition-all bg-cover bg-center"
+                      style={{ backgroundImage: `url(${detailPlan.visit_image})` }}
+                      onClick={() => openImageBase64(detailPlan.visit_image)}
+                      title="Lihat foto bukti"
+                    />
+                  </div>
+                </div>
               )}
             </div>
 
-            {/* PAGINATION */}
-            <div className="mt-6 flex items-center justify-between">
-              <div className="text-sm text-gray-500">
-                Menampilkan halaman {page} dari {totalPages}
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 flex gap-2">
+              <button
+                onClick={() => { handleOpenEdit(detailPlan.id); setDetailPlan(null); setSelectedDate(null); }}
+                className="flex-1 flex items-center justify-center gap-2 h-9 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+              >
+                <Pen className="w-3.5 h-3.5" />
+                Edit Kunjungan
+              </button>
+              <button
+                onClick={() => setDetailPlan(null)}
+                className="px-4 h-9 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Date popup — plan list
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setSelectedDate(null)}>
+        <div
+          ref={popupRef}
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
+          style={{ animation: "fadeInScale 0.2s ease-out" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-lg">{formatFullDate(selectedDate)}</h3>
+                <p className="text-blue-100 text-sm">
+                  {dayPlans.length} Aktivitas
+                </p>
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={loading || page <= 1}
-                  className="flex items-center gap-1 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+              <button
+                onClick={() => setSelectedDate(null)}
+                className="w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Plan list */}
+          <div className="max-h-80 overflow-y-auto">
+            {dayPlans.length === 0 ? (
+              <div className="px-5 py-10 text-center text-gray-400">
+                <Calendar className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <p className="text-sm font-medium">Tidak ada aktivitas</p>
+              </div>
+            ) : (
+              dayPlans.map((plan) => {
+                const colors = getStatusColor(plan.status);
+                return (
+                  <div
+                    key={plan.id}
+                    className="flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-none hover:bg-gray-50 transition-colors"
                   >
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 truncate">
+                        {plan.institusi_kerja || plan.kota || "-"}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {plan.kota} {plan.klpd ? `• ${plan.klpd}` : ""}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${colors.bg} ${colors.text}`}>
+                          {plan.status || "No Status"}
+                        </span>
+                        {plan.status?.toLowerCase() === "reschedule" && plan.reschedule_date && (
+                          <span className="text-[9px] text-amber-600 font-semibold">📅 {plan.reschedule_date}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setDetailPlan(plan)}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        title="Lihat Detail"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => { handleOpenEdit(plan.id); setSelectedDate(null); }}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        title="Edit Kunjungan"
+                      >
+                        <Pen className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── MONTH VIEW ────────────────────────────────────────────────────────────
+
+  function renderMonthView() {
+    const gridDays = getMonthGridDays(currentDate.getFullYear(), currentDate.getMonth());
+
+    return (
+      <div className="bg-white rounded-xl shadow-md ring-1 ring-black/5 overflow-hidden">
+        {/* Day headers */}
+        <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+          {DAY_NAMES.map((name) => (
+            <div key={name} className="px-2 py-2.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+              {name}
+            </div>
+          ))}
+        </div>
+
+        {/* Day cells */}
+        <div className="grid grid-cols-7">
+          {gridDays.map((day, i) => {
+            const key = dateToKey(day);
+            const dayPlans = plansByDate[key] || [];
+            const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+            const isTodayDate = isToday(day);
+            const isSelected = selectedDate && isSameDay(day, selectedDate);
+            const maxVisible = 3;
+            const moreCount = dayPlans.length > maxVisible ? dayPlans.length - maxVisible : 0;
+
+            return (
+              <div
+                key={i}
+                onClick={() => handleDateClick(day)}
+                className={`
+                  min-h-[100px] md:min-h-[120px] border-b border-r border-gray-100 p-1.5 cursor-pointer transition-all duration-150
+                  ${!isCurrentMonth ? "bg-gray-50/50" : "bg-white hover:bg-blue-50/30"}
+                  ${isSelected ? "ring-2 ring-blue-500 ring-inset bg-blue-50/40" : ""}
+                `}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span
+                    className={`
+                      inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold
+                      ${isTodayDate ? "bg-blue-600 text-white" : ""}
+                      ${!isTodayDate && isCurrentMonth ? "text-gray-800" : ""}
+                      ${!isTodayDate && !isCurrentMonth ? "text-gray-300" : ""}
+                    `}
+                  >
+                    {day.getDate()}
+                  </span>
+                  {dayPlans.length > 0 && (
+                    <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                      {dayPlans.length}
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-0.5">
+                  {dayPlans.slice(0, maxVisible).map((plan) => renderPlanChip(plan))}
+                  {moreCount > 0 && (
+                    <div className="text-[9px] text-blue-600 font-semibold pl-1">
+                      +{moreCount} lainnya
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── WEEK VIEW ─────────────────────────────────────────────────────────────
+
+  function renderWeekView() {
+    const weekDays = getWeekDays(currentDate);
+
+    return (
+      <div className="bg-white rounded-xl shadow-md ring-1 ring-black/5 overflow-hidden">
+        {/* Day headers */}
+        <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+          {weekDays.map((day, i) => {
+            const isTodayDate = isToday(day);
+            return (
+              <div key={i} className="px-2 py-3 text-center border-r border-gray-100 last:border-r-0">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  {DAY_NAMES[i]}
+                </div>
+                <div
+                  className={`
+                    inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold mt-1
+                    ${isTodayDate ? "bg-blue-600 text-white" : "text-gray-700"}
+                  `}
+                >
+                  {day.getDate()}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Day columns */}
+        <div className="grid grid-cols-7 min-h-[400px]">
+          {weekDays.map((day, i) => {
+            const key = dateToKey(day);
+            const dayPlans = plansByDate[key] || [];
+            const isSelected = selectedDate && isSameDay(day, selectedDate);
+
+            return (
+              <div
+                key={i}
+                onClick={() => handleDateClick(day)}
+                className={`
+                  border-r border-gray-100 last:border-r-0 p-2 cursor-pointer transition-all
+                  ${isSelected ? "bg-blue-50/60 ring-2 ring-blue-500 ring-inset" : "hover:bg-gray-50/50"}
+                `}
+              >
+                <div className="space-y-1.5">
+                  {dayPlans.map((plan) => {
+                    const colors = getStatusColor(plan.status);
+                    return (
+                      <div
+                        key={plan.id}
+                        className={`text-[11px] px-2 py-1.5 rounded-lg ${colors.bg} ${colors.text} font-medium transition-opacity hover:opacity-80`}
+                        style={{ borderLeft: `3px solid ${colors.border}` }}
+                      >
+                        <div className="font-semibold truncate">{plan.institusi_kerja || plan.kota || "-"}</div>
+                        <div className="text-[9px] opacity-70 truncate mt-0.5">{plan.kota}</div>
+                      </div>
+                    );
+                  })}
+                  {dayPlans.length === 0 && (
+                    <div className="text-[10px] text-gray-300 text-center py-4">–</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── DAY VIEW ──────────────────────────────────────────────────────────────
+
+  function renderDayView() {
+    const key = dateToKey(currentDate);
+    const dayPlans = plansByDate[key] || [];
+
+    return (
+      <div className="bg-white rounded-xl shadow-md ring-1 ring-black/5 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">{formatFullDate(currentDate)}</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {dayPlans.length} aktivitas hari ini
+              </p>
+            </div>
+            {isToday(currentDate) && (
+              <span className="px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-bold">Hari Ini</span>
+            )}
+          </div>
+        </div>
+
+        {/* Plan cards */}
+        <div className="p-4">
+          {dayPlans.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Tidak ada aktivitas</p>
+              <p className="text-sm mt-1">Belum ada plan untuk tanggal ini</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {dayPlans.map((plan) => {
+                const colors = getStatusColor(plan.status);
+                return (
+                  <div
+                    key={plan.id}
+                    className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all group"
+                  >
+                    <div className={`w-1.5 h-14 rounded-full flex-shrink-0 ${colors.dot}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 truncate">{plan.institusi_kerja || "-"}</p>
+                      <p className="text-sm text-gray-500 truncate">{plan.kota} {plan.klpd ? `• ${plan.klpd}` : ""}</p>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${colors.bg} ${colors.text}`}>
+                          {plan.status || "No Status"}
+                        </span>
+                        {plan.satuan_kerja && (
+                          <span className="text-[10px] text-gray-400">{plan.satuan_kerja}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {plan.visit_image && (
+                      <div
+                        className="w-12 h-12 rounded-lg flex-shrink-0 bg-cover bg-center ring-1 ring-gray-200 cursor-pointer hover:ring-blue-400 transition-all"
+                        style={{ backgroundImage: `url(${plan.visit_image})` }}
+                        onClick={() => openImageBase64(plan.visit_image)}
+                        title="Lihat foto bukti"
+                      />
+                    )}
+
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => { setSelectedDate(currentDate); setDetailPlan(plan); }}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        title="Lihat Detail"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleOpenEdit(plan.id)}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        title="Edit Kunjungan"
+                      >
+                        <Pen className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── MAIN RENDER ───────────────────────────────────────────────────────────
+
+  const viewTabs: { key: CalendarView; label: string }[] = [
+    { key: "day", label: "Day" },
+    { key: "week", label: "Week" },
+    { key: "month", label: "Month" },
+    { key: "reschedule", label: "Reschedule" },
+  ];
+
+  return (
+    <div className="min-h-screen bg-blue-50">
+      {/* Inline keyframes for popup animation */}
+      <style>{`
+        @keyframes fadeInScale {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
+
+      <div className="flex">
+        <div className="flex-1 p-6">
+          <main className="w-full max-w-none">
+            {/* HEADER */}
+            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="ml-4 px-4 pt-2 pb-4 space-y-1">
+                <h2 className="text-3xl font-extrabold text-black drop-shadow-sm">
+                  PLAN ACTIVITY
+                </h2>
+                <p className="text-sm text-neutral-600">
+                  Monitoring dan Pengelolaan Rencana Kunjungan Lapangan
+                </p>
+              </div>
+
+              <div className="relative w-full md:w-80">
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search..."
+                  className="h-11 w-full rounded-full bg-white px-5 pr-11 text-sm outline-none ring-1 ring-black/10 focus:ring-2 focus:ring-black/20"
+                />
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                     <path
+                      d="M10.5 18.5a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    />
+                    <path
+                      d="M16.5 16.5 21 21"
+                      stroke="currentColor"
+                      strokeWidth="2"
                       strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
                     />
                   </svg>
-                  Prev
+                </span>
+              </div>
+            </div>
+
+            {/* TOOLBAR */}
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-3 rounded-xl shadow-sm ring-1 ring-black/5">
+              {/* Left: Navigation */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => router.push("/plan-activity/add")}
+                  className="flex items-center gap-2 h-9 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-blue-700 transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  ADD PLANS
+                </button>
+
+                <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" />
+
+                <button
+                  onClick={navigateToday}
+                  className="h-9 px-3 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                  Hari Ini
                 </button>
 
                 <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={loading || page >= totalPages}
-                  className="flex items-center gap-1 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  onClick={navigatePrev}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors"
                 >
-                  Next
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+                  <ChevronLeft className="w-5 h-5" />
                 </button>
+                <button
+                  onClick={navigateNext}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+
+                <h3 className="text-base font-bold text-gray-800 ml-2 whitespace-nowrap">
+                  {getHeaderLabel()}
+                </h3>
               </div>
+
+              {/* Right: View tabs */}
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                {viewTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => {
+                      setCalendarView(tab.key);
+                      setSelectedDate(null);
+                      setDetailPlan(null);
+                    }}
+                    className={`
+                      h-8 px-3 rounded-md text-xs font-bold uppercase tracking-wide transition-all
+                      ${calendarView === tab.key
+                        ? "bg-white text-blue-700 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                      }
+                    `}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Loading bar */}
+            {loading && (
+              <div className="mb-4 flex items-center justify-center gap-2 py-2">
+                <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-gray-500 font-medium">Memuat data...</span>
+              </div>
+            )}
+
+            {/* CALENDAR VIEW */}
+            {calendarView === "month" && renderMonthView()}
+            {calendarView === "week" && renderWeekView()}
+            {calendarView === "day" && renderDayView()}
+            {calendarView === "reschedule" && renderMonthView()}
+
+            {/* Legend */}
+            <div className="mt-4 flex flex-wrap items-center gap-4 px-2 text-[11px] font-medium text-gray-500">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                Visited
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                Planned
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                Reschedule
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                Stay Office
+              </div>
+              {calendarView === "reschedule" && (
+                <div className="ml-auto text-amber-600 font-semibold">
+                  ⚡ Menampilkan hanya plan berstatus Reschedule
+                </div>
+              )}
             </div>
           </main>
         </div>
+
+        {/* POPUPS */}
+        {renderPopup()}
 
         <EditVisitModal
           isOpen={editModalOpen}

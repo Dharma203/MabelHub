@@ -726,6 +726,11 @@ export default function RekapitulasiEProcurementPage() {
                       setStartDate(e.target.value);
                       setPage(1);
                     }}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
                     className="h-10 w-full rounded-xl bg-white px-4 text-sm ring-1 ring-blue-200 outline-blue-300"
                   />
                 </div>
@@ -741,6 +746,11 @@ export default function RekapitulasiEProcurementPage() {
                     onChange={(e) => {
                       setEndDate(e.target.value);
                       setPage(1);
+                    }}
+                    onClick={(e) => {
+                      if('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
                     }}
                     className="h-10 w-full rounded-xl bg-white px-4 text-sm ring-1 ring-blue-200 outline-blue-300"
                   />

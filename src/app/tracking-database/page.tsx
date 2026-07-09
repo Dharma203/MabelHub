@@ -73,7 +73,9 @@ type ExportField = {
 }
 
 const EXPORT_FIELDS: ExportField[] = [
+  { key: 'created_at', label: 'Tanggal Input' },
   { key: 'kode', label: 'Kode' },
+  { key: 'penginput', label: 'Penginput' },
   { key: 'nama_perusahaan', label: 'Nama Perusahaan' },
   { key: 'segmen', label: 'Segmen' },
   { key: 'segmentasi', label: 'Segmentasi' },
@@ -95,12 +97,10 @@ const EXPORT_FIELDS: ExportField[] = [
   { key: 'link_produk', label: 'Link Produk' },
   { key: 'link_toko', label: 'Link Toko' },
   { key: 'alamat', label: 'Alamat' },
-  { key: 'penginput', label: 'Penginput' },
   { key: 'requestor', label: 'Requestor' },
   { key: 'jenis_entitas', label: 'Jenis Entitas' },
   { key: 'keterangan_update', label: 'Keterangan Update' },
   { key: 'bulan_data', label: 'Bulan Data' },
-  { key: 'created_at', label: 'Tanggal Input' },
   { key: 'updated_at', label: 'Tanggal Update' },
 ]
 
@@ -272,6 +272,23 @@ export default function TrackingDatabasePage() {
   })
   const dropdownRef = useRef<HTMLDivElement>(null)
 
+  const handleWhatsAppClick = (telp: unknown) => {
+    const raw = String(telp ?? '').trim()
+    if (!raw) return
+    let cleanNumber = raw.replace(/\D/g, '')
+    if (cleanNumber.startsWith('0')) {
+      cleanNumber = '62' + cleanNumber.slice(1)
+    } else if (!cleanNumber.startsWith('62')) {
+      cleanNumber = '62' + cleanNumber
+    }
+    if (cleanNumber.length < 10) return // nomor tidak balid
+    window.open(
+      `https://wa.me/${cleanNumber}`,
+      '_blank',
+      'noopener, noreferrer',
+    )
+  }
+
   // pagination
   const [pageSize, setPageSize] = useState(25)
   const [page, setPage] = useState(1)
@@ -285,6 +302,9 @@ export default function TrackingDatabasePage() {
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportStartDate, setExportStartDate] = useState('')
   const [exportEndDate, setExportEndDate] = useState('')
+  const [exportMode, setExportMode] = useState<'all' | 'date' | 'pagination'>(
+    'all',
+  )
   const [exportFields, setExportFields] = useState<Set<keyof TrackingRow>>(
     () => new Set(EXPORT_FIELDS.map((f) => f.key)),
   )
@@ -305,7 +325,7 @@ export default function TrackingDatabasePage() {
     fetch('/api/tracking-database/filters')
       .then((r) => r.json())
       .then((data: FilterOptions) => setFilterOptions(data))
-      .catch(() => { })
+      .catch(() => {})
   }, [])
 
   // Auto-fetch riwayat revisi terbaru saat row di-expand
@@ -442,68 +462,68 @@ export default function TrackingDatabasePage() {
   // ---- main data fetch (stats + paginated rows) ----
   useEffect(() => {
     let mounted = true
-      ; (async () => {
-        setLoadingRows(true)
+    ;(async () => {
+      setLoadingRows(true)
+      if (!mounted) return
+      setLoading(true)
+
+      const qs = new URLSearchParams()
+      qs.set('limit', '999999')
+      qs.set('page', '1')
+
+      bulan.forEach((v) => qs.append('bulan', v))
+      produk.forEach((v) => qs.append('produk', v))
+      merek.forEach((v) => qs.append('merek', v))
+      perusahaan.forEach((v) => qs.append('perusahaan', v))
+      provinsi.forEach((v) => qs.append('provinsi', v))
+      kota.forEach((v) => qs.append('kota', v))
+      tipe.forEach((v) => qs.append('tipe', v))
+      if (startDate) qs.set('startDate', startDate)
+      if (endDate) qs.set('endDate', endDate)
+
+      try {
+        const res = await fetch(`/api/tracking-database?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        const json = await res.json().catch(() => ({}))
         if (!mounted) return
-        setLoading(true)
 
-        const qs = new URLSearchParams()
-        qs.set('limit', String(pageSize))
-        qs.set('page', String(page))
-
-        bulan.forEach((v) => qs.append('bulan', v))
-        produk.forEach((v) => qs.append('produk', v))
-        merek.forEach((v) => qs.append('merek', v))
-        perusahaan.forEach((v) => qs.append('perusahaan', v))
-        provinsi.forEach((v) => qs.append('provinsi', v))
-        kota.forEach((v) => qs.append('kota', v))
-        tipe.forEach((v) => qs.append('tipe', v))
-        if (startDate) qs.set('startDate', startDate)
-        if (endDate) qs.set('endDate', endDate)
-
-        try {
-          const res = await fetch(`/api/tracking-database?${qs.toString()}`, {
-            cache: 'no-store',
+        if (json?.total_kontak_unik !== undefined) {
+          setStats({
+            total_no_telp: json.total_no_telp ?? 0,
+            total_provinsi: json.total_provinsi ?? 0,
+            total_kota: json.total_kota ?? 0,
+            total_nama: json.total_nama ?? 0,
+            total_merek: json.total_merek ?? 0,
+            total_kontak_unik: json.total_kontak_unik ?? 0,
+            total_wa_unik: json.total_wa_unik ?? 0,
+            provinsi_kota: Array.isArray(json.provinsi_kota)
+              ? json.provinsi_kota
+              : [],
+            wa_provinsi_kota: Array.isArray(json.wa_provinsi_kota)
+              ? json.wa_provinsi_kota
+              : [],
           })
-          const json = await res.json().catch(() => ({}))
-          if (!mounted) return
-
-          if (json?.total_kontak_unik !== undefined) {
-            setStats({
-              total_no_telp: json.total_no_telp ?? 0,
-              total_provinsi: json.total_provinsi ?? 0,
-              total_kota: json.total_kota ?? 0,
-              total_nama: json.total_nama ?? 0,
-              total_merek: json.total_merek ?? 0,
-              total_kontak_unik: json.total_kontak_unik ?? 0,
-              total_wa_unik: json.total_wa_unik ?? 0,
-              provinsi_kota: Array.isArray(json.provinsi_kota)
-                ? json.provinsi_kota
-                : [],
-              wa_provinsi_kota: Array.isArray(json.wa_provinsi_kota)
-                ? json.wa_provinsi_kota
-                : [],
-            })
-          }
-
-          setRows(Array.isArray(json?.items) ? json.items : [])
-          const pg = json?.pagination ?? {}
-          setTotal(Number(pg?.total ?? 0))
-          setTotalPages(Number(pg?.totalPages ?? 1))
-          setSelected(null)
-        } catch {
-          if (!mounted) return
-          setRows([])
-          setTotal(0)
-          setTotalPages(1)
-          setSelected(null)
-        } finally {
-          if (mounted) {
-            setLoadingRows(false)
-            setLoading(false)
-          }
         }
-      })()
+
+        setRows(Array.isArray(json?.items) ? json.items : [])
+        const pg = json?.pagination ?? {}
+        setTotal(Number(pg?.total ?? 0))
+        setTotalPages(Number(pg?.totalPages ?? 1))
+        setSelected(null)
+      } catch {
+        if (!mounted) return
+        setRows([])
+        setTotal(0)
+        setTotalPages(1)
+        setSelected(null)
+      } finally {
+        if (mounted) {
+          setLoadingRows(false)
+          setLoading(false)
+        }
+      }
+    })()
     return () => {
       mounted = false
     }
@@ -532,46 +552,58 @@ export default function TrackingDatabasePage() {
 
   // ---- Export handler ----
   const handleExport = async () => {
+    // Validasi mode 'date' wajib isi tanggal
+    if (exportMode === 'date' && !exportStartDate && !exportEndDate) {
+      alert('Silakan pilih minimal salah satu tanggal (mulai atau akhir)')
+      return
+    }
+
     setExporting(true)
     try {
-      const qs = new URLSearchParams()
-      qs.set('limit', '999999')
-      qs.set('page', '1')
+      let allRows: TrackingRow[] = []
 
-      // Use current filters
-      bulan.forEach((v) => qs.append('bulan', v))
-      produk.forEach((v) => qs.append('produk', v))
-      merek.forEach((v) => qs.append('merek', v))
-      perusahaan.forEach((v) => qs.append('perusahaan', v))
-      provinsi.forEach((v) => qs.append('provinsi', v))
-      kota.forEach((v) => qs.append('kota', v))
-      tipe.forEach((v) => qs.append('tipe', v))
+      if (exportMode === 'pagination') {
+        // Mode pagination: pakai data yang sedang tampil di tabel (rows state)
+        allRows = rows
+      } else {
+        const qs = new URLSearchParams()
+        qs.set('limit', '999999')
+        qs.set('page', 'max')
 
-      // Use export date range if provided, otherwise use current filter dates
-      const sd = exportStartDate || startDate
-      const ed = exportEndDate || endDate
-      const formatDisplayDate = (dateStr: string) => {
-        const d = new Date(dateStr)
-        return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' })
-        // Output: "2026-06-10"
+        // Filter kategori tetap dipakai di semua mode (bulan, produk, dst)
+        bulan.forEach((v) => qs.append('bulan', v))
+        produk.forEach((v) => qs.append('produk', v))
+        merek.forEach((v) => qs.append('merek', v))
+        perusahaan.forEach((v) => qs.append('perusahaan', v))
+        provinsi.forEach((v) => qs.append('provinsi', v))
+        kota.forEach((v) => qs.append('kota', v))
+        tipe.forEach((v) => qs.append('tipe', v))
+
+        const formatDisplayDate = (dateStr: string) => {
+          const d = new Date(dateStr)
+          return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' })
+        }
+
+        if (exportMode === 'date') {
+          // Mode by tanggal: wajib pakai tanggal dari modal export
+          if (exportStartDate)
+            qs.set('startDate', formatDisplayDate(exportStartDate))
+          if (exportEndDate) qs.set('endDate', formatDisplayDate(exportEndDate))
+        }
+        // Mode 'all': tidak set startDate/endDate sama sekali → tarik semua data
+
+        const res = await fetch(`/api/tracking-database?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        const json = await res.json().catch(() => ({}))
+        allRows = Array.isArray(json?.items) ? json.items : []
       }
-      if (sd) qs.set('startDate', formatDisplayDate(sd))
-      if (ed) qs.set('endDate', formatDisplayDate(ed))
-
-      const res = await fetch(`/api/tracking-database?${qs.toString()}`, {
-        cache: 'no-store',
-      })
-      const json = await res.json().catch(() => ({}))
-      const allRows: TrackingRow[] = Array.isArray(json?.items)
-        ? json.items
-        : []
 
       if (allRows.length === 0) {
         alert('Tidak ada data untuk di-export')
         return
       }
 
-      // Build export data with selected fields only
       const selectedFields = EXPORT_FIELDS.filter((f) =>
         exportFields.has(f.key),
       )
@@ -581,13 +613,12 @@ export default function TrackingDatabasePage() {
           let val = row[f.key] ?? ''
           if ((f.key === 'created_at' || f.key === 'updated_at') && val) {
             try {
-              // Convert to YYYY-MM-DD
-              const d = new Date(val as string);
+              const d = new Date(val as string)
               if (!isNaN(d.getTime())) {
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                val = `${yyyy}-${mm}-${dd}`;
+                const yyyy = d.getFullYear()
+                const mm = String(d.getMonth() + 1).padStart(2, '0')
+                const dd = String(d.getDate()).padStart(2, '0')
+                val = `${yyyy}-${mm}-${dd}`
               }
             } catch (err) {
               // fallback if invalid date
@@ -602,8 +633,14 @@ export default function TrackingDatabasePage() {
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Data')
 
+      const modeLabel =
+        exportMode === 'all'
+          ? 'Semua'
+          : exportMode === 'date'
+            ? 'ByTanggal'
+            : `Hal${safePage}`
       const dateStr = new Date().toISOString().slice(0, 10)
-      XLSX.writeFile(wb, `TrackingDatabase_${dateStr}.xlsx`)
+      XLSX.writeFile(wb, `TrackingDatabase_${modeLabel}_${dateStr}.xlsx`)
 
       setShowExportModal(false)
     } catch (e: any) {
@@ -693,6 +730,11 @@ export default function TrackingDatabasePage() {
                       setPage(1)
                       setSelected(null)
                     }}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker()
+                      }
+                    }}
                   />
                   <span className='text-gray-400 font-semibold'>-</span>
                   <input
@@ -704,6 +746,11 @@ export default function TrackingDatabasePage() {
                       setEndDate(e.target.value)
                       setPage(1)
                       setSelected(null)
+                    }}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker()
+                      }
                     }}
                   />
                 </div>
@@ -723,11 +770,11 @@ export default function TrackingDatabasePage() {
                   const search = dropdownSearch[btn.id] ?? ''
                   const filtered = search
                     ? opts.filter((o) => {
-                      const display = btn.id === 'Bulan' ? formatBulan(o) : o
-                      return display
-                        .toLowerCase()
-                        .includes(search.toLowerCase())
-                    })
+                        const display = btn.id === 'Bulan' ? formatBulan(o) : o
+                        return display
+                          .toLowerCase()
+                          .includes(search.toLowerCase())
+                      })
                     : opts
                   const allSelected =
                     opts.length > 0 && opts.every((o) => activeArr.includes(o))
@@ -738,12 +785,13 @@ export default function TrackingDatabasePage() {
                       <button
                         type='button'
                         onClick={() => setOpenDropdown(isOpen ? null : btn.id)}
-                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${isOpen
-                          ? 'border-2 border-blue-500 bg-white text-blue-600 shadow-md'
-                          : isActive
-                            ? 'border-2 border-blue-400 bg-white text-blue-700'
-                            : 'border border-slate-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600'
-                          }`}
+                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${
+                          isOpen
+                            ? 'border-2 border-blue-500 bg-white text-blue-600 shadow-md'
+                            : isActive
+                              ? 'border-2 border-blue-400 bg-white text-blue-700'
+                              : 'border border-slate-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600'
+                        }`}
                       >
                         <span className='flex items-center gap-1.5 min-w-0'>
                           <IconComponent
@@ -863,10 +911,10 @@ export default function TrackingDatabasePage() {
                 {(filterButtons.some((b) => getFilterArr(b.id).length > 0) ||
                   startDate ||
                   endDate) && (
-                    <span className='text-blue-600 font-semibold ml-1'>
-                      Menampilkan {total.toLocaleString()} data
-                    </span>
-                  )}
+                  <span className='text-blue-600 font-semibold ml-1'>
+                    Menampilkan {total.toLocaleString()} data
+                  </span>
+                )}
               </div>
 
               {/* ---- Chips row: active selections ---- */}
@@ -1014,10 +1062,10 @@ export default function TrackingDatabasePage() {
                                 ? '...'
                                 : stats.total_kontak_unik > 0
                                   ? Math.round(
-                                    (stats.total_wa_unik /
-                                      stats.total_kontak_unik) *
-                                    100,
-                                  )
+                                      (stats.total_wa_unik /
+                                        stats.total_kontak_unik) *
+                                        100,
+                                    )
                                   : 0}
                             </span>
                             % dari total
@@ -1134,11 +1182,12 @@ export default function TrackingDatabasePage() {
                               setPage(1)
                               setSelected(null)
                             }}
-                            className={`transition-colors cursor-pointer ${provinsi.includes(row.provinsi) &&
+                            className={`transition-colors cursor-pointer ${
+                              provinsi.includes(row.provinsi) &&
                               kota.includes(row.kota)
-                              ? 'bg-blue-100 ring-1 ring-inset ring-blue-400'
-                              : 'hover:bg-blue-50/70'
-                              }`}
+                                ? 'bg-blue-100 ring-1 ring-inset ring-blue-400'
+                                : 'hover:bg-blue-50/70'
+                            }`}
                           >
                             <td className='px-2 py-1.5 text-[10px] text-slate-400'>
                               {row.no}
@@ -1260,12 +1309,13 @@ export default function TrackingDatabasePage() {
                               setPage(1)
                               setSelected(null)
                             }}
-                            className={`transition-colors cursor-pointer ${provinsi.includes(row.provinsi) &&
+                            className={`transition-colors cursor-pointer ${
+                              provinsi.includes(row.provinsi) &&
                               kota.includes(row.kota) &&
                               tipe.includes('WhatsApp')
-                              ? 'bg-green-100 ring-1 ring-inset ring-green-400'
-                              : 'hover:bg-green-50/70'
-                              }`}
+                                ? 'bg-green-100 ring-1 ring-inset ring-green-400'
+                                : 'hover:bg-green-50/70'
+                            }`}
                           >
                             <td className='px-2 py-1.5 text-[10px] text-slate-400'>
                               {row.no}
@@ -1452,14 +1502,16 @@ export default function TrackingDatabasePage() {
                               <span className='lg:hidden font-bold text-gray-400'>
                                 📱 TIPE
                               </span>
-                              <span
-                                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold ${row.tipe === 'WhatsApp'
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-slate-100 text-slate-600'
-                                  }`}
+                              <button
+                                onClick={() => handleWhatsAppClick(row.telp)}
+                                className={`inline-flex items-center px-1.5 py-0.5 rounded-full cursor-pointer transition-all duration-150 hover:opacity-50 text-[9px] font-bold ${
+                                  row.tipe === 'WhatsApp'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}
                               >
                                 {row.tipe}
-                              </span>
+                              </button>
                             </td>
                           </tr>
                           {active && (
@@ -1505,18 +1557,18 @@ export default function TrackingDatabasePage() {
                                         value={
                                           selected.created_at
                                             ? new Date(selected.created_at)
-                                              .toLocaleDateString('sv-SE', {
-                                                day: '2-digit',
-                                                month: '2-digit',
-                                                year: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                                second: '2-digit',
-                                                hour12: false,
-                                              })
-                                              .replace('pukul', '')
-                                              .replace(' ', ' ')
-                                              .trim()
+                                                .toLocaleDateString('sv-SE', {
+                                                  day: '2-digit',
+                                                  month: '2-digit',
+                                                  year: 'numeric',
+                                                  hour: '2-digit',
+                                                  minute: '2-digit',
+                                                  second: '2-digit',
+                                                  hour12: false,
+                                                })
+                                                .replace('pukul', '')
+                                                .replace(' ', ' ')
+                                                .trim()
                                             : '-'
                                         }
                                       />
@@ -1554,7 +1606,7 @@ export default function TrackingDatabasePage() {
                                         label='Sumber Lain'
                                         value={
                                           selected.sumber_data ===
-                                            'Sales Internal'
+                                          'Sales Internal'
                                             ? selected.sales_internal
                                             : '-'
                                         }
@@ -1675,7 +1727,9 @@ export default function TrackingDatabasePage() {
                                       <DetailItem
                                         icon='📆'
                                         label='Bulan Data'
-                                        value={formatBulanData(selected.created_at)}
+                                        value={formatBulanData(
+                                          selected.created_at,
+                                        )}
                                       />
                                     </div>
                                   </div>
@@ -1747,10 +1801,11 @@ export default function TrackingDatabasePage() {
                   type='button'
                   onClick={() => gotoPage(p)}
                   aria-label={p.toString()}
-                  className={`grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-lg sm:rounded-xl border text-xs sm:text-sm ${p === safePage
-                    ? 'border-blue-500 bg-blue-600 text-white font-bold'
-                    : 'border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40'
-                    }`}
+                  className={`grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-lg sm:rounded-xl border text-xs sm:text-sm ${
+                    p === safePage
+                      ? 'border-blue-500 bg-blue-600 text-white font-bold'
+                      : 'border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40'
+                  }`}
                 >
                   {p}
                 </button>
@@ -1797,8 +1852,12 @@ export default function TrackingDatabasePage() {
                   <Download size={16} />
                 </div>
                 <div>
-                  <h3 className='text-[15px] font-extrabold text-gray-800'>Export Data</h3>
-                  <p className='text-[10px] text-slate-500'>Pilih rentang tanggal dan kolom yang ingin di-export</p>
+                  <h3 className='text-[15px] font-extrabold text-gray-800'>
+                    Export Data
+                  </h3>
+                  <p className='text-[10px] text-slate-500'>
+                    Pilih rentang tanggal dan kolom yang ingin di-export
+                  </p>
                 </div>
               </div>
               <button
@@ -1811,30 +1870,106 @@ export default function TrackingDatabasePage() {
 
             {/* Body */}
             <div className='px-6 py-4 space-y-5'>
-              {/* Date Range */}
+              {/* Export Mode Selection */}
               <div>
                 <label className='text-xs font-bold text-gray-700 uppercase tracking-wider block mb-2'>
-                  📅 Rentang Tanggal Export
+                  🎯 Pilih Mode Export
                 </label>
-                <div className='flex items-center gap-2'>
-                  <input
-                    type='date'
-                    value={exportStartDate}
-                    onChange={(e) => setExportStartDate(e.target.value)}
-                    className='flex-1 text-sm h-10 px-3 border border-gray-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400'
-                  />
-                  <span className='text-gray-400 font-semibold text-sm'>—</span>
-                  <input
-                    type='date'
-                    value={exportEndDate}
-                    onChange={(e) => setExportEndDate(e.target.value)}
-                    className='flex-1 text-sm h-10 px-3 border border-gray-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400'
-                  />
+                <div className='grid grid-cols-3 gap-2'>
+                  {[
+                    {
+                      id: 'all',
+                      label: 'Semua Data',
+                      desc: 'Tarik seluruh data',
+                      icon: '📦',
+                    },
+                    {
+                      id: 'date',
+                      label: 'By Tanggal',
+                      desc: 'Sesuai rentang tanggal',
+                      icon: '📅',
+                    },
+                    {
+                      id: 'pagination',
+                      label: 'By Halaman',
+                      desc: `Halaman ${safePage} aktif`,
+                      icon: '📄',
+                    },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type='button'
+                      onClick={() => setExportMode(m.id as typeof exportMode)}
+                      className={cn(
+                        'flex flex-col items-center gap-1 px-2 py-3 rounded-xl border-2 text-center transition-all',
+                        exportMode === m.id
+                          ? 'border-green-500 bg-green-50 text-green-800'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-green-300',
+                      )}
+                    >
+                      <span className='text-lg'>{m.icon}</span>
+                      <span className='text-[11px] font-bold'>{m.label}</span>
+                      <span className='text-[9px] text-slate-400'>
+                        {m.desc}
+                      </span>
+                    </button>
+                  ))}
                 </div>
-                <p className='text-[10px] text-slate-400 mt-1'>
-                  Kosongkan untuk menggunakan filter tanggal yang sedang aktif{startDate || endDate ? ` (${startDate || '...'} s/d ${endDate || '...'})` : ''}
-                </p>
               </div>
+              {/* Date Range */}
+              {exportMode === 'date' && (
+                <div>
+                  <label className='text-xs font-bold text-gray-700 uppercase tracking-wider block mb-2'>
+                    📅 Rentang Tanggal Export
+                  </label>
+                  <div className='flex items-center gap-2'>
+                    <input
+                      type='date'
+                      value={exportStartDate}
+                      onChange={(e) => setExportStartDate(e.target.value)}
+                      onClick={(e) => {
+                        if ('showPicker' in HTMLInputElement.prototype) {
+                          e.currentTarget.showPicker()
+                        }
+                      }}
+                      className='flex-1 text-sm h-10 px-3 border border-gray-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400'
+                    />
+                    <span className='text-gray-400 font-semibold text-sm'>
+                      —
+                    </span>
+                    <input
+                      type='date'
+                      value={exportEndDate}
+                      onChange={(e) => setExportEndDate(e.target.value)}
+                      onClick={(e) => {
+                        if ('showPicker' in HTMLInputElement.prototype) {
+                          e.currentTarget.showPicker()
+                        }
+                      }}
+                      className='flex-1 text-sm h-10 px-3 border border-gray-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400'
+                    />
+                  </div>
+                  <p className='text-[10px] text-slate-400 mt-1'>
+                    Pilih minimal salah satu tanggal (mulai atau akhir)
+                  </p>
+                </div>
+              )}
+
+              {exportMode === 'pagination' && (
+                <div className='px-3 py-2.5 rounded-xl bg-blue-50 border border-blue-100 text-[11px] text-blue-700'>
+                  ℹ️ Akan export <strong>{rows.length} data</strong> yang sedang
+                  tampil di halaman <strong>{safePage}</strong> ({pageSize}{' '}
+                  data/halaman).
+                </div>
+              )}
+
+              {exportMode === 'all' && (
+                <div className='px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-100 text-[11px] text-amber-700'>
+                  ⚠️ Akan tarik <strong>seluruh data</strong> tanpa batasan
+                  tanggal. Filter kategori (Bulan/Produk/dll) yang aktif tetap
+                  berlaku.
+                </div>
+              )}
 
               {/* Field Selection */}
               <div>
@@ -1845,7 +1980,11 @@ export default function TrackingDatabasePage() {
                   <div className='flex items-center gap-2'>
                     <button
                       type='button'
-                      onClick={() => setExportFields(new Set(EXPORT_FIELDS.map((f) => f.key)))}
+                      onClick={() =>
+                        setExportFields(
+                          new Set(EXPORT_FIELDS.map((f) => f.key)),
+                        )
+                      }
                       className='text-[10px] font-semibold text-green-600 hover:text-green-800 px-2 py-0.5 rounded hover:bg-green-50'
                     >
                       ✓ Pilih Semua

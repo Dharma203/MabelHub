@@ -132,8 +132,8 @@ export async function PUT(req: Request, context: Ctx) {
 
     return NextResponse.json({
       data: {
-        ...result.value,
-        _id: String((result.value as any)._id),
+        ...result,
+        _id: String((result as any)._id),
       },
     });
   } catch (e: any) {

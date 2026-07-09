@@ -384,12 +384,11 @@ export async function GET(req: NextRequest) {
     // ----------------------------------------------------------------
     // Mode pagination
     // ----------------------------------------------------------------
-    const page = Math.max(1, Number(searchParams.get('page') ?? 1))
+    const rawPage = Number(searchParams.get('page'))
+    const rawLimit = Number(searchParams.get('limit'))
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? Number(rawPage) : 1
     const sortByDate = searchParams.get('sortByDate') === '1' ? 1 : -1
-    const limit = Math.min(
-      500,
-      Math.max(1, Number(searchParams.get('limit') ?? 25)),
-    )
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Number(rawLimit) : 25
     const skip = (page - 1) * limit
 
     const [totalCount, pageRows] = await Promise.all([

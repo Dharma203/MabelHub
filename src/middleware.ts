@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/", "/api/auth/login"];
+const PUBLIC_PATHS = ["/", "/api/auth/login", "/api/download"];
 
 // Pola untuk mencocokkan file statis di folder public (gambar, ikon, dokumen, dll.)
 const PUBLIC_FILE_PATTERN = /\.(?:png|jpg|jpeg|gif|svg|webp|ico|xlsx|xls|csv)$/i;

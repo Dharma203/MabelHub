@@ -161,18 +161,28 @@ export default function ReportProgresPage() {
                                 <div className="flex item-center gap-2">
                                     <input
                                         type="date"
-                                        className="w-30 text-xs h-8 shadow-none border-1 border-slate-300 rounded-lg"
+                                        className="w-30 text-xs h-8 shadow-none border-1 border-slate-300 cursor-pointer rounded-lg"
                                         placeholder="Dari"
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
+                                        onClick={(e) => {
+                                            if ('showPicker' in HTMLInputElement.prototype) {
+                                                e.currentTarget.showPicker();
+                                            }
+                                        }}
                                     />
                                     <span className="text-gray-400 font-semibold">-</span>
                                     <input
                                         type="date"
-                                        className="w-30 text-xs h-8 shadow-none border-1 border-slate-300 rounded-lg"
+                                        className="w-30 text-xs h-8 shadow-none border-1 border-slate-300 cursor-pointer rounded-lg"
                                         placeholder="Sampai"
                                         value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
+                                        onClick={(e) => {
+                                            if ('showPicker' in HTMLInputElement.prototype) {
+                                                e.currentTarget.showPicker();
+                                            }
+                                        }}
                                     />
                                 </div>
                             </div>
