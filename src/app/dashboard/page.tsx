@@ -100,19 +100,18 @@ function DataTable({ title, data }: { title: string; data: DataSheet[] }) {
 }
 
 export default async function Page() {
-  const [revenueData, visitData, salesData] = await Promise.all([
+  const [revenueData, visitData, planTimData] = await Promise.all([
     fetchSheet('TARGET_REALISASI_REVENUE_2026'),
     fetchSheet('Copy of TARGET_REALISASI_VISIT_2026'),
-    fetchSheet('REALISASI_SALES')
+    fetchSheet('PLAN_TIM')
   ])
-  console.log(JSON.stringify(visitData[0], null, 2))
   return (
     <main style={{ padding: '2rem' }}>
-      <h1>Daftar Karyawan (Dari Google Sheets)</h1>
+      <h1>Google Sheets</h1>
 
       <DataTable title='Target & Realisasi Revenue 2026' data={revenueData} />
       <DataTable title='Target & Realisasi Visit 2026' data={visitData} />
-      <DataTable title='Realisasi Sales' data={salesData} />
+      <DataTable title='Plan TIM' data={planTimData} />
     </main>
   )
 }

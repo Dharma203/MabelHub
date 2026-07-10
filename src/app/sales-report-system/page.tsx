@@ -1,5 +1,7 @@
 // app/sales-report-system/page.tsx
 
+import Link from 'next/link'
+
 /* ───────────────────────── types ───────────────────────── */
 
 type DataSheet = {
@@ -82,22 +84,28 @@ type EmployeeYTD = {
 
 /* ───────────────────────── mapping helpers ─────────────── */
 
-function mapToPlanReferensi(
-  revenueRow: DataSheet,
-  totalVisitBulan: number,
-  totalRevenueBulan: number,
-  bulan: string, // contoh: 'JULY'
+function mapToPlanTim(
+  planTimDataRow: DataSheet | undefined,
+  namaLeader: string,
+  bulan: string,
 ): PlanReferensi {
+  console.log('kode', planTimDataRow?.['KODE SUBMIT'])
   return {
-    kode: revenueRow['LEADER CODE'] ?? '',
-    namaLeader: revenueRow['LEADER'] ?? '',
+    kode: planTimDataRow?.['KODE SUBMIT'] || '',
+    namaLeader: planTimDataRow?.['NAMA LEADER'] || namaLeader,
     periode: bulan,
-    planVisit: totalVisitBulan, // target bulan itu
-    planDemo: 11,
-    planSph: 36,
-    planClosing: 20,
-    planRevenue: 4050000000,
-    catatan: 'Fokus visit tim B2G - Universitas & RSUD B2B - Partner (Penyedia), Universitas Swasta, Hotel & Rumah sakit swasta',
+    planVisit: parseNumber(planTimDataRow?.['TARGET VISIT']),
+    planDemo: parseNumber(
+      planTimDataRow?.['TARGET DEMO'] ||
+        planTimDataRow?.['TARGET DEMO/PRESENTASI'],
+    ),
+    planSph: parseNumber(planTimDataRow?.['TARGET SPH']),
+    planClosing: parseNumber(
+      planTimDataRow?.['TARGET CLOSING'] ||
+        planTimDataRow?.['TARGET CLOSING SPH'],
+    ),
+    planRevenue: parseNumber(planTimDataRow?.['TARGET REVENUE TOTAL']),
+    catatan: '',
   }
 }
 
@@ -235,6 +243,69 @@ function StatBox({
         }}
       >
         {value}
+      </div>
+    </div>
+  )
+}
+
+function KodeSubmitSelector({
+  allKode,
+  activeKode,
+}: {
+  allKode: string[]
+  activeKode: string
+}) {
+  return (
+    <div
+      style={{
+        background: '#fff',
+        border: '1px solid #e2e8f0',
+        borderRadius: '16px',
+        padding: '20px 24px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      }}
+    >
+      <div
+        style={{
+          fontSize: '12px',
+          fontWeight: 700,
+          color: '#64748b',
+          letterSpacing: '0.05em',
+          textTransform: 'uppercase',
+          marginBottom: '12px',
+        }}
+      >
+        🗂️ Pilih Kode Submit Plan TIM
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        {allKode.map((kode) => {
+          const isActive = kode === activeKode
+          return (
+            <Link
+              key={kode}
+              href={`?kode=${encodeURIComponent(kode)}`}
+              style={{
+                display: 'inline-block',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: isActive ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                background: isActive
+                  ? 'linear-gradient(135deg, #eff6ff, #dbeafe)'
+                  : '#f8fafc',
+                color: isActive ? '#1d4ed8' : '#475569',
+                fontWeight: isActive ? 700 : 500,
+                fontSize: '13px',
+                cursor: 'pointer',
+                textDecoration: 'none',
+                transition: 'all 0.15s ease',
+                boxShadow: isActive ? '0 0 0 3px rgba(37,99,235,0.15)' : 'none',
+              }}
+            >
+              {isActive ? '✓ ' : ''}
+              {kode}
+            </Link>
+          )
+        })}
       </div>
     </div>
   )
@@ -800,42 +871,34 @@ export default async function SalesReportSystemPage({
 }: {
   searchParams: Promise<{ kode?: string; bulan?: string }>
 }) {
-  // Fetch both sheets — same source as dashboard
-  const [revenueData, visitData] = await Promise.all([
+  const [revenueData, visitData, planTimData] = await Promise.all([
     fetchSheet('TARGET_REALISASI_REVENUE_2026'),
     fetchSheet('Copy of TARGET_REALISASI_VISIT_2026'),
+    fetchSheet('PLAN_TIM'),
   ])
 
-  // ── Plan Referensi (selected by kode) ──
-  const { kode, bulan } = await searchParams
-  const kodeAktif =
-    kode ?? revenueData.find((r) => r['LEADER CODE'])?.['LEADER CODE']
-  const bulanAktif = bulan ?? 'JULY'
+  const { kode } = await searchParams
 
-  const rowTerpilih = revenueData.find(
-    (row) => row['LEADER CODE'] === kodeAktif,
-  )
+  // ── Ambil semua KODE SUBMIT unik dari Plan TIM ──
+  const allKodeSubmit = [
+    ...new Set(planTimData.map((row) => row['KODE SUBMIT']).filter(Boolean)),
+  ]
 
-  const totalVisitTargetBulan = visitData
-    .filter((row) => row['STATUS']?.toLowerCase() === 'active')
-    .reduce((sum, row) => sum + parseNumber(row[bulanAktif]), 0)
+  // ── Default ke kode pertama jika belum dipilih ──
+  const kodeAktif = kode ?? allKodeSubmit[0] ?? ''
 
-  const totalVisitRealisasiBulan = visitData
-    .filter((row) => row['STATUS']?.toLowerCase() === 'active')
-    .reduce((sum, row) => sum + parseNumber(row[`${bulanAktif}_2`]), 0)
+  // ── Cari row Plan TIM berdasarkan KODE SUBMIT yang dipilih ──
+  const planTimRow = planTimData.find((row) => row['KODE SUBMIT'] === kodeAktif)
 
-  const planData = rowTerpilih
-    ? mapToPlanReferensi(
-        rowTerpilih,
-        totalVisitTargetBulan,
-        totalVisitRealisasiBulan,
-        bulanAktif,
-      )
+  const namaLeaderAktif = planTimRow?.['NAMA LEADER'] || ''
+  const periodeAktif = planTimRow?.['BULAN'] || ''
+
+  const planData = planTimRow
+    ? mapToPlanTim(planTimRow, namaLeaderAktif, periodeAktif)
     : null
 
   // ── YTD Employee data ──
   const employees = buildEmployeeYTD(revenueData, visitData)
-      
   const totalVisitActual = employees.reduce((s, e) => s + e.visitActual, 0)
   const totalVisitTarget = employees.reduce((s, e) => s + e.visitTarget, 0)
   const totalRevenueActual = employees.reduce((s, e) => s + e.revenueActual, 0)
@@ -850,7 +913,6 @@ export default async function SalesReportSystemPage({
         fontFamily: 'inherit',
       }}
     >
-      {/* Top bar */}
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ marginBottom: '8px' }}>
           <h1
@@ -877,14 +939,24 @@ export default async function SalesReportSystemPage({
           </p>
         </div>
 
-        {/* ─── Section 1: Data Plan Referensi ─── */}
-        {planData && (
+        {/* ─── Section 1: Pilih Kode Submit ─── */}
+        {allKodeSubmit.length > 0 && (
           <div style={{ marginTop: '24px' }}>
+            <KodeSubmitSelector
+              allKode={allKodeSubmit}
+              activeKode={kodeAktif}
+            />
+          </div>
+        )}
+
+        {/* ─── Section 2: Data Plan Referensi ─── */}
+        {planData && (
+          <div style={{ marginTop: '16px' }}>
             <PlanReferensiCard data={planData} />
           </div>
         )}
 
-        {/* ─── Section 2: Akumulasi Tahunan (YTD) ─── */}
+        {/* ─── Section 3: Akumulasi Tahunan (YTD) ─── */}
         <div style={{ marginTop: '32px' }}>
           <YTDSummary
             totalVisitActual={totalVisitActual}
@@ -894,7 +966,7 @@ export default async function SalesReportSystemPage({
           />
         </div>
 
-        {/* ─── Section 3: Employee Cards ─── */}
+        {/* ─── Section 4: Employee Cards ─── */}
         {employees.length > 0 && (
           <div
             style={{
@@ -910,7 +982,6 @@ export default async function SalesReportSystemPage({
           </div>
         )}
 
-        {/* empty state */}
         {employees.length === 0 && (
           <div
             style={{
@@ -927,12 +998,6 @@ export default async function SalesReportSystemPage({
               style={{ fontSize: '16px', fontWeight: 600, color: '#475569' }}
             >
               Belum ada data karyawan untuk ditampilkan.
-            </div>
-            <div
-              style={{ fontSize: '13px', color: '#94a3b8', marginTop: '8px' }}
-            >
-              Pastikan sheet TARGET_REALISASI_REVENUE_2026 dan
-              TARGET_REALISASI_VISIT_2026 sudah terisi.
             </div>
           </div>
         )}
