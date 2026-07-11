@@ -1,16 +1,17 @@
 // app/dashboard/page.tsx
-'use client';
 type DataSheet = {
   [key: string]: string
 }
 
 async function fetchSheet(sheetName: string): Promise<DataSheet[]> {
   const baseUrl = process.env.NEXT_PUBLIC_SHEETDB_URL
+  console.log('DEBUG Url:', baseUrl)
 
   if (!baseUrl) {
-    throw new Error(
+    console.warn(
       'NEXT_PUBLIC_SHEETDB_URL belum di-set. Cek file .env.local, lalu restart dev server.',
     )
+    return []
   }
 
   const res = await fetch(`${baseUrl}?sheet=${sheetName}`, {
@@ -103,7 +104,7 @@ export default async function Page() {
   const [revenueData, visitData, planTimData] = await Promise.all([
     fetchSheet('TARGET_REALISASI_REVENUE_2026'),
     fetchSheet('Copy of TARGET_REALISASI_VISIT_2026'),
-    fetchSheet('PLAN_TIM')
+    fetchSheet('PLAN_TIM'),
   ])
   return (
     <main style={{ padding: '2rem' }}>
