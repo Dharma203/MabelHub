@@ -468,8 +468,8 @@ export default function TrackingDatabasePage() {
       setLoading(true)
 
       const qs = new URLSearchParams()
-      qs.set('limit', '999999')
-      qs.set('page', '1')
+      qs.set('limit', String(pageSize))
+      qs.set('page', String(page))
 
       bulan.forEach((v) => qs.append('bulan', v))
       produk.forEach((v) => qs.append('produk', v))
