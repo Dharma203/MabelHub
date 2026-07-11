@@ -14,9 +14,10 @@ async function fetchSheet(sheetName: string): Promise<DataSheet[]> {
   const baseUrl = process.env.NEXT_PUBLIC_SHEETDB_URL
 
   if (!baseUrl) {
-    throw new Error(
+    console.warn(
       'NEXT_PUBLIC_SHEETDB_URL belum di-set. Cek file .env.local, lalu restart dev server.',
     )
+    return []
   }
 
   const res = await fetch(`${baseUrl}?sheet=${sheetName}`, {
