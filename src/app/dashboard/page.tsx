@@ -1,5 +1,5 @@
 // app/dashboard/page.tsx
-
+'use client';
 type DataSheet = {
   [key: string]: string
 }
