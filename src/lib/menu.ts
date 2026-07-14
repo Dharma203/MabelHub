@@ -65,6 +65,16 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/tracking-satker',
           icon: 'Building2',
         },
+        {
+          label: 'Tracking Visit B2G',
+          href: '/tracking-b2g',
+          icon: 'Building',
+        },
+        {
+          label: 'Tracking Visit B2B',
+          href: '/tracking-b2b',
+          icon: 'Building',
+        },
       ],
     },
     {

@@ -14,20 +14,38 @@ export async function GET(req: Request) {
   const db = client.db(process.env.MONGODB_DB || 'MabelHub')
   const col = db.collection('VisitActivity')
 
+  const { searchParams } = new URL(req.url)
+  const excludeOffice = searchParams.get('excludeOffice') === 'true'
+  const excludeRing4 = searchParams.get('excludeRing4') === 'true'
+
+  const matchCondition: any = {
+    satuan_kerja: { $exists: true, $ne: 'OFFICE' },
+  }
+
+  const matchConditionRing: any = {
+    status_ring: { $exists: true, $ne: 'RING 4' },
+  }
+
+  if (excludeOffice) {
+    matchCondition.satuan_kerja = { $exists: true, $not: /office/i }
+  }
+
   // Build role-based filter
   const { match: authMatch, error } = await getVisitAuthMatch(db, session)
   if (error) {
     return NextResponse.json({ error }, { status: 403 })
   }
 
-  // Group per satuan_kerja — filtered by user role
-  const baseMatch = {
-    satuan_kerja: { $exists: true, $ne: 'OFFICE' },
-    ...authMatch,
-  }
+  const extraMatch: any = { satuan_kerja: { $exists: true, $ne: 'OFFICE' } }
+  if (excludeOffice)
+    extraMatch.satuan_kerja = { $exists: true, $not: /office/i }
+  if (excludeRing4)
+    extraMatch.status_ring = { $exists: true, $not: /ring[\s_]*4/i }
+
+  const combinedMatch = { ...extraMatch, ...(authMatch || {}) }
 
   const groupedPipeline = [
-    { $match: baseMatch },
+    { $match: combinedMatch },
     {
       $group: {
         _id: '$satuan_kerja',
@@ -60,7 +78,12 @@ export async function GET(req: Request) {
   const totalSatuanKerja = ranked.length
 
   // Total visit keseluruhan (filtered by role)
-  const totalVisit = await col.countDocuments(authMatch || {})
+  // const totalVisit = await col.countDocuments(authMatch || {})
+  const countMatch: any = {}
+  if (excludeOffice) {
+    countMatch.satuan_kerja = { $not: /office/i }
+  }
+  const totalVisit = await col.countDocuments(countMatch)
 
   // Satker paling banyak dikunjungi
   const topSatker = ranked?.[0]?.satuan_kerja ?? '-'

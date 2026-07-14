@@ -98,6 +98,8 @@ export async function GET(req: Request) {
   const statusGroup = searchParams.get('statusGroup')
   const klpd = searchParams.get('klpd')
   const dateStr = searchParams.get('date') // specific date e.g. "01 Feb"
+  const excludeOffice = searchParams.get('excludeOffice') === 'true'
+  const excludeRing4 = searchParams.get('excludeRing4') === 'true'
   const groupBySatker = searchParams.get('groupBySatker') === 'true'
 
   // Sort Params
@@ -212,7 +214,7 @@ export async function GET(req: Request) {
   // =========================
   // EXACT FILTERS
   // =========================
-  if (sales) match.nama_sales = sales
+  if (sales && sales.toUpperCase() !== 'ALL') match.nama_sales = sales
   if (status) match.status_visit = status
   if (ring) match.status_ring = ring.toUpperCase() // Ensure ring filter from dashboard is uppercase
   if (city) match.city = city
@@ -244,6 +246,16 @@ export async function GET(req: Request) {
           /not[\s_]*visited|not[\s_]*visit|belum[\s_]*visit|belum[\s_]*visited/i,
       }
     }
+  }
+
+  if (excludeOffice) {
+    if (!match.$and) match.$and = []
+    match.$and.push({ satuan_kerja: { $not: /office/i } })
+  }
+
+  if (excludeRing4) {
+    if (!match.$and) match.$and = []
+    match.$and.push({ status_ring: { $not: /ring[\s_]*4/i } })
   }
 
   // =========================
@@ -289,6 +301,8 @@ export async function GET(req: Request) {
     groupPipeline.push({
       $match: { satuan_kerja: { $exists: true, $nin: [null, ''] } },
     })
+
+    groupPipeline.push({ $sort: { __visitDate: -1 } })
 
     // Group by satuan_kerja, take $first for display fields, $sum for total_visit
     groupPipeline.push({
@@ -395,9 +409,17 @@ export async function GET(req: Request) {
   // rank & total_visit tetap angka lifetime per satker,
   // tidak dipengaruhi filter tabel — sama seperti /api/visits/stats
   // =========================
+  const globalRankingMatch: any = {
+    satuan_kerja: { $exists: true, $nin: [null, ''] },
+  }
+
+  if (excludeOffice) {
+    globalRankingMatch.satuan_kerja.$not = /office/i
+  }
+
   const globalRanking = await col
     .aggregate([
-      { $match: { satuan_kerja: { $exists: true, $nin: [null, ''] } } },
+      { $match: globalRankingMatch },
       { $group: { _id: '$satuan_kerja', total_visit: { $sum: 1 } } },
       { $sort: { total_visit: -1 } },
     ])
@@ -463,39 +485,39 @@ export async function GET(req: Request) {
         $cond: [{ $gte: ['$__rankIndex', 0] }, '$__rankIndex', 9999],
       },
     },
-  });
+  })
 
   // =========================
   // SORT (baru) — dipilih dari header tabel
   // =========================
 
   const TEXT_SORT_FIELDS: Record<string, string> = {
-    satuan_kerja: "satuan_kerja",
-    nama_sales: "nama_sales",
-    city: "city",
-    status_ring: "status_ring",
-    pic_name: "pic_name",
-    pic_phone: "pic_phone",
-  };
+    satuan_kerja: 'satuan_kerja',
+    nama_sales: 'nama_sales',
+    city: 'city',
+    status_ring: 'status_ring',
+    pic_name: 'pic_name',
+    pic_phone: 'pic_phone',
+  }
 
-  let sortStage: Record<string, 1 | -1>;
-  if (sortByParams === "total_visit") {
+  let sortStage: Record<string, 1 | -1>
+  if (sortByParams === 'total_visit') {
     // total_visit tinggi = __rankIndex kecil (rank 1 punya visit terbanyak)
     // desc (default) = visit terbanyak paling atas = __rankIndex ascending (1)
     // asc = visit terendah paling atas = __rankIndex descending (-1)
-    sortStage = { __rankIndex: (sortDirNum === -1 ? 1 : -1) as 1 | -1 };
-  } else if (sortByParams === "rank") {
+    sortStage = { __rankIndex: (sortDirNum === -1 ? 1 : -1) as 1 | -1 }
+  } else if (sortByParams === 'rank') {
     // asc = rank 1 paling atas = __rankIndex ascending (1)
     // desc = rank terbesar paling atas = __rankIndex descending (-1)
-    sortStage = { __rankIndex: sortDirNum as 1 | -1 };
+    sortStage = { __rankIndex: sortDirNum as 1 | -1 }
   } else if (TEXT_SORT_FIELDS[sortByParams]) {
-    sortStage = { [TEXT_SORT_FIELDS[sortByParams]]: sortDirNum as 1 | -1 };
+    sortStage = { [TEXT_SORT_FIELDS[sortByParams]]: sortDirNum as 1 | -1 }
   } else {
-    sortStage = { __rankIndex: 1 as 1 | -1 };
+    sortStage = { __rankIndex: 1 as 1 | -1 }
   }
   // tiebreaker: tanggal terbaru dulu, lalu _id
-  sortStage.__visitDate = -1;
-  sortStage._id = -1;
+  sortStage.__visitDate = -1
+  sortStage._id = -1
 
   const itemsPipeline = [
     ...pipeline,
@@ -642,17 +664,17 @@ export async function POST(req: Request) {
       // new field (biar stats/team bisa pakai assignedTo.userId)
       assignedTo: targetUser
         ? {
-          userId: targetUser.userId,
-          role: targetUser.role,
-          username: targetUser.username,
-          fullName: targetUser.fullName,
-        }
+            userId: targetUser.userId,
+            role: targetUser.role,
+            username: targetUser.username,
+            fullName: targetUser.fullName,
+          }
         : {
-          userId: targetUserId,
-          role: '',
-          username: '',
-          fullName: '',
-        },
+            userId: targetUserId,
+            role: '',
+            username: '',
+            fullName: '',
+          },
 
       visit_date: toVisitDateStr(tanggal),
       city: kota_kab,

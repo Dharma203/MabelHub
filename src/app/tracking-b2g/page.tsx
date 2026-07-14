@@ -1,22 +1,22 @@
 'use client'
 
-import {
-  Building2,
-  LucideCopyCheck,
-  Trophy,
-  X,
-  Calendar,
-  MapPin,
-  ImageIcon,
-  ChevronDown,
-  ChevronUp,
-  FileText,
-  Activity,
-} from 'lucide-react'
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { useSession } from '@/components/session/SessionProvider'
 import { useRouter } from 'next/navigation'
 import SearchableSelect from '@/components/ui/SearchableSelect'
+import {
+  Building2,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  ImageIcon,
+  LucideCopyCheck,
+  MapPin,
+  Trophy,
+  X,
+  Activity,
+} from 'lucide-react'
 import Image from 'next/image'
 
 interface StatCardProps {
@@ -87,11 +87,12 @@ function getPageWindow(current: number, totalPages: number, size: number) {
   return Array.from({ length: size }, (_, i) => start + i)
 }
 
-export default function TrackingSatuanKerja() {
+export default function TrackingB2GPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const router = useRouter()
   const { user, loading: sessionLoading } = useSession()
-  // ✅ Guard role (sesuaikan kalau ada rule akses lain)
+
+  // Guard role
   useEffect(() => {
     if (!sessionLoading && user) {
       const ok =
@@ -102,7 +103,9 @@ export default function TrackingSatuanKerja() {
       if (!ok) router.replace('/')
     }
   }, [sessionLoading, user, router])
+
   //   filter state
+
   const [fSales, setFSales] = useState<string>('ALL')
   const [fStart, setFStart] = useState<string>('')
   const [fEnd, setFEnd] = useState<string>('')
@@ -138,7 +141,7 @@ export default function TrackingSatuanKerja() {
       if (!user) return // middleware seharusnya redirect
       try {
         setStatsLoading(true)
-        const res = await fetch('/api/visits/stats?excludeOffice=true', {
+        const res = await fetch('/api/visits/stats?excludeRing4=true', {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -146,7 +149,7 @@ export default function TrackingSatuanKerja() {
 
         setTotalSatuanKerja(Number(json?.totalSatuanKerja) || 0)
         setTotalVisitAll(Number(json?.totalVisit) || 0)
-        setTopSatker(String(json?.topSatker || '-'))
+        setTopSatker(String(json?.topSatker) || '-')
         setTopSatkerCount(Number(json?.topSatkerCount) || 0)
       } catch {
         if (!mounted) return
@@ -191,7 +194,7 @@ export default function TrackingSatuanKerja() {
       if (sessionLoading) return
       if (!user) return
       try {
-        const res = await fetch('/api/visits/meta?excludeOffice=true', {
+        const res = await fetch('/api/visits/meta?excludeRing4=true', {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -232,7 +235,7 @@ export default function TrackingSatuanKerja() {
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
-        params.set('excludeOffice', 'true')
+        params.set('excludeRing4', 'true')
         params.set('page', String(page))
         params.set('limit', String(pageSize))
 
@@ -279,6 +282,7 @@ export default function TrackingSatuanKerja() {
 
   const [paramStatus, setParamStatus] = useState<string[]>([])
   const [paramRing, setParamRing] = useState<string[]>([])
+
   useEffect(() => {
     fetch('/api/parameters')
       .then((res) => res.json())
@@ -1004,7 +1008,6 @@ export default function TrackingSatuanKerja() {
     </div>
   )
 }
-/* ----------------------------- UI Pieces ----------------------------- */
 
 function StatCard({ title, value, icon }: StatCardProps) {
   return (
