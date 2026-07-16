@@ -18,11 +18,17 @@ import {
   ChevronDown,
   X,
   PencilIcon,
+  Users2,
+  Download,
 } from 'lucide-react'
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import React from 'react'
-import { listStatusByUpdate, getDetailOptions } from '@/data/statusupdatebroadcast'
+import {
+  listStatusByUpdate,
+  getDetailOptions,
+} from '@/data/statusupdatebroadcast'
+import * as XLSX from 'xlsx'
 
 type StatusWaSummary = {
   terkirim: number
@@ -80,6 +86,7 @@ type FilterOptions = {
   kota: string[]
   status_wa: string[]
   ke_sales: string[]
+  pic: string[]
 }
 
 type LatestRevision = {
@@ -127,6 +134,10 @@ type ApiStats = {
     unik: number
     pct: number
   }[]
+  pic: {
+    no: number
+    pic: string
+  }
 }
 
 type keSalesSummary = {
@@ -135,6 +146,46 @@ type keSalesSummary = {
   ferrie: number
   kosong: number
 }
+
+type ExportField = {
+  key: keyof BroadCastRow
+  label: string
+}
+
+const EXPORT_FIELDS: ExportField[] = [
+  { key: 'created_at', label: 'Tanggal Input' },
+  { key: 'kode', label: 'Kode' },
+  { key: 'penginput', label: 'Penginput' },
+  { key: 'nama_perusahaan', label: 'Nama Perusahaan' },
+  { key: 'segmen', label: 'Segmen' },
+  { key: 'segmentasi', label: 'Segmentasi' },
+  { key: 'sumber_data', label: 'Sumber Data' },
+  { key: 'kota', label: 'Kota' },
+  { key: 'provinsi', label: 'Provinsi' },
+  { key: 'produk', label: 'Produk' },
+  { key: 'pic', label: 'PIC' },
+  { key: 'jabatan', label: 'Jabatan' },
+  { key: 'telp', label: 'Telp' },
+  { key: 'tipe', label: 'Tipe Kontak' },
+  { key: 'bidang_perusahaan', label: 'Bidang Perusahaan' },
+  { key: 'sumber_lain', label: 'Sumber Lain' },
+  { key: 'sales_internal', label: 'Sales Internal' },
+  { key: 'merek_tayang', label: 'Merek Tayang' },
+  { key: 'sumber_lain', label: 'Sumber Lain' },
+  { key: 'brand_owner', label: 'Brand Owner' },
+  { key: 'email', label: 'Email' },
+  { key: 'link_produk', label: 'Link Produk' },
+  { key: 'link_toko', label: 'Link Toko' },
+  { key: 'alamat', label: 'Alamat' },
+  { key: 'requestor', label: 'Requestor' },
+  { key: 'jenis_entitas', label: 'Jenis Entitas' },
+  { key: 'keterangan_update', label: 'Keterangan Update' },
+  { key: 'bulan_data', label: 'Bulan Data' },
+  { key: 'updated_at', label: 'Tanggal Update' },
+  { key: 'status_wa', label: 'Status Whatsapp'},
+  { key: 'detail_update', label: 'Detail Update'},
+  { key: 'ke_sales', label: 'Ke Sales'},
+]
 
 interface DataItem {
   id: string
@@ -232,9 +283,7 @@ function DetailItem({
   return (
     <div className='flex items-start gap-1.5 min-w-0'>
       {icon && (
-        <span className='mt-[1px] shrink-0 text-[11px] leading-none'>
-          {icon}
-        </span>
+        <span className='mt-px shrink-0 text-[11px] leading-none'>{icon}</span>
       )}
       <div className='flex flex-col min-w-0'>
         <span className='text-[9.5px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-0.5'>
@@ -252,7 +301,7 @@ function DetailItem({
             🔗 Buka Link
           </a>
         ) : (
-          <span className='text-[10.5px] text-slate-700 font-medium break-words leading-snug'>
+          <span className='text-[10.5px] text-slate-700 font-medium wrap-break-word leading-snug'>
             {value}
           </span>
         )}
@@ -271,8 +320,9 @@ export default function TrackingBroadcastPage() {
     { id: 'Status Wa', icon: MessageCircleCodeIcon, label: 'Status WA' },
     { id: 'Detail Update', icon: PencilIcon, label: 'Detail Update' },
     { id: 'Ke Sales', icon: Users, label: 'Ke Sales' },
+    { id: 'Nama PIC', icon: Users2, label: 'Nama PIC' },
   ]
-  
+
   // Summary Status WA
   const [statusWaSummary, setStatusWaSummary] = useState<StatusWaSummary>({
     terkirim: 0,
@@ -391,6 +441,18 @@ export default function TrackingBroadcastPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(true)
   const [isFilterOpen2, setIsFilterOpen2] = useState(true)
 
+  // export modal state
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportStartDate, setExportStartDate] = useState('')
+  const [exportEndDate, setExportEndDate] = useState('')
+  const [exportMode, setExportMode] = useState<'all' | 'date' | 'pagination'>(
+    'all',
+  )
+  const [exportFields, setExportFields] = useState<Set<keyof BroadCastRow>>(
+    () => new Set(EXPORT_FIELDS.map((f) => f.key)),
+  )
+  const [exporting, setExporting] = useState(false)
+
   // filter value - multi-select arrays
   const [bulan, setBulan] = useState<string[]>([])
   const [perusahaan, setPerusahaan] = useState<string[]>([])
@@ -399,6 +461,9 @@ export default function TrackingBroadcastPage() {
   const [kota, setKota] = useState<string[]>([])
   const [statusWa, setStatusWa] = useState<string[]>([])
   const [toSales, setToSales] = useState<string[]>([])
+  const [namaPic, setNamaPic] = useState<string[]>([])
+  const [merekTayang, setMerekTayang] = useState<string[]>([])
+  const [tipe, setTipe] = useState<string[]>([])
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -419,6 +484,7 @@ export default function TrackingBroadcastPage() {
     kota: [],
     status_wa: [],
     ke_sales: [],
+    pic: [],
   })
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -602,11 +668,13 @@ export default function TrackingBroadcastPage() {
           return statusWa
         case 'Ke Sales':
           return toSales
+        case 'Nama PIC':
+          return namaPic
         default:
           return []
       }
     },
-    [bulan, perusahaan, produk, provinsi, kota, statusWa, toSales],
+    [bulan, perusahaan, produk, provinsi, kota, statusWa, toSales, namaPic],
   )
 
   // ✅ Sesudah — hapus dependency array
@@ -632,6 +700,9 @@ export default function TrackingBroadcastPage() {
         break
       case 'Ke Sales':
         setToSales(vals)
+        break
+      case 'Nama PIC':
+        setNamaPic(vals)
         break
       default:
         return []
@@ -680,6 +751,8 @@ export default function TrackingBroadcastPage() {
         return filterOptions.status_wa
       case 'Ke Sales':
         return filterOptions.ke_sales
+      case 'Nama PIC':
+        return filterOptions.pic || []
       default:
         return []
     }
@@ -688,78 +761,80 @@ export default function TrackingBroadcastPage() {
   // ---- main data fetch (paginated rows) ----
   useEffect(() => {
     let mounted = true
-      ; (async () => {
-        setLoadingRows(true)
+    ;(async () => {
+      setLoadingRows(true)
+      if (!mounted) return
+
+      const qs = new URLSearchParams()
+      qs.set('limit', String(pageSize))
+      qs.set('page', String(page))
+
+      bulan.forEach((v) => qs.append('bulan', v))
+      perusahaan.forEach((v) => qs.append('perusahaan', v))
+      produk.forEach((v) => qs.append('produk', v))
+      provinsi.forEach((v) => qs.append('provinsi', v))
+      kota.forEach((v) => qs.append('kota', v))
+      statusWa.forEach((v) => qs.append('status_wa', v))
+      toSales.forEach((v) => qs.append('ke_sales', v))
+      namaPic.forEach((v) => qs.append('pic', v))
+      if (startDate) qs.set('startDate', startDate)
+      if (endDate) qs.set('endDate', endDate)
+
+      try {
+        const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        const json = await res.json().catch(() => ({}))
         if (!mounted) return
 
-        const qs = new URLSearchParams()
-        qs.set('limit', String(pageSize))
-        qs.set('page', String(page))
-
-        bulan.forEach((v) => qs.append('bulan', v))
-        perusahaan.forEach((v) => qs.append('perusahaan', v))
-        produk.forEach((v) => qs.append('produk', v))
-        provinsi.forEach((v) => qs.append('provinsi', v))
-        kota.forEach((v) => qs.append('kota', v))
-        statusWa.forEach((v) => qs.append('status_wa', v))
-        toSales.forEach((v) => qs.append('ke_sales', v))
-        if (startDate) qs.set('startDate', startDate)
-        if (endDate) qs.set('endDate', endDate)
-
-        try {
-          const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
-            cache: 'no-store',
-          })
-          const json = await res.json().catch(() => ({}))
-          if (!mounted) return
-
-          setRows(Array.isArray(json?.items) ? json.items : [])
-          setStatusWaSummary({
-            terkirim: json?.statusWaSummary?.terkirim ?? 0,
-            diterima: json?.statusWaSummary?.diterima ?? 0,
-            belumRespon: json?.statusWaSummary?.belumRespon ?? 0,
-            positif: json?.statusWaSummary?.positif ?? 0,
-            netral: json?.statusWaSummary?.netral ?? 0,
-            negatif: json?.statusWaSummary?.negatif ?? 0,
-            aktif: json?.statusWaSummary?.aktif ?? 0,
-            kosong: json?.statusWaSummary?.kosong ?? 0,
-            total: json?.statusWaSummary?.total ?? 0,
-          })
-          setStats({
-            total_no_telp: json?.summaryStats?.total_no_telp ?? 0,
-            total_provinsi: json?.summaryStats?.total_provinsi ?? 0,
-            total_kota: json?.summaryStats?.total_kota ?? 0,
-            total_nama: json?.summaryStats?.total_nama ?? 0,
-            total_merek: json?.summaryStats?.total_merek ?? 0,
-            total_kontak_unik: json?.summaryStats?.total_kontak_unik ?? 0,
-            total_wa_unik: json?.summaryStats?.total_wa_unik ?? 0,
-            provinsi_kota: json?.summaryStats?.provinsi_kota ?? [],
-            wa_provinsi_kota: json?.summaryStats?.wa_provinsi_kota ?? [],
-            ke_sales_provinsi: json?.summaryStats?.ke_sales_provinsi ?? [],
-            per_sales: json?.summaryStats?.per_sales ?? [],
-          })
-          setKeSalesSummary({
-            arie: json?.keSalesSummary?.arie ?? 0,
-            beffry: json?.keSalesSummary?.beffry ?? 0,
-            ferrie: json?.keSalesSummary?.ferrie ?? 0,
-            kosong: json?.keSalesSummary?.kosong ?? 0,
-          })
-          const pg = json?.pagination ?? {}
-          setTotal(Number(pg?.total ?? 0))
-          setTotalPages(Number(pg?.totalPages ?? 1))
-          setSelected(null)
-        } catch {
-          if (!mounted) return
-          setRows([])
-          setTotal(0)
-          setTotalPages(1)
-          setSelected(null)
-        } finally {
-          if (mounted) {
-            setLoadingRows(false)
-          }
+        setRows(Array.isArray(json?.items) ? json.items : [])
+        setStatusWaSummary({
+          terkirim: json?.statusWaSummary?.terkirim ?? 0,
+          diterima: json?.statusWaSummary?.diterima ?? 0,
+          belumRespon: json?.statusWaSummary?.belumRespon ?? 0,
+          positif: json?.statusWaSummary?.positif ?? 0,
+          netral: json?.statusWaSummary?.netral ?? 0,
+          negatif: json?.statusWaSummary?.negatif ?? 0,
+          aktif: json?.statusWaSummary?.aktif ?? 0,
+          kosong: json?.statusWaSummary?.kosong ?? 0,
+          total: json?.statusWaSummary?.total ?? 0,
+        })
+        setStats({
+          total_no_telp: json?.summaryStats?.total_no_telp ?? 0,
+          total_provinsi: json?.summaryStats?.total_provinsi ?? 0,
+          total_kota: json?.summaryStats?.total_kota ?? 0,
+          total_nama: json?.summaryStats?.total_nama ?? 0,
+          total_merek: json?.summaryStats?.total_merek ?? 0,
+          total_kontak_unik: json?.summaryStats?.total_kontak_unik ?? 0,
+          total_wa_unik: json?.summaryStats?.total_wa_unik ?? 0,
+          provinsi_kota: json?.summaryStats?.provinsi_kota ?? [],
+          wa_provinsi_kota: json?.summaryStats?.wa_provinsi_kota ?? [],
+          ke_sales_provinsi: json?.summaryStats?.ke_sales_provinsi ?? [],
+          per_sales: json?.summaryStats?.per_sales ?? [],
+          pic: json?.summaryStats?.pic ?? [],
+        })
+        setKeSalesSummary({
+          arie: json?.keSalesSummary?.arie ?? 0,
+          beffry: json?.keSalesSummary?.beffry ?? 0,
+          ferrie: json?.keSalesSummary?.ferrie ?? 0,
+          kosong: json?.keSalesSummary?.kosong ?? 0,
+        })
+        const pg = json?.pagination ?? {}
+        setTotal(Number(pg?.total ?? 0))
+        setTotalPages(Number(pg?.totalPages ?? 1))
+        setSelected(null)
+      } catch {
+        if (!mounted) return
+        setRows([])
+        setTotal(0)
+        setTotalPages(1)
+        setSelected(null)
+      } finally {
+        if (mounted) {
+          setLoadingRows(false)
         }
-      })()
+      }
+    })()
     return () => {
       mounted = false
     }
@@ -775,6 +850,7 @@ export default function TrackingBroadcastPage() {
     toSales,
     startDate,
     endDate,
+    namaPic,
   ])
 
   const safePage = useMemo(
@@ -821,18 +897,127 @@ export default function TrackingBroadcastPage() {
   const gotoPage = (p: number) =>
     setPage(Math.min(Math.max(1, p), Math.max(1, totalPages)))
 
+  // export handler
+  const handleExport = async () => {
+    // Validasi mode 'date' wajib isi tanggal
+    if (exportMode === 'date' && !exportStartDate && !exportEndDate) {
+      alert('Silakan pilih minimal salah satu tanggal (mulai atau akhir)')
+      return
+    }
+
+    setExporting(true)
+    try {
+      let allRows: BroadCastRow[] = []
+
+      if (exportMode === 'pagination') {
+        // Mode pagination: pakai data yang sedang tampil di tabel (rows state)
+        allRows = rows
+      } else {
+        const qs = new URLSearchParams()
+        qs.set('limit', '999999')
+        qs.set('page', 'max')
+
+        // Filter kategori tetap dipakai di semua mode (bulan, produk, dst)
+        bulan.forEach((v) => qs.append('bulan', v))
+        produk.forEach((v) => qs.append('produk', v))
+        merekTayang.forEach((v) => qs.append('merek_tayang', v))
+        perusahaan.forEach((v) => qs.append('perusahaan', v))
+        provinsi.forEach((v) => qs.append('provinsi', v))
+        kota.forEach((v) => qs.append('kota', v))
+        tipe.forEach((v) => qs.append('tipe', v))
+
+        const formatDisplayDate = (dateStr: string) => {
+          const d = new Date(dateStr)
+          return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' })
+        }
+
+        if (exportMode === 'date') {
+          // Mode by tanggal: wajib pakai tanggal dari modal export
+          if (exportStartDate)
+            qs.set('startDate', formatDisplayDate(exportStartDate))
+          if (exportEndDate) qs.set('endDate', formatDisplayDate(exportEndDate))
+        }
+        // Mode 'all': tidak set startDate/endDate sama sekali → tarik semua data
+
+        const res = await fetch(`/api/tracking-database?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        const json = await res.json().catch(() => ({}))
+        allRows = Array.isArray(json?.items) ? json.items : []
+      }
+
+      if (allRows.length === 0) {
+        alert('Tidak ada data untuk di-export')
+        return
+      }
+
+      const selectedFields = EXPORT_FIELDS.filter((f) =>
+        exportFields.has(f.key),
+      )
+      const exportData = allRows.map((row, idx) => {
+        const obj: Record<string, any> = { No: idx + 1 }
+        selectedFields.forEach((f) => {
+          let val = row[f.key] ?? ''
+          if ((f.key === 'created_at' || f.key === 'updated_at') && val) {
+            try {
+              const d = new Date(val as string)
+              if (!isNaN(d.getTime())) {
+                const yyyy = d.getFullYear()
+                const mm = String(d.getMonth() + 1).padStart(2, '0')
+                const dd = String(d.getDate()).padStart(2, '0')
+                val = `${yyyy}-${mm}-${dd}`
+              }
+            } catch (err) {
+              // fallback if invalid date
+            }
+          }
+          obj[f.label] = val
+        })
+        return obj
+      })
+
+      const ws = XLSX.utils.json_to_sheet(exportData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Data')
+
+      const modeLabel =
+        exportMode === 'all'
+          ? 'Semua'
+          : exportMode === 'date'
+            ? 'ByTanggal'
+            : `Hal${safePage}`
+      const dateStr = new Date().toISOString().slice(0, 10)
+      XLSX.writeFile(wb, `TrackingBroadcast_${modeLabel}_${dateStr}.xlsx`)
+
+      setShowExportModal(false)
+    } catch (e: any) {
+      alert(e?.message ?? 'Gagal export data')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className='min-h-screen bg-blue-50'>
       <div className='flex'>
         <div className='flex-1 p-2 sm:p-4 md:p-6 max-w-full overflow-x-hidden'>
           <div className='bg-white rounded-xl shadow-md p-4 sm:p-6 mb-4 sm:mb-6 border border-gray-100'>
-            <div className='flex flex-col'>
-              <h4 className='text-[16px] sm:text-[20px] mb-1 font-extrabold text-(--gray-800) m-0 tracking-[-0.5px]'>
-                Tracking Broadcast WA
-              </h4>
-              <p className='text-xs sm:text-sm ml-1 text-slate-500 font-medium'>
-                Monitor status pengiriman pesan dari sheet DATA WA
-              </p>
+            <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+              <div>
+                <h4 className='text-[17px] sm:text-[20px] mb-1 font-extrabold text-(--gray-800) m-0 tracking-[-0.5px]'>
+                  Database Tracking
+                </h4>
+                <p className='text-xs sm:text-sm ml-1 text-slate-500 font-medium'>
+                  Monitor dan kelola seluruh data entitas dengan filter cerdas
+                </p>
+              </div>
+              <button
+                onClick={() => setShowExportModal(true)}
+                className='flex items-center gap-2 h-10 rounded-xl bg-green-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-green-700 transition-colors shrink-0'
+              >
+                <Download size={16} strokeWidth={2.5} />
+                Export Data
+              </button>
             </div>
           </div>
           <section className='bg-white rounded-xl shadow-sm border border-gray-200'>
@@ -888,7 +1073,7 @@ export default function TrackingBroadcastPage() {
                     }}
                     onClick={(e) => {
                       if ('showPicker' in HTMLInputElement.prototype) {
-                        e.currentTarget.showPicker();
+                        e.currentTarget.showPicker()
                       }
                     }}
                   />
@@ -905,7 +1090,7 @@ export default function TrackingBroadcastPage() {
                     }}
                     onClick={(e) => {
                       if ('showPicker' in HTMLInputElement.prototype) {
-                        e.currentTarget.showPicker();
+                        e.currentTarget.showPicker()
                       }
                     }}
                   />
@@ -926,11 +1111,11 @@ export default function TrackingBroadcastPage() {
                   const search = dropdownSearch[btn.id] ?? ''
                   const filtered = search
                     ? opts.filter((o) => {
-                      const display = btn.id === 'Bulan' ? formatBulan(o) : o
-                      return display
-                        .toLowerCase()
-                        .includes(search.toLowerCase())
-                    })
+                        const display = btn.id === 'Bulan' ? formatBulan(o) : o
+                        return display
+                          .toLowerCase()
+                          .includes(search.toLowerCase())
+                      })
                     : opts
                   const allSelected =
                     opts.length > 0 && opts.every((o) => activeArr.includes(o))
@@ -944,12 +1129,13 @@ export default function TrackingBroadcastPage() {
                       <button
                         type='button'
                         onClick={() => setOpenDropdown(isOpen ? null : btn.id)}
-                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${isOpen
+                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${
+                          isOpen
                             ? 'border-2 border-blue-500 bg-white text-blue-600 shadow-md'
                             : isActive
                               ? 'border-2 border-blue-400 bg-white text-blue-700'
                               : 'border border-slate-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600'
-                          }`}
+                        }`}
                       >
                         <span className='flex items-center gap-1.5 min-w-0'>
                           <IconComponent
@@ -1068,10 +1254,10 @@ export default function TrackingBroadcastPage() {
                 {(filterButtons.some((b) => getFilterArr(b.id).length > 0) ||
                   startDate ||
                   endDate) && (
-                    <span className='text-blue-600 font-semibold ml-1'>
-                      Menampilkan {total.toLocaleString()} data
-                    </span>
-                  )}
+                  <span className='text-blue-600 font-semibold ml-1'>
+                    Menampilkan {total.toLocaleString()} data
+                  </span>
+                )}
               </div>
 
               {/* ---- Chips row: active selections ---- */}
@@ -1379,9 +1565,9 @@ export default function TrackingBroadcastPage() {
                       {loadingRows
                         ? '...'
                         : (stats?.provinsi_kota.reduce(
-                          (acc, row) => acc + row.unik,
-                          0,
-                        ) ?? 0)}
+                            (acc, row) => acc + row.unik,
+                            0,
+                          ) ?? 0)}
                     </span>
                     <span>total</span>
                   </div>
@@ -1499,9 +1685,9 @@ export default function TrackingBroadcastPage() {
                       {loadingRows
                         ? '...'
                         : (stats?.per_sales?.reduce(
-                          (acc, r) => acc + r.unik,
-                          0,
-                        ) ?? 0)}
+                            (acc, r) => acc + r.unik,
+                            0,
+                          ) ?? 0)}
                     </span>
                     <span>total</span>
                   </div>
@@ -1630,6 +1816,7 @@ export default function TrackingBroadcastPage() {
                       { label: '🏢 PERUSAHAAN' },
                       { label: '📦 PRODUK' },
                       { label: '📍 INFO LOKASI' },
+                      { label: '👤 NAMA PIC' },
                       { label: '👤 KONTAK PIC' },
                       { label: '💬 STATUS WA' },
                       { label: '📝 DETAIL UPDATE' },
@@ -1650,9 +1837,9 @@ export default function TrackingBroadcastPage() {
                         onChange={handleSelectAll}
                         checked={
                           rows.filter((r) => r.tipe === 'WhatsApp').length >
-                          0 &&
+                            0 &&
                           selectedIds.length ===
-                          rows.filter((r) => r.tipe === 'WhatsApp').length
+                            rows.filter((r) => r.tipe === 'WhatsApp').length
                         }
                         className='w-3.5 h-3.5 accent-blue-500 cursor-pointer'
                       />
@@ -1738,12 +1925,11 @@ export default function TrackingBroadcastPage() {
                             <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-600'>
                               {row.kota}, {row.provinsi}
                             </td>
+                            <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-600'>
+                              {row.pic}
+                            </td>
                             <td className='px-2 py-2 text-[10px] text-gray-700'>
                               <div className='flex flex-col gap-0.5'>
-                                <span className='font-semibold text-slate-800'>
-                                  {row.pic || '-'}
-                                  {row.jabatan ? ` (${row.jabatan})` : ''}
-                                </span>
                                 <span className='flex items-center gap-1 text-slate-500'>
                                   <Phone
                                     size={9}
@@ -1777,9 +1963,22 @@ export default function TrackingBroadcastPage() {
                                 }
                                 isDisabled={!row.status_wa}
                                 options={(() => {
-                                  const base = getDetailOptions(row.status_wa || '')
-                                  if (row.detail_update && !base.some(o => o.value === row.detail_update)) {
-                                    return [...base, { value: row.detail_update, label: row.detail_update }]
+                                  const base = getDetailOptions(
+                                    row.status_wa || '',
+                                  )
+                                  if (
+                                    row.detail_update &&
+                                    !base.some(
+                                      (o) => o.value === row.detail_update,
+                                    )
+                                  ) {
+                                    return [
+                                      ...base,
+                                      {
+                                        value: row.detail_update,
+                                        label: row.detail_update,
+                                      },
+                                    ]
                                   }
                                   return base
                                 })()}
@@ -1864,18 +2063,18 @@ export default function TrackingBroadcastPage() {
                                         value={
                                           selected.created_at
                                             ? new Date(selected.created_at)
-                                              .toLocaleDateString('sv-SE', {
-                                                day: '2-digit',
-                                                month: '2-digit',
-                                                year: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                                second: '2-digit',
-                                                hour12: false,
-                                              })
-                                              .replace('pukul', '')
-                                              .replace(' ', ' ')
-                                              .trim()
+                                                .toLocaleDateString('sv-SE', {
+                                                  day: '2-digit',
+                                                  month: '2-digit',
+                                                  year: 'numeric',
+                                                  hour: '2-digit',
+                                                  minute: '2-digit',
+                                                  second: '2-digit',
+                                                  hour12: false,
+                                                })
+                                                .replace('pukul', '')
+                                                .replace(' ', ' ')
+                                                .trim()
                                             : '-'
                                         }
                                       />
@@ -1913,7 +2112,7 @@ export default function TrackingBroadcastPage() {
                                         label='Sumber Lain'
                                         value={
                                           selected.sumber_data ===
-                                            'Sales Internal'
+                                          'Sales Internal'
                                             ? selected.sales_internal
                                             : '-'
                                         }
@@ -2013,7 +2212,9 @@ export default function TrackingBroadcastPage() {
                                       <DetailItem
                                         icon='📆'
                                         label='Bulan Data'
-                                        value={formatBulanData(selected.created_at)}
+                                        value={formatBulanData(
+                                          selected.created_at,
+                                        )}
                                       />
                                       {selected.alamat &&
                                         selected.alamat.trim() !== '' && (
@@ -2049,7 +2250,7 @@ export default function TrackingBroadcastPage() {
                                             <span className='border rounded-sm border-gray-300 py-1 px-1.5 text-[10.5px] text-slate-700 font-medium'>
                                               📦
                                               {selected.merek_tayang &&
-                                                selected.merek_tayang.trim() !==
+                                              selected.merek_tayang.trim() !==
                                                 ''
                                                 ? `${selected.produk} / ${selected.merek_tayang}`
                                                 : selected.produk}
@@ -2153,6 +2354,239 @@ export default function TrackingBroadcastPage() {
           </div>
         </div>
       </div>
+
+      {/* export modals */}
+      {showExportModal && (
+        <div className='fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm'>
+          <div className='bg-white rounded-2xl shadow-2xl w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto'>
+            {/* Header */}
+            <div className='flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-white rounded-t-2xl'>
+              <div className='flex items-center gap-2'>
+                <div className='grid h-8 w-8 place-items-center rounded-lg bg-green-600 text-white'>
+                  <Download size={16} />
+                </div>
+                <div>
+                  <h3 className='text-[15px] font-extrabold text-gray-800'>
+                    Export Data
+                  </h3>
+                  <p className='text-[10px] text-slate-500'>
+                    Pilih rentang tanggal dan kolom yang ingin di-export
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className='grid h-8 w-8 place-items-center rounded-lg hover:bg-gray-100 transition-colors'
+              >
+                <X size={18} className='text-gray-500' />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className='px-6 py-4 space-y-5'>
+              {/* Export Mode Selection */}
+              <div>
+                <label className='text-xs font-bold text-gray-700 uppercase tracking-wider block mb-2'>
+                  🎯 Pilih Mode Export
+                </label>
+                <div className='grid grid-cols-3 gap-2'>
+                  {[
+                    {
+                      id: 'all',
+                      label: 'Semua Data',
+                      desc: 'Tarik seluruh data',
+                      icon: '📦',
+                    },
+                    {
+                      id: 'date',
+                      label: 'By Tanggal',
+                      desc: 'Sesuai rentang tanggal',
+                      icon: '📅',
+                    },
+                    {
+                      id: 'pagination',
+                      label: 'By Halaman',
+                      desc: `Halaman ${safePage} aktif`,
+                      icon: '📄',
+                    },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type='button'
+                      onClick={() => setExportMode(m.id as typeof exportMode)}
+                      className={cn(
+                        'flex flex-col items-center gap-1 px-2 py-3 rounded-xl border-2 text-center transition-all',
+                        exportMode === m.id
+                          ? 'border-green-500 bg-green-50 text-green-800'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-green-300',
+                      )}
+                    >
+                      <span className='text-lg'>{m.icon}</span>
+                      <span className='text-[11px] font-bold'>{m.label}</span>
+                      <span className='text-[9px] text-slate-400'>
+                        {m.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Date Range */}
+              {exportMode === 'date' && (
+                <div>
+                  <label className='text-xs font-bold text-gray-700 uppercase tracking-wider block mb-2'>
+                    📅 Rentang Tanggal Export
+                  </label>
+                  <div className='flex items-center gap-2'>
+                    <input
+                      type='date'
+                      value={exportStartDate}
+                      onChange={(e) => setExportStartDate(e.target.value)}
+                      onClick={(e) => {
+                        if ('showPicker' in HTMLInputElement.prototype) {
+                          e.currentTarget.showPicker()
+                        }
+                      }}
+                      className='flex-1 text-sm h-10 px-3 border border-gray-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400'
+                    />
+                    <span className='text-gray-400 font-semibold text-sm'>
+                      —
+                    </span>
+                    <input
+                      type='date'
+                      value={exportEndDate}
+                      onChange={(e) => setExportEndDate(e.target.value)}
+                      onClick={(e) => {
+                        if ('showPicker' in HTMLInputElement.prototype) {
+                          e.currentTarget.showPicker()
+                        }
+                      }}
+                      className='flex-1 text-sm h-10 px-3 border border-gray-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400'
+                    />
+                  </div>
+                  <p className='text-[10px] text-slate-400 mt-1'>
+                    Pilih minimal salah satu tanggal (mulai atau akhir)
+                  </p>
+                </div>
+              )}
+
+              {exportMode === 'pagination' && (
+                <div className='px-3 py-2.5 rounded-xl bg-blue-50 border border-blue-100 text-[11px] text-blue-700'>
+                  ℹ️ Akan export <strong>{rows.length} data</strong> yang sedang
+                  tampil di halaman <strong>{safePage}</strong> ({pageSize}{' '}
+                  data/halaman).
+                </div>
+              )}
+
+              {exportMode === 'all' && (
+                <div className='px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-100 text-[11px] text-amber-700'>
+                  ⚠️ Akan tarik <strong>seluruh data</strong> tanpa batasan
+                  tanggal. Filter kategori (Bulan/Produk/dll) yang aktif tetap
+                  berlaku.
+                </div>
+              )}
+
+              {/* Field Selection */}
+              <div>
+                <div className='flex items-center justify-between mb-2'>
+                  <label className='text-xs font-bold text-gray-700 uppercase tracking-wider'>
+                    📋 Pilih Kolom Export
+                  </label>
+                  <div className='flex items-center gap-2'>
+                    <button
+                      type='button'
+                      onClick={() =>
+                        setExportFields(
+                          new Set(EXPORT_FIELDS.map((f) => f.key)),
+                        )
+                      }
+                      className='text-[10px] font-semibold text-green-600 hover:text-green-800 px-2 py-0.5 rounded hover:bg-green-50'
+                    >
+                      ✓ Pilih Semua
+                    </button>
+                    <span className='text-gray-300'>|</span>
+                    <button
+                      type='button'
+                      onClick={() => setExportFields(new Set())}
+                      className='text-[10px] font-semibold text-red-500 hover:text-red-700 px-2 py-0.5 rounded hover:bg-red-50'
+                    >
+                      ✕ Hapus Semua
+                    </button>
+                  </div>
+                </div>
+                <div className='grid grid-cols-2 gap-1.5 max-h-[280px] overflow-y-auto p-3 rounded-xl border border-gray-100 bg-gray-50/50'>
+                  {EXPORT_FIELDS.map((f) => {
+                    const checked = exportFields.has(f.key)
+                    return (
+                      <label
+                        key={f.key}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all text-[12px]',
+                          checked
+                            ? 'bg-green-50 ring-1 ring-green-200 text-green-800 font-semibold'
+                            : 'bg-white ring-1 ring-gray-100 text-gray-600 hover:ring-green-200 hover:bg-green-50/30',
+                        )}
+                      >
+                        <input
+                          type='checkbox'
+                          checked={checked}
+                          onChange={() => {
+                            setExportFields((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(f.key)) {
+                                next.delete(f.key)
+                              } else {
+                                next.add(f.key)
+                              }
+                              return next
+                            })
+                          }}
+                          className='accent-green-600 w-3.5 h-3.5 shrink-0'
+                        />
+                        {f.label}
+                      </label>
+                    )
+                  })}
+                </div>
+                <p className='text-[10px] text-slate-400 mt-1.5'>
+                  {exportFields.size} dari {EXPORT_FIELDS.length} kolom dipilih
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className='flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl'>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className='h-10 px-5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors'
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleExport}
+                disabled={exporting || exportFields.size === 0}
+                className={cn(
+                  'h-10 px-6 rounded-xl text-sm font-bold text-white shadow-sm transition-colors flex items-center gap-2',
+                  exporting || exportFields.size === 0
+                    ? 'bg-green-400 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700',
+                )}
+              >
+                {exporting ? (
+                  <>
+                    <span className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
+                    Mengexport...
+                  </>
+                ) : (
+                  <>
+                    <Download size={16} />
+                    Export Excel
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

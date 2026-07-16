@@ -257,6 +257,11 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/rekapitulasi-visit',
           icon: 'BarChart3',
         },
+        {
+          label: 'Sales Report System',
+          href: '/sales-report-system',
+          icon: 'FileText',
+        },
       ],
     },
     {
@@ -307,11 +312,6 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           label: 'Tracking Visit B2B',
           href: '/tracking-b2b',
           icon: 'Building',
-        },
-        {
-          label: 'Sales Report System',
-          href: '/sales-report-system',
-          icon: 'FileText',
         },
       ],
     },
