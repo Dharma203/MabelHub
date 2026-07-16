@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
     const perusahaanArr = searchParams.getAll('perusahaan')
     const provinsiArr = searchParams.getAll('provinsi')
     const kotaArr = searchParams.getAll('kota')
+    const picArr = searchParams.getAll('pic')
     const statusWaArr = searchParams.getAll('status_wa')
     const keSalesArr = searchParams.getAll('ke_sales')
     const startDate = searchParams.get('startDate')
@@ -97,6 +98,7 @@ export async function GET(req: NextRequest) {
       matchStage['nama_perusahaan'] = { $in: perusahaanArr }
     if (provinsiArr.length > 0) matchStage['provinsi'] = { $in: provinsiArr }
     if (kotaArr.length > 0) matchStage['kota'] = { $in: kotaArr }
+    if (picArr.length > 0) matchStage['nama'] = { $in: picArr }
 
     if (bulanArr.length > 0) {
       const monthConditions = bulanArr

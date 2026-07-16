@@ -26,11 +26,12 @@ export async function GET() {
         // bulan, perusahaan, produk, provinsi, kota → dari input_database (sumber data utama)
         const inputCol = db.collection("input_database");
 
-        const [produk, perusahaan, provinsi, kota] = await Promise.all([
+        const [produk, perusahaan, provinsi, kota, pic] = await Promise.all([
             inputCol.distinct("produk_relevan", { produk_relevan: { $nin: ["", null] } }),
             inputCol.distinct("nama_perusahaan", { nama_perusahaan: { $nin: ["", null] } }),
             inputCol.distinct("provinsi", { provinsi: { $nin: ["", null] } }),
             inputCol.distinct("kota", { kota: { $nin: ["", null] } }),
+            inputCol.distinct("nama", { nama: { $nin: ["", null] } }),
         ]);
 
         // Ekstrak bulan unik dari code_input (format: PREFIX-DDMMYY-COUNTER)
@@ -107,6 +108,7 @@ export async function GET() {
             perusahaan: perusahaan.sort(),
             provinsi: provinsi.sort(),
             kota: kota.sort(),
+            pic: pic.sort(),
             status_wa,
             ke_sales,
         });

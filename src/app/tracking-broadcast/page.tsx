@@ -18,6 +18,7 @@ import {
   ChevronDown,
   X,
   PencilIcon,
+  Users2,
 } from 'lucide-react'
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
@@ -80,6 +81,7 @@ type FilterOptions = {
   kota: string[]
   status_wa: string[]
   ke_sales: string[]
+  pic: string[]
 }
 
 type LatestRevision = {
@@ -127,6 +129,10 @@ type ApiStats = {
     unik: number
     pct: number
   }[]
+  pic: {
+    no: number
+    pic: string
+  }
 }
 
 type keSalesSummary = {
@@ -232,7 +238,7 @@ function DetailItem({
   return (
     <div className='flex items-start gap-1.5 min-w-0'>
       {icon && (
-        <span className='mt-[1px] shrink-0 text-[11px] leading-none'>
+        <span className='mt-px shrink-0 text-[11px] leading-none'>
           {icon}
         </span>
       )}
@@ -252,7 +258,7 @@ function DetailItem({
             🔗 Buka Link
           </a>
         ) : (
-          <span className='text-[10.5px] text-slate-700 font-medium break-words leading-snug'>
+          <span className='text-[10.5px] text-slate-700 font-medium wrap-break-word leading-snug'>
             {value}
           </span>
         )}
@@ -271,6 +277,7 @@ export default function TrackingBroadcastPage() {
     { id: 'Status Wa', icon: MessageCircleCodeIcon, label: 'Status WA' },
     { id: 'Detail Update', icon: PencilIcon, label: 'Detail Update' },
     { id: 'Ke Sales', icon: Users, label: 'Ke Sales' },
+    { id: 'Nama PIC', icon: Users2, label: 'Nama PIC'},
   ]
   
   // Summary Status WA
@@ -399,6 +406,7 @@ export default function TrackingBroadcastPage() {
   const [kota, setKota] = useState<string[]>([])
   const [statusWa, setStatusWa] = useState<string[]>([])
   const [toSales, setToSales] = useState<string[]>([])
+  const [namaPic, setNamaPic] = useState<string[]>([])
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -419,6 +427,7 @@ export default function TrackingBroadcastPage() {
     kota: [],
     status_wa: [],
     ke_sales: [],
+    pic: [],
   })
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -602,11 +611,13 @@ export default function TrackingBroadcastPage() {
           return statusWa
         case 'Ke Sales':
           return toSales
+        case 'Nama PIC':
+          return namaPic
         default:
           return []
       }
     },
-    [bulan, perusahaan, produk, provinsi, kota, statusWa, toSales],
+    [bulan, perusahaan, produk, provinsi, kota, statusWa, toSales, namaPic],
   )
 
   // ✅ Sesudah — hapus dependency array
@@ -632,6 +643,9 @@ export default function TrackingBroadcastPage() {
         break
       case 'Ke Sales':
         setToSales(vals)
+        break
+      case 'Nama PIC':
+        setNamaPic(vals)
         break
       default:
         return []
@@ -680,6 +694,8 @@ export default function TrackingBroadcastPage() {
         return filterOptions.status_wa
       case 'Ke Sales':
         return filterOptions.ke_sales
+      case 'Nama PIC':
+        return filterOptions.pic || []
       default:
         return []
     }
@@ -703,6 +719,7 @@ export default function TrackingBroadcastPage() {
         kota.forEach((v) => qs.append('kota', v))
         statusWa.forEach((v) => qs.append('status_wa', v))
         toSales.forEach((v) => qs.append('ke_sales', v))
+        namaPic.forEach((v) => qs.append('pic', v))
         if (startDate) qs.set('startDate', startDate)
         if (endDate) qs.set('endDate', endDate)
 
@@ -737,6 +754,8 @@ export default function TrackingBroadcastPage() {
             wa_provinsi_kota: json?.summaryStats?.wa_provinsi_kota ?? [],
             ke_sales_provinsi: json?.summaryStats?.ke_sales_provinsi ?? [],
             per_sales: json?.summaryStats?.per_sales ?? [],
+            pic: json?.summaryStats?.pic ?? [],
+            
           })
           setKeSalesSummary({
             arie: json?.keSalesSummary?.arie ?? 0,
@@ -775,6 +794,7 @@ export default function TrackingBroadcastPage() {
     toSales,
     startDate,
     endDate,
+    namaPic,
   ])
 
   const safePage = useMemo(
@@ -1630,6 +1650,7 @@ export default function TrackingBroadcastPage() {
                       { label: '🏢 PERUSAHAAN' },
                       { label: '📦 PRODUK' },
                       { label: '📍 INFO LOKASI' },
+                      { label: '👤 NAMA PIC'},
                       { label: '👤 KONTAK PIC' },
                       { label: '💬 STATUS WA' },
                       { label: '📝 DETAIL UPDATE' },
@@ -1738,12 +1759,11 @@ export default function TrackingBroadcastPage() {
                             <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-600'>
                               {row.kota}, {row.provinsi}
                             </td>
+                            <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-600'>
+                              {row.pic}
+                            </td>
                             <td className='px-2 py-2 text-[10px] text-gray-700'>
                               <div className='flex flex-col gap-0.5'>
-                                <span className='font-semibold text-slate-800'>
-                                  {row.pic || '-'}
-                                  {row.jabatan ? ` (${row.jabatan})` : ''}
-                                </span>
                                 <span className='flex items-center gap-1 text-slate-500'>
                                   <Phone
                                     size={9}
