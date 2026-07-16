@@ -4,6 +4,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { useSession } from '@/components/session/SessionProvider'
 import { useRouter } from 'next/navigation'
 import SearchableSelect from '@/components/ui/SearchableSelect'
+import TableCard from '@/components/ui/TableCard'
 import {
   Building2,
   Calendar,
@@ -16,13 +17,17 @@ import {
   Trophy,
   X,
   Activity,
+  User2,
+  UserRound,
+  BarChartBig,
+  BarChart3,
 } from 'lucide-react'
 import Image from 'next/image'
 
 interface StatCardProps {
   title: string
-  value: string
   icon?: React.ReactNode
+  value: string
 }
 
 type VisitRow = {
@@ -382,7 +387,7 @@ export default function TrackingB2GPage() {
               </h2>
             </div>
           </div>
-          <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-3'>
+          <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-4'>
             <StatCard
               title='TOTAL SATUAN KERJA'
               value={statsLoading ? '...' : String(totalSatuanKerja)}
@@ -397,6 +402,39 @@ export default function TrackingB2GPage() {
               title='SATKER PALING BANYAK DIKUNJUNGI'
               value={statsLoading ? '...' : `${topSatker} (${topSatkerCount}x)`}
               icon={<Trophy className='h-6 w-6 text-yellow-500' />}
+            />
+            <StatCard
+              title='TOTAL SALES AKTIF'
+              value={statsLoading ? '...' : `${topSatker} (${topSatkerCount}x)`}
+              icon={<UserRound className='h-6 w-6 text-yellow-500' />}
+            />
+          </div>
+          <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-3'>
+            <TableCard
+              icon={BarChart3}
+              title='SATKER UNIK PER KLPD'
+              color='blue'
+              items={[
+                { label: 'Kota', value: 686 },
+                { label: 'Provinsi', value: 237 },
+                { label: 'Kementerian', value: 185 },
+              ]}
+            />
+            <TableCard
+            icon={User2}
+            title='SATKER UNIK PER SALES PERSON'
+            color='green'
+            items={[
+              {label: fSales, value: totalVisitAll},
+            ]}
+            />
+            <TableCard
+            icon={User2}
+            title='SATKER UNIK PER RING'
+            color='red'
+            items={[
+              {label: fRing, value: totalSatuanKerja},
+            ]}
             />
           </div>
           <section className='rounded-2xl bg-white p-7 shadow-sm'>
@@ -1012,7 +1050,7 @@ export default function TrackingB2GPage() {
 function StatCard({ title, value, icon }: StatCardProps) {
   return (
     <div className='rounded-xl bg-white p-7 shadow flex items-center gap-4'>
-      {icon && <div className='rounded-lg bg-blue-100 p-3'>{icon}</div>}
+      {icon && <div className='rounded-lg bg-blue-100 p-2'>{icon}</div>}
       <div>
         <p className='text-l text-gray-500'>{title}</p>
         <p className='mt-2 text-3xl font-semibold'>{value ?? '-'}</p>
