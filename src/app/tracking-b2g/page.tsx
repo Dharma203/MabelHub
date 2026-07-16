@@ -1,28 +1,33 @@
 'use client'
 
-import {
-  Building2,
-  LucideCopyCheck,
-  Trophy,
-  X,
-  Calendar,
-  MapPin,
-  ImageIcon,
-  ChevronDown,
-  ChevronUp,
-  FileText,
-  Activity,
-} from 'lucide-react'
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { useSession } from '@/components/session/SessionProvider'
 import { useRouter } from 'next/navigation'
 import SearchableSelect from '@/components/ui/SearchableSelect'
+import TableCard from '@/components/ui/TableCard'
+import {
+  Building2,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  ImageIcon,
+  LucideCopyCheck,
+  MapPin,
+  Trophy,
+  X,
+  Activity,
+  User2,
+  UserRound,
+  BarChartBig,
+  BarChart3,
+} from 'lucide-react'
 import Image from 'next/image'
 
 interface StatCardProps {
   title: string
-  value: string
   icon?: React.ReactNode
+  value: string
 }
 
 type VisitRow = {
@@ -87,11 +92,12 @@ function getPageWindow(current: number, totalPages: number, size: number) {
   return Array.from({ length: size }, (_, i) => start + i)
 }
 
-export default function TrackingSatuanKerja() {
+export default function TrackingB2GPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const router = useRouter()
   const { user, loading: sessionLoading } = useSession()
-  // ✅ Guard role (sesuaikan kalau ada rule akses lain)
+
+  // Guard role
   useEffect(() => {
     if (!sessionLoading && user) {
       const ok =
@@ -102,7 +108,9 @@ export default function TrackingSatuanKerja() {
       if (!ok) router.replace('/')
     }
   }, [sessionLoading, user, router])
+
   //   filter state
+
   const [fSales, setFSales] = useState<string>('ALL')
   const [fStart, setFStart] = useState<string>('')
   const [fEnd, setFEnd] = useState<string>('')
@@ -138,7 +146,7 @@ export default function TrackingSatuanKerja() {
       if (!user) return // middleware seharusnya redirect
       try {
         setStatsLoading(true)
-        const res = await fetch('/api/visits/stats?excludeOffice=true', {
+        const res = await fetch('/api/visits/stats?excludeRing4=true', {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -146,7 +154,7 @@ export default function TrackingSatuanKerja() {
 
         setTotalSatuanKerja(Number(json?.totalSatuanKerja) || 0)
         setTotalVisitAll(Number(json?.totalVisit) || 0)
-        setTopSatker(String(json?.topSatker || '-'))
+        setTopSatker(String(json?.topSatker) || '-')
         setTopSatkerCount(Number(json?.topSatkerCount) || 0)
       } catch {
         if (!mounted) return
@@ -191,7 +199,7 @@ export default function TrackingSatuanKerja() {
       if (sessionLoading) return
       if (!user) return
       try {
-        const res = await fetch('/api/visits/meta?excludeOffice=true', {
+        const res = await fetch('/api/visits/meta?excludeRing4=true', {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -232,7 +240,7 @@ export default function TrackingSatuanKerja() {
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
-        params.set('excludeOffice', 'true')
+        params.set('excludeRing4', 'true')
         params.set('page', String(page))
         params.set('limit', String(pageSize))
 
@@ -279,6 +287,7 @@ export default function TrackingSatuanKerja() {
 
   const [paramStatus, setParamStatus] = useState<string[]>([])
   const [paramRing, setParamRing] = useState<string[]>([])
+
   useEffect(() => {
     fetch('/api/parameters')
       .then((res) => res.json())
@@ -378,7 +387,7 @@ export default function TrackingSatuanKerja() {
               </h2>
             </div>
           </div>
-          <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-3'>
+          <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-4'>
             <StatCard
               title='TOTAL SATUAN KERJA'
               value={statsLoading ? '...' : String(totalSatuanKerja)}
@@ -393,6 +402,39 @@ export default function TrackingSatuanKerja() {
               title='SATKER PALING BANYAK DIKUNJUNGI'
               value={statsLoading ? '...' : `${topSatker} (${topSatkerCount}x)`}
               icon={<Trophy className='h-6 w-6 text-yellow-500' />}
+            />
+            <StatCard
+              title='TOTAL SALES AKTIF'
+              value={statsLoading ? '...' : `${topSatker} (${topSatkerCount}x)`}
+              icon={<UserRound className='h-6 w-6 text-yellow-500' />}
+            />
+          </div>
+          <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-3'>
+            <TableCard
+              icon={BarChart3}
+              title='SATKER UNIK PER KLPD'
+              color='blue'
+              items={[
+                { label: 'Kota', value: 686 },
+                { label: 'Provinsi', value: 237 },
+                { label: 'Kementerian', value: 185 },
+              ]}
+            />
+            <TableCard
+            icon={User2}
+            title='SATKER UNIK PER SALES PERSON'
+            color='green'
+            items={[
+              {label: fSales, value: totalVisitAll},
+            ]}
+            />
+            <TableCard
+            icon={User2}
+            title='SATKER UNIK PER RING'
+            color='red'
+            items={[
+              {label: fRing, value: totalSatuanKerja},
+            ]}
             />
           </div>
           <section className='rounded-2xl bg-white p-7 shadow-sm'>
@@ -1004,12 +1046,11 @@ export default function TrackingSatuanKerja() {
     </div>
   )
 }
-/* ----------------------------- UI Pieces ----------------------------- */
 
 function StatCard({ title, value, icon }: StatCardProps) {
   return (
     <div className='rounded-xl bg-white p-7 shadow flex items-center gap-4'>
-      {icon && <div className='rounded-lg bg-blue-100 p-3'>{icon}</div>}
+      {icon && <div className='rounded-lg bg-blue-100 p-2'>{icon}</div>}
       <div>
         <p className='text-l text-gray-500'>{title}</p>
         <p className='mt-2 text-3xl font-semibold'>{value ?? '-'}</p>
