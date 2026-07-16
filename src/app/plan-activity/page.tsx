@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { useSession } from "@/components/session/SessionProvider";
 import EditVisitModal from "@/components/modals/EditVisitModal";
-import { Pen, ChevronLeft, ChevronRight, X, Eye, Calendar, Clock, MapPin, Building2, Briefcase, ImageIcon, User } from "lucide-react";
+import { Pen, ChevronLeft, ChevronRight, X, Eye, Calendar, Clock, MapPin, Building2, Briefcase, ImageIcon, User, Copy, Check } from "lucide-react";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -21,6 +21,14 @@ type VisitRow = {
   status_visit?: string; // "Visited"
   visit_image?: string;
   reschedule_date?: string;
+  status_ring?: string;
+  pic_name?: string;
+  pic_phone?: string;
+  pic_role?: string;
+  pic_position?: string;
+  kegiatan_status?: string;
+  descriptions?: string;
+  tindak_lanjut?: string;
 };
 
 type PlanRow = {
@@ -34,6 +42,14 @@ type PlanRow = {
   status: string;
   visit_image: string;
   reschedule_date: string;
+  status_ring: string;
+  pic_name: string;
+  pic_phone: string;
+  pic_role: string;
+  pic_position: string;
+  kegiatan_status: string;
+  descriptions: string;
+  tindak_lanjut: string;
   _sortTs: number; // untuk sorting (baru -> besar)
   _date: Date | null; // parsed Date object for calendar placement
 };
@@ -231,6 +247,62 @@ export default function PlanActivityPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editId, setEditId] = useState("");
 
+  // copy feedback state
+  const [copiedPlanId, setCopiedPlanId] = useState<string | null>(null);
+
+  // Format date from "3-Jul-2026" to "17 Jul 2026"
+  function formatTanggalForCopy(tanggal: string): string {
+    if (!tanggal) return "-";
+    const parts = tanggal.split("-");
+    if (parts.length !== 3) return tanggal;
+    return `${parts[0]} ${parts[1]} ${parts[2]}`;
+  }
+
+  // Copy plan data to clipboard
+  function copyPlanText(plan: PlanRow) {
+    const lines = [
+      `🗓️ Tanggal Kegiatan - ${formatTanggalForCopy(plan.tanggal)}`,
+      `👥 Nama Sales: ${plan.nama_sales || "-"}`,
+      ``,
+      `------------------------------`,
+      `City: ${plan.kota || "-"}`,
+      `K/L/PD: ${plan.klpd || "-"}`,
+      `Institusi Kerja: ${plan.institusi_kerja || "-"}`,
+      `Satuan Kerja: ${plan.satuan_kerja || "-"}`,
+      `Status Ring: ${plan.status_ring || "-"}`,
+      `Nama PIC: ${plan.pic_name || "-"}`,
+      `Nomor HP: ${plan.pic_phone || "-"}`,
+      `Jabatan: ${plan.pic_role || "-"}`,
+      `Posisi: ${plan.pic_position || "-"}`,
+      `Kegiatan: ${plan.kegiatan_status || "-"}`,
+      `Keterangan: ${plan.descriptions || "-"}`,
+      `Tindak Lanjut: ${plan.tindak_lanjut || "-"}`,
+      `Status: ${plan.status || "-"}`,
+      `Gambar: ${plan.visit_image ? (plan.visit_image.startsWith("http") ? plan.visit_image : `https://hub.mabel.co.id${plan.visit_image.startsWith("/") ? "" : "/"}${plan.visit_image}`) : "Tidak tersedia"}`,
+    ];
+
+    const text = lines.join("\n");
+    const copyToClipboard = (str: string) => {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(str);
+      }
+      // Fallback for non-secure contexts (HTTP)
+      const textarea = document.createElement("textarea");
+      textarea.value = str;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return Promise.resolve();
+    };
+    copyToClipboard(text).then(() => {
+      setCopiedPlanId(plan.id);
+      setTimeout(() => setCopiedPlanId(null), 2000);
+    }).catch(console.error);
+  }
+
   // fetch parameters
   useEffect(() => {
     fetch("/api/parameters")
@@ -258,8 +330,33 @@ export default function PlanActivityPage() {
     const w = window.open("");
     if (w) {
       w.document.write(
-        `<iframe src="${base64}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`,
+        `<!DOCTYPE html>
+        <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              background: #000;
+            }
+            img {
+              max-width: 100%;
+              max-height: 100vh;
+              object-fit: contain;
+              display: block;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${base64}" alt="Bukti Kunjungan" />
+        </body>
+        </html>`,
       );
+      w.document.close();
     }
   }
 
@@ -323,6 +420,14 @@ export default function PlanActivityPage() {
           status: v.status_visit || "",
           visit_image: v.visit_image || "",
           reschedule_date: v.reschedule_date || "",
+          status_ring: v.status_ring || "",
+          pic_name: v.pic_name || "",
+          pic_phone: v.pic_phone || "",
+          pic_role: v.pic_role || "",
+          pic_position: v.pic_position || "",
+          kegiatan_status: v.kegiatan_status || "",
+          descriptions: v.descriptions || "",
+          tindak_lanjut: v.tindak_lanjut || "",
           _sortTs: sortTs,
           _date: parsedDate,
         };
@@ -447,7 +552,7 @@ export default function PlanActivityPage() {
         className={`text-[10px] leading-tight px-1.5 py-0.5 rounded ${colors.bg} ${colors.text} font-medium truncate cursor-pointer hover:opacity-80 transition-opacity`}
         title={`${plan.institusi_kerja || plan.kota || "Plan"} — ${plan.status || "No Status"}`}
       >
-        {plan.institusi_kerja || plan.kota || "Plan"}
+        {plan.satuan_kerja || plan.kota || "Plan"}
       </div>
     );
   }
@@ -574,6 +679,21 @@ export default function PlanActivityPage() {
                 Edit Kunjungan
               </button>
               <button
+                onClick={() => copyPlanText(detailPlan)}
+                className={`px-4 h-9 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  copiedPlanId === detailPlan.id
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+                title="Copy Plan"
+              >
+                {copiedPlanId === detailPlan.id ? (
+                  <><Check className="w-3.5 h-3.5" /> Copied!</>
+                ) : (
+                  <><Copy className="w-3.5 h-3.5" /> Copy</>
+                )}
+              </button>
+              <button
                 onClick={() => setDetailPlan(null)}
                 className="px-4 h-9 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
               >
@@ -645,6 +765,21 @@ export default function PlanActivityPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => copyPlanText(plan)}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+                          copiedPlanId === plan.id
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
+                        }`}
+                        title="Copy Plan"
+                      >
+                        {copiedPlanId === plan.id ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
                       <button
                         onClick={() => setDetailPlan(plan)}
                         className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
@@ -794,7 +929,7 @@ export default function PlanActivityPage() {
                         className={`text-[11px] px-2 py-1.5 rounded-lg ${colors.bg} ${colors.text} font-medium transition-opacity hover:opacity-80`}
                         style={{ borderLeft: `3px solid ${colors.border}` }}
                       >
-                        <div className="font-semibold truncate">{plan.institusi_kerja || plan.kota || "-"}</div>
+                        <div className="font-semibold truncate">{plan.satuan_kerja || plan.kota || "-"}</div>
                         <div className="text-[9px] opacity-70 truncate mt-0.5">{plan.kota}</div>
                       </div>
                     );
@@ -853,14 +988,14 @@ export default function PlanActivityPage() {
                   >
                     <div className={`w-1.5 h-14 rounded-full flex-shrink-0 ${colors.dot}`} />
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 truncate">{plan.institusi_kerja || "-"}</p>
+                      <p className="font-semibold text-gray-800 truncate">{plan.satuan_kerja || "-"}</p>
                       <p className="text-sm text-gray-500 truncate">{plan.kota} {plan.klpd ? `• ${plan.klpd}` : ""}</p>
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${colors.bg} ${colors.text}`}>
                           {plan.status || "No Status"}
                         </span>
                         {plan.satuan_kerja && (
-                          <span className="text-[10px] text-gray-400">{plan.satuan_kerja}</span>
+                          <span className="text-[10px] text-gray-400">{plan.institusi_kerja}</span>
                         )}
                       </div>
                     </div>
@@ -875,6 +1010,21 @@ export default function PlanActivityPage() {
                     )}
 
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => copyPlanText(plan)}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                          copiedPlanId === plan.id
+                            ? "bg-emerald-50 text-emerald-600 opacity-100"
+                            : "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
+                        }`}
+                        title="Copy Plan"
+                      >
+                        {copiedPlanId === plan.id ? (
+                          <Check className="w-4 h-4" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
                       <button
                         onClick={() => { setSelectedDate(currentDate); setDetailPlan(plan); }}
                         className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
