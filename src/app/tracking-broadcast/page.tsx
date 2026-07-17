@@ -171,7 +171,6 @@ const EXPORT_FIELDS: ExportField[] = [
   { key: 'sumber_lain', label: 'Sumber Lain' },
   { key: 'sales_internal', label: 'Sales Internal' },
   { key: 'merek_tayang', label: 'Merek Tayang' },
-  { key: 'sumber_lain', label: 'Sumber Lain' },
   { key: 'brand_owner', label: 'Brand Owner' },
   { key: 'email', label: 'Email' },
   { key: 'link_produk', label: 'Link Produk' },
@@ -914,32 +913,28 @@ export default function TrackingBroadcastPage() {
         allRows = rows
       } else {
         const qs = new URLSearchParams()
-        qs.set('limit', '999999')
-        qs.set('page', 'max')
+        qs.set('limit', '50000')
+        qs.set('page', '1')
+        qs.set('export', 'true')
 
         // Filter kategori tetap dipakai di semua mode (bulan, produk, dst)
         bulan.forEach((v) => qs.append('bulan', v))
         produk.forEach((v) => qs.append('produk', v))
-        merekTayang.forEach((v) => qs.append('merek_tayang', v))
         perusahaan.forEach((v) => qs.append('perusahaan', v))
         provinsi.forEach((v) => qs.append('provinsi', v))
         kota.forEach((v) => qs.append('kota', v))
-        tipe.forEach((v) => qs.append('tipe', v))
-
-        const formatDisplayDate = (dateStr: string) => {
-          const d = new Date(dateStr)
-          return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' })
-        }
+        statusWa.forEach((v) => qs.append('status_wa', v))
+        toSales.forEach((v) => qs.append('ke_sales', v))
+        namaPic.forEach((v) => qs.append('pic', v))
 
         if (exportMode === 'date') {
-          // Mode by tanggal: wajib pakai tanggal dari modal export
-          if (exportStartDate)
-            qs.set('startDate', formatDisplayDate(exportStartDate))
-          if (exportEndDate) qs.set('endDate', formatDisplayDate(exportEndDate))
+          // Mode by tanggal: pakai tanggal dari modal export (format YYYY-MM-DD)
+          if (exportStartDate) qs.set('startDate', exportStartDate)
+          if (exportEndDate) qs.set('endDate', exportEndDate)
         }
         // Mode 'all': tidak set startDate/endDate sama sekali → tarik semua data
 
-        const res = await fetch(`/api/tracking-database?${qs.toString()}`, {
+        const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -950,7 +945,7 @@ export default function TrackingBroadcastPage() {
         alert('Tidak ada data untuk di-export')
         return
       }
-
+      console.log(allRows[0])
       const selectedFields = EXPORT_FIELDS.filter((f) =>
         exportFields.has(f.key),
       )
