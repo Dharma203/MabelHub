@@ -72,9 +72,11 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get('endDate')
     const showOnlyWithStatus = searchParams.get('has_status') === 'true'
 
+    const isExport = searchParams.get('export') === 'true'
+    const maxLimit = isExport ? 50000 : 500
     const page = Math.max(1, Number(searchParams.get('page') ?? 1))
     const limit = Math.min(
-      500,
+      maxLimit,
       Math.max(1, Number(searchParams.get('limit') ?? 10)),
     )
     const skip = (page - 1) * limit
