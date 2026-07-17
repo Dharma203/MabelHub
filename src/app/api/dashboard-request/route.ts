@@ -4,6 +4,92 @@ import { assertLoggedIn } from "@/lib/auth-server";
 
 import { ObjectId } from "mongodb";
 
+function flexParseDateExpr(field: string, onErrorVal: any = null) {
+  const safeField = { $ifNull: [field, ""] };
+  const normalizedField = {
+    $let: {
+      vars: { low: { $toLower: safeField } },
+      in: {
+        $reduce: {
+          input: [
+            ["des", "dec"], ["okt", "oct"], ["agu", "aug"],
+            ["mei", "may"], ["nop", "nov"], ["peb", "feb"],
+          ],
+          initialValue: "$$low",
+          in: {
+            $replaceAll: {
+              input: "$$value",
+              find: { $arrayElemAt: ["$$this", 0] },
+              replacement: { $arrayElemAt: ["$$this", 1] },
+            },
+          },
+        },
+      },
+    },
+  };
+  return {
+    $switch: {
+      branches: [
+        { case: { $eq: [{ $type: field }, "date"] }, then: field },
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{4}-\d{2}-\d{2}/ } },
+          then: {
+            $dateFromString: {
+              dateString: { $substrCP: [field, 0, 10] },
+              format: "%Y-%m-%d",
+              onError: onErrorVal,
+            },
+          },
+        },
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}-[A-Za-z]+-\d{4}$/ } },
+          then: {
+            $dateFromString: {
+              dateString: normalizedField,
+              format: "%d-%b-%Y",
+              onError: onErrorVal,
+            },
+          },
+        },
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}-[A-Za-z]+-\d{2}$/ } },
+          then: {
+            $dateFromString: {
+              dateString: {
+                $let: {
+                  vars: { parts: { $split: [normalizedField, "-"] } },
+                  in: {
+                    $concat: [
+                      { $arrayElemAt: ["$$parts", 0] },
+                      "-",
+                      { $arrayElemAt: ["$$parts", 1] },
+                      "-20",
+                      { $arrayElemAt: ["$$parts", 2] }
+                    ]
+                  }
+                }
+              },
+              format: "%d-%b-%Y",
+              onError: onErrorVal,
+            },
+          },
+        },
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}\/\d{1,2}\/\d{4}$/ } },
+          then: {
+            $dateFromString: {
+              dateString: field,
+              format: "%d/%m/%Y",
+              onError: onErrorVal,
+            },
+          },
+        },
+      ],
+      default: onErrorVal,
+    },
+  };
+}
+
 type TeamDoc = {
   leaderId: string;
   memberIds: string[];
@@ -162,14 +248,7 @@ export async function GET(req: Request) {
     if (startStr) {
       dateConditions.push({
         $gte: [
-          {
-            $dateFromString: {
-              dateString: "$visit_date",
-              format: "%d-%b-%Y",
-              onError: new Date("1970-01-01"),
-              onNull: new Date("1970-01-01"),
-            },
-          },
+          flexParseDateExpr("$visit_date", new Date("1970-01-01")),
           new Date(startStr + "T00:00:00.000Z"),
         ],
       });
@@ -178,14 +257,7 @@ export async function GET(req: Request) {
       const endDt = new Date(endStr + "T23:59:59.999Z");
       dateConditions.push({
         $lte: [
-          {
-            $dateFromString: {
-              dateString: "$visit_date",
-              format: "%d-%b-%Y",
-              onError: new Date("1970-01-01"),
-              onNull: new Date("1970-01-01"),
-            },
-          },
+          flexParseDateExpr("$visit_date", new Date("1970-01-01")),
           endDt,
         ],
       });
@@ -216,14 +288,7 @@ export async function GET(req: Request) {
         { $match: matchQuery },
         {
           $addFields: {
-            parsedDate: {
-              $dateFromString: {
-                dateString: "$visit_date",
-                format: "%d-%b-%Y",
-                onError: null,
-                onNull: null,
-              },
-            },
+            parsedDate: flexParseDateExpr("$visit_date", null),
           },
         },
         { $match: { parsedDate: { $ne: null } } },

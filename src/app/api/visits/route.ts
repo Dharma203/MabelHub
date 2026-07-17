@@ -34,6 +34,114 @@ function toCreatedAtStr(dt: Date) {
   return `${y}-${m}-${d} ${hh}:${mm}:${ss}`
 }
 
+/**
+ * Returns a MongoDB aggregation expression that flexibly parses a date string
+ * field from multiple formats into a Date object.
+ *
+ * Supported formats:
+ *   - Date object (already stored as Date in MongoDB)
+ *   - "3-Dec-2025"  (%d-%b-%Y, English abbreviated month)
+ *   - "3-Des-2025"  (Indonesian abbreviated months: Mei, Agu, Okt, Des)
+ *   - "2025-12-03" or "2025-12-03T..." (ISO format)
+ *   - "03/12/2025"  (DD/MM/YYYY)
+ */
+function flexParseDateExpr(field: string) {
+  const safeField = { $ifNull: [field, ''] }
+
+  // Normalize Indonesian month abbreviations → English via $reduce + $replaceAll
+  const normalizedField = {
+    $let: {
+      vars: { low: { $toLower: safeField } },
+      in: {
+        $reduce: {
+          input: [
+            ['des', 'dec'], ['okt', 'oct'], ['agu', 'aug'],
+            ['mei', 'may'], ['nop', 'nov'], ['peb', 'feb'],
+          ],
+          initialValue: '$$low',
+          in: {
+            $replaceAll: {
+              input: '$$value',
+              find: { $arrayElemAt: ['$$this', 0] },
+              replacement: { $arrayElemAt: ['$$this', 1] },
+            },
+          },
+        },
+      },
+    },
+  }
+
+  return {
+    $switch: {
+      branches: [
+        // Already a Date object in MongoDB
+        {
+          case: { $eq: [{ $type: field }, 'date'] },
+          then: field,
+        },
+        // ISO "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm:ss" format
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{4}-\d{2}-\d{2}/ } },
+          then: {
+            $dateFromString: {
+              dateString: { $substrCP: [field, 0, 10] },
+              format: '%Y-%m-%d',
+              onError: null,
+            },
+          },
+        },
+        // "d-Mon-YYYY" format (English or Indonesian month abbreviations)
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}-[A-Za-z]+-\d{4}$/ } },
+          then: {
+            $dateFromString: {
+              dateString: normalizedField,
+              format: '%d-%b-%Y',
+              onError: null,
+            },
+          },
+        },
+        // "d-Mon-YY" format (English or Indonesian, 2-digit year like "5-Jan-26")
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}-[A-Za-z]+-\d{2}$/ } },
+          then: {
+            $dateFromString: {
+              dateString: {
+                $let: {
+                  vars: { parts: { $split: [normalizedField, '-'] } },
+                  in: {
+                    $concat: [
+                      { $arrayElemAt: ['$$parts', 0] },
+                      '-',
+                      { $arrayElemAt: ['$$parts', 1] },
+                      '-20',
+                      { $arrayElemAt: ['$$parts', 2] }
+                    ]
+                  }
+                }
+              },
+              format: '%d-%b-%Y',
+              onError: null,
+            },
+          },
+        },
+        // "DD/MM/YYYY" format
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}\/\d{1,2}\/\d{4}$/ } },
+          then: {
+            $dateFromString: {
+              dateString: field,
+              format: '%d/%m/%Y',
+              onError: null,
+            },
+          },
+        },
+      ],
+      default: null,
+    },
+  }
+}
+
 type TeamDoc = {
   leaderId: string // userId leader (string ObjectId)
   memberIds: string[] // userId sales (string ObjectId)
@@ -98,8 +206,7 @@ export async function GET(req: Request) {
   const statusGroup = searchParams.get('statusGroup')
   const klpd = searchParams.get('klpd')
   const dateStr = searchParams.get('date') // specific date e.g. "01 Feb"
-  const excludeOffice = searchParams.get('excludeOffice') === 'true'
-  const excludeRing4 = searchParams.get('excludeRing4') === 'true'
+  const filterStatsB2G = searchParams.get('filterStatsB2G') === 'true'
   const groupBySatker = searchParams.get('groupBySatker') === 'true'
 
   // Sort Params
@@ -248,14 +355,16 @@ export async function GET(req: Request) {
     }
   }
 
-  if (excludeOffice) {
+  // filterStatsB2G = gabungan excludeOffice + excludeRing4 + excludeKlpd
+  if (filterStatsB2G) {
     if (!match.$and) match.$and = []
     match.$and.push({ satuan_kerja: { $not: /office/i } })
-  }
-
-  if (excludeRing4) {
-    if (!match.$and) match.$and = []
     match.$and.push({ status_ring: { $not: /ring[\s_]*4/i } })
+    match.$and.push({
+      klpd: {
+        $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
+      },
+    })
   }
 
   // =========================
@@ -281,14 +390,7 @@ export async function GET(req: Request) {
       { $match: match },
       {
         $addFields: {
-          __visitDate: {
-            $dateFromString: {
-              dateString: '$visit_date',
-              format: '%d-%b-%Y',
-              onError: null,
-              onNull: null,
-            },
-          },
+          __visitDate: flexParseDateExpr('$visit_date'),
         },
       },
     ]
@@ -411,10 +513,14 @@ export async function GET(req: Request) {
   // =========================
   const globalRankingMatch: any = {
     satuan_kerja: { $exists: true, $nin: [null, ''] },
+    status_ring: { $exists: true, $nin: [null, ''] },
+    klpd: { $exists: true, $nin: [null, ''] },
   }
 
-  if (excludeOffice) {
+  if (filterStatsB2G) {
     globalRankingMatch.satuan_kerja.$not = /office/i
+    globalRankingMatch.status_ring.$not = /ring[\s_]*4/i
+    globalRankingMatch.klpd.$not = /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i
   }
 
   const globalRanking = await col
@@ -435,20 +541,26 @@ export async function GET(req: Request) {
     { $match: match },
     {
       $addFields: {
-        __visitDate: {
-          $dateFromString: {
-            dateString: '$visit_date',
-            format: '%d-%b-%Y',
-            onError: null,
-            onNull: null,
-          },
-        },
+        __visitDate: flexParseDateExpr('$visit_date'),
         __createdAt: {
-          $dateFromString: {
-            dateString: '$created_at',
-            format: '%Y-%m-%d %H:%M:%S',
-            onError: null,
-            onNull: null,
+          $switch: {
+            branches: [
+              { case: { $eq: [{ $type: '$created_at' }, 'date'] }, then: '$created_at' },
+            ],
+            default: {
+              $dateFromString: {
+                dateString: { $ifNull: ['$created_at', ''] },
+                format: '%Y-%m-%d %H:%M:%S',
+                onError: {
+                  $dateFromString: {
+                    dateString: { $ifNull: ['$created_at', ''] },
+                    onError: null,
+                    onNull: null,
+                  },
+                },
+                onNull: null,
+              },
+            },
           },
         },
       },

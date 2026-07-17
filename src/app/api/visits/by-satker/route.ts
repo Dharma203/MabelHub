@@ -3,6 +3,92 @@ import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getVisitAuthMatch } from '@/lib/visit-auth'
 
+function flexParseDateExpr(field: string) {
+  const safeField = { $ifNull: [field, ''] };
+  const normalizedField = {
+    $let: {
+      vars: { low: { $toLower: safeField } },
+      in: {
+        $reduce: {
+          input: [
+            ['des', 'dec'], ['okt', 'oct'], ['agu', 'aug'],
+            ['mei', 'may'], ['nop', 'nov'], ['peb', 'feb'],
+          ],
+          initialValue: '$$low',
+          in: {
+            $replaceAll: {
+              input: '$$value',
+              find: { $arrayElemAt: ['$$this', 0] },
+              replacement: { $arrayElemAt: ['$$this', 1] },
+            },
+          },
+        },
+      },
+    },
+  };
+  return {
+    $switch: {
+      branches: [
+        { case: { $eq: [{ $type: field }, 'date'] }, then: field },
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{4}-\d{2}-\d{2}/ } },
+          then: {
+            $dateFromString: {
+              dateString: { $substrCP: [field, 0, 10] },
+              format: '%Y-%m-%d',
+              onError: null,
+            },
+          },
+        },
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}-[A-Za-z]+-\d{4}$/ } },
+          then: {
+            $dateFromString: {
+              dateString: normalizedField,
+              format: '%d-%b-%Y',
+              onError: null,
+            },
+          },
+        },
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}-[A-Za-z]+-\d{2}$/ } },
+          then: {
+            $dateFromString: {
+              dateString: {
+                $let: {
+                  vars: { parts: { $split: [normalizedField, '-'] } },
+                  in: {
+                    $concat: [
+                      { $arrayElemAt: ['$$parts', 0] },
+                      '-',
+                      { $arrayElemAt: ['$$parts', 1] },
+                      '-20',
+                      { $arrayElemAt: ['$$parts', 2] }
+                    ]
+                  }
+                }
+              },
+              format: '%d-%b-%Y',
+              onError: null,
+            },
+          },
+        },
+        {
+          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}\/\d{1,2}\/\d{4}$/ } },
+          then: {
+            $dateFromString: {
+              dateString: field,
+              format: '%d/%m/%Y',
+              onError: null,
+            },
+          },
+        },
+      ],
+      default: null,
+    },
+  };
+}
+
 /**
  * GET /api/visits/by-satker?satker=...
  * Returns all individual visit documents for a given satuan_kerja,
@@ -46,14 +132,7 @@ export async function GET(req: Request) {
       { $match: matchFilter },
       {
         $addFields: {
-          __visitDate: {
-            $dateFromString: {
-              dateString: '$visit_date',
-              format: '%d-%b-%Y',
-              onError: null,
-              onNull: null,
-            },
-          },
+          __visitDate: flexParseDateExpr('$visit_date'),
         },
       },
       { $sort: { __visitDate: -1, _id: -1 } },
