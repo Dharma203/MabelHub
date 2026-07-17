@@ -22,6 +22,7 @@ import {
   Download,
 } from 'lucide-react'
 import SearchableSelect from '@/components/ui/SearchableSelect'
+import EditModal from '@/components/modals/EditModal'
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import React from 'react'
 import {
@@ -452,6 +453,36 @@ export default function TrackingBroadcastPage() {
   )
   const [exporting, setExporting] = useState(false)
 
+  // helper modal – edit PIC
+  const [selectedRow, setSelectedRow] = useState<BroadCastRow | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleEditClick = (row: BroadCastRow) => {
+    setSelectedRow(row);
+    setIsModalOpen(true);
+  }
+
+  const handleSavePic = async (rowId: string, newPic: string) => {
+    try {
+      const res = await fetch('/api/tracking-broadcast', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: rowId, pic: newPic }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error || 'Gagal menyimpan PIC')
+      }
+      // Update tampilan tabel secara lokal tanpa refetch
+      setRows((prev) =>
+        prev.map((r) => (r._id === rowId ? { ...r, pic: newPic } : r))
+      )
+      setIsModalOpen(false)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan PIC')
+    }
+  };
+
   // filter value - multi-select arrays
   const [bulan, setBulan] = useState<string[]>([])
   const [perusahaan, setPerusahaan] = useState<string[]>([])
@@ -461,14 +492,11 @@ export default function TrackingBroadcastPage() {
   const [statusWa, setStatusWa] = useState<string[]>([])
   const [toSales, setToSales] = useState<string[]>([])
   const [namaPic, setNamaPic] = useState<string[]>([])
-  const [merekTayang, setMerekTayang] = useState<string[]>([])
-  const [tipe, setTipe] = useState<string[]>([])
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
   // data - statistik & analitik
-  const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<ApiStats | null>(null)
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
@@ -1921,7 +1949,20 @@ export default function TrackingBroadcastPage() {
                               {row.kota}, {row.provinsi}
                             </td>
                             <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-600'>
-                              {row.pic}
+                              <button
+                                title='Edit Nama PIC'
+                                onClick={() => handleEditClick(row)}
+                                className='flex items-center gap-1.5 group text-left hover:text-blue-600 transition-colors'
+                              >
+                                <PencilIcon
+                                  size={10}
+                                  strokeWidth={2}
+                                  className='shrink-0 text-slate-400 group-hover:text-blue-500'
+                                />
+                                <span className={row.pic ? 'text-slate-700 font-medium' : 'text-slate-300 italic'}>
+                                  {row.pic || 'Tambah PIC'}
+                                </span>
+                              </button>
                             </td>
                             <td className='px-2 py-2 text-[10px] text-gray-700'>
                               <div className='flex flex-col gap-0.5'>
@@ -2582,6 +2623,13 @@ export default function TrackingBroadcastPage() {
           </div>
         </div>
       )}
+      <EditModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        rowId={selectedRow?._id ?? ''}
+        pic={selectedRow?.pic ?? ''}
+        onSave={handleSavePic}
+      />
     </div>
   )
 }
