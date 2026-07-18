@@ -32,10 +32,13 @@ export async function GET(req: Request) {
     const filter: any = {
       status_ring: ring,
       approval_status: "APPROVED",
+      institusi_kerja: { $exists: true, $ne: ""},
     };
 
     if (q) {
       filter.institusi_kerja = {
+        $exists: true,
+        $ne: "",
         $regex: q,
         $options: "i",
       };
