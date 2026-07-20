@@ -343,7 +343,7 @@ function AddPlansContent() {
 
             {/* HEADER */}
             <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 rounded-t-2xl">
                 <button
                   onClick={() => router.push("/plan-activity")}
                   className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-gray-500 shadow-sm ring-1 ring-gray-200 hover:bg-gray-50 hover:text-gray-700 transition"

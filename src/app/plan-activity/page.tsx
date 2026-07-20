@@ -338,7 +338,7 @@ export default function PlanActivityPage() {
       `Keterangan: ${plan.descriptions || "-"}`,
       `Tindak Lanjut: ${plan.tindak_lanjut || "-"}`,
       `Status: ${plan.status || "-"}`,
-      `Gambar: ${plan.visit_image ? (plan.visit_image.startsWith("http") ? plan.visit_image : `https://hub.mabel.co.id${plan.visit_image.startsWith("/") ? "" : "/"}${plan.visit_image}`) : "Tidak tersedia"}`,
+      `Gambar: ${plan.visit_image ? (plan.visit_image.startsWith("data:image") ? `https://hub.mabel.co.id/api/visits/${plan.id}/image` : plan.visit_image.startsWith("http") ? plan.visit_image : `https://hub.mabel.co.id${plan.visit_image.startsWith("/") ? "" : "/"}${plan.visit_image}`) : "Tidak tersedia"}`,
     ];
 
     const text = lines.join("\n");
