@@ -638,16 +638,33 @@ export async function GET(req: Request) {
     { $limit: limit },
     {
       $addFields: {
-        has_visit_image: {
-          $and: [
-            { $ne: [{ $type: '$visit_image' }, 'missing'] },
-            { $ne: ['$visit_image', null] },
-            { $ne: ['$visit_image', ''] },
-          ],
+        // Replace base64 visit_image with just a flag to keep response lightweight
+        // If visit_image contains 'data:image' (base64), replace with placeholder
+        // Otherwise keep original value (e.g. /uploads/visit_xxx.jpeg)
+        visit_image: {
+          $cond: {
+            if: {
+              $and: [
+                { $ne: [{ $type: '$visit_image' }, 'missing'] },
+                { $ne: ['$visit_image', null] },
+                { $ne: ['$visit_image', ''] },
+              ],
+            },
+            then: {
+              $cond: {
+                if: {
+                  $regexMatch: { input: { $ifNull: ['$visit_image', ''] }, regex: /data:image/ },
+                },
+                then: '__base64_image__',
+                else: '$visit_image',
+              },
+            },
+            else: null,
+          },
         },
       },
     },
-    { $project: { __visitDate: 0, __createdAt: 0, __rankIndex: 0, visit_image: 0 } },
+    { $project: { __visitDate: 0, __createdAt: 0, __rankIndex: 0 } },
   ]
 
   const countPipeline = [...pipeline, { $count: 'count' }]

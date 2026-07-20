@@ -41,7 +41,7 @@ type PlanRow = {
   institusi_kerja: string;
   satuan_kerja: string;
   status: string;
-  has_image: boolean;
+  visit_image: string;
   reschedule_date: string;
   status_ring: string;
   pic_name: string;
@@ -339,7 +339,7 @@ export default function PlanActivityPage() {
       `Keterangan: ${plan.descriptions || "-"}`,
       `Tindak Lanjut: ${plan.tindak_lanjut || "-"}`,
       `Status: ${plan.status || "-"}`,
-      `Gambar: ${plan.has_image ? `https://hub.mabel.co.id/api/visits/${plan.id}/image` : "Tidak tersedia"}`,
+      `Gambar: ${plan.visit_image ? (plan.visit_image.startsWith("/uploads/") ? `https://hub.mabel.co.id${plan.visit_image}` : `https://hub.mabel.co.id/api/visits/${plan.id}/image`) : "Tidak tersedia"}`,
     ];
     const text = lines.join("\n");
     const copyToClipboard = (str: string) => {
@@ -478,7 +478,7 @@ export default function PlanActivityPage() {
           institusi_kerja: v.institusi_kerja || "",
           satuan_kerja: v.satuan_kerja || "",
           status: v.status_visit || "",
-          has_image: !!(v.has_visit_image || v.visit_image),
+          visit_image: v.visit_image && v.visit_image !== '__base64_image__' ? v.visit_image : (v.visit_image === '__base64_image__' ? '__base64_image__' : ""),
           reschedule_date: v.reschedule_date || "",
           status_ring: v.status_ring || "",
           pic_name: v.pic_name || "",
@@ -713,15 +713,15 @@ export default function PlanActivityPage() {
                 </div>
               </div>
 
-              {detailPlan.has_image && (
+              {detailPlan.visit_image && (
                 <div className="flex items-start gap-3">
                   <ImageIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Bukti Kunjungan</p>
                     <div
                       className="mt-1 w-20 h-20 rounded-xl cursor-pointer ring-1 ring-gray-200 hover:ring-blue-400 hover:shadow-lg transition-all bg-cover bg-center"
-                      style={{ backgroundImage: `url(/api/visits/${detailPlan.id}/image)` }}
-                      onClick={() => openImageBase64(`/api/visits/${detailPlan.id}/image`)}
+                      style={{ backgroundImage: `url(${detailPlan.visit_image.startsWith("/") ? detailPlan.visit_image : `/api/visits/${detailPlan.id}/image`})` }}
+                      onClick={() => openImageBase64(detailPlan.visit_image.startsWith("/") ? detailPlan.visit_image : `/api/visits/${detailPlan.id}/image`)}
                       title="Lihat foto bukti"
                     />
                   </div>
@@ -1060,11 +1060,11 @@ export default function PlanActivityPage() {
                       </div>
                     </div>
 
-                    {plan.has_image && (
+                    {plan.visit_image && (
                       <div
                         className="w-12 h-12 rounded-lg flex-shrink-0 bg-cover bg-center ring-1 ring-gray-200 cursor-pointer hover:ring-blue-400 transition-all"
-                        style={{ backgroundImage: `url(/api/visits/${plan.id}/image)` }}
-                        onClick={() => openImageBase64(`/api/visits/${plan.id}/image`)}
+                        style={{ backgroundImage: `url(${plan.visit_image.startsWith("/") ? plan.visit_image : `/api/visits/${plan.id}/image`})` }}
+                        onClick={() => openImageBase64(plan.visit_image.startsWith("/") ? plan.visit_image : `/api/visits/${plan.id}/image`)}
                         title="Lihat foto bukti"
                       />
                     )}
