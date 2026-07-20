@@ -39,7 +39,7 @@ async function main() {
       const regencies = await fetchJson(
         `https://emsifa.github.io/api-wilayah-indonesia/api/regencies/${prov.id}.json`,
       );
-      // We only want the name, e.g., "KABUPATEN BOGOR", "KOTA BANDUNG"
+      // We only want the name, e.g., "KABUPATEN BOGOR", "KOTA BANDUNG
       allRegencies.push(...regencies.map((r) => r.name.toUpperCase()));
     }
 

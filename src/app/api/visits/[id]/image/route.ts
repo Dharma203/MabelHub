@@ -26,9 +26,9 @@ export async function GET(
 
   const visitImage = doc.visit_image as string
 
-  if (visitImage.startsWith('data:image')) {
-    // format: data:image/png;base64,iVBORw0...
-    const matches = visitImage.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/)
+  if (visitImage.includes('data:image')) {
+    // format: data:image/png;base64,iORw0... or https://.../data:image/png;base64,...
+    const matches = visitImage.match(/data:([A-Za-z-+\/]+);base64,(.+)$/)
     if (matches && matches.length === 3) {
       const mimeType = matches[1]
       const base64Data = matches[2]

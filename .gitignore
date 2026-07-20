@@ -63,3 +63,15 @@ Desktop.ini
 
 .txt
 certificates
+
+backfill-user-id.js
+diagnose-visit-dates.js
+test-db.js
+migrate-segmen.js
+seed-kota-kabupaten.js
+test-geojson.js
+refactor.js
+responsive-refactor.js
+fix-table.js
+fetch-tree.js
+download-geojson.js
