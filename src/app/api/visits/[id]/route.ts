@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
+import { writeFile, mkdir } from 'fs/promises'
+import path from 'path'
 
 type TeamDoc = {
   leaderId: string // string ObjectId user
@@ -270,6 +272,28 @@ export async function PUT(
   // PATCH SANITIZE
   // =========================
   const patch = pickAllowedPatch(body)
+
+  // Convert base64 visit_image to a file in /uploads/
+  if (patch.visit_image && typeof patch.visit_image === 'string') {
+    const imgStr = patch.visit_image as string
+    // Match data:image/xxx;base64,... pattern (may have URL prefix)
+    const b64Match = imgStr.match(/data:image\/([a-zA-Z0-9]+);base64,(.+)$/)
+    if (b64Match) {
+      try {
+        const ext = b64Match[1] === 'jpeg' || b64Match[1] === 'jpg' ? 'jpeg' : b64Match[1]
+        const base64Data = b64Match[2]
+        const buffer = Buffer.from(base64Data, 'base64')
+        const filename = `visit_${Date.now()}.${ext}`
+        const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
+        await mkdir(uploadsDir, { recursive: true })
+        await writeFile(path.join(uploadsDir, filename), buffer)
+        patch.visit_image = `/uploads/${filename}`
+      } catch (err) {
+        console.error('Failed to save visit image as file:', err)
+        // Keep as-is if file save fails
+      }
+    }
+  }
 
   // Otomatis kalkulasi status_market berdasarkan kegiatan_status yang dikirim,
   // atau jika tidak dikirim (tapi field lain mungkin diisi) kita abaikan jika tdk ada di patch
