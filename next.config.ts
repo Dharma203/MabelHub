@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  allowedDevOrigins: ['192.168.1.26'],
+  allowedDevOrigins: ['192.168.1.21'],
   productionBrowserSourceMaps: true,
   turbopack: {},
   webpack: (config, { isServer }) => {

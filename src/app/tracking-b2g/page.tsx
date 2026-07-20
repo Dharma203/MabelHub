@@ -119,6 +119,10 @@ export default function TrackingB2GPage() {
   const [fCity, setFCity] = useState<string>('ALL')
   const [fSatker, setFSatker] = useState<string>('ALL')
 
+  // card data
+  const [city, setCity] = useState<string>('')
+  const [klpd, setKlpd] = useState<string>('')
+
   //   dropdown meta
   const [salesOptions, setSalesOptions] = useState<string[]>([])
   const [cityOptions, setCityOptions] = useState<string[]>([])
@@ -132,9 +136,13 @@ export default function TrackingB2GPage() {
   // fetch stat
   const [statsLoading, setStatsLoading] = useState(true)
   const [totalSatuanKerja, setTotalSatuanKerja] = useState<number>(0)
+  const [byKlpd, setByKlpd] = useState<{ label: string; value: number }[]>([])
+  const [bySales, setBySales] = useState<{ label: string; value: number }[]>([])
+  const [byRing, setByRing] = useState<{ label: string; value: number }[]>([])
   const [totalVisitAll, setTotalVisitAll] = useState<number>(0)
   const [topSatker, setTopSatker] = useState<string>('-')
   const [topSatkerCount, setTopSatkerCount] = useState<number>(0)
+  const [salesAktif, setSalesAktif] = useState<number>(0)
   const [sortBy, setSortBy] = useState<string>('total_visit')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -146,7 +154,7 @@ export default function TrackingB2GPage() {
       if (!user) return // middleware seharusnya redirect
       try {
         setStatsLoading(true)
-        const res = await fetch('/api/visits/stats?excludeRing4=true', {
+        const res = await fetch('/api/visits/stats?filterStatsB2G=true', {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -156,6 +164,10 @@ export default function TrackingB2GPage() {
         setTotalVisitAll(Number(json?.totalVisit) || 0)
         setTopSatker(String(json?.topSatker) || '-')
         setTopSatkerCount(Number(json?.topSatkerCount) || 0)
+        setSalesAktif(Number(json?.salesAktif) || 0)
+        setByKlpd(Array.isArray(json?.byKlpd) ? json.byKlpd : [])
+        setBySales(Array.isArray(json?.bySales) ? json.bySales : [])
+        setByRing(Array.isArray(json?.byRing) ? json.byRing : [])
       } catch {
         if (!mounted) return
         setTotalSatuanKerja(0)
@@ -199,7 +211,7 @@ export default function TrackingB2GPage() {
       if (sessionLoading) return
       if (!user) return
       try {
-        const res = await fetch('/api/visits/meta?excludeRing4=true', {
+        const res = await fetch('/api/visits/meta?filterStatsB2G=true', {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -240,7 +252,7 @@ export default function TrackingB2GPage() {
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
-        params.set('excludeRing4', 'true')
+        params.set('filterStatsB2G', 'true')
         params.set('page', String(page))
         params.set('limit', String(pageSize))
 
@@ -405,7 +417,7 @@ export default function TrackingB2GPage() {
             />
             <StatCard
               title='TOTAL SALES AKTIF'
-              value={statsLoading ? '...' : `${topSatker} (${topSatkerCount}x)`}
+              value={statsLoading ? '...' : String(salesAktif)}
               icon={<UserRound className='h-6 w-6 text-yellow-500' />}
             />
           </div>
@@ -414,27 +426,19 @@ export default function TrackingB2GPage() {
               icon={BarChart3}
               title='SATKER UNIK PER KLPD'
               color='blue'
-              items={[
-                { label: 'Kota', value: 686 },
-                { label: 'Provinsi', value: 237 },
-                { label: 'Kementerian', value: 185 },
-              ]}
+              items={byKlpd}
             />
             <TableCard
-            icon={User2}
-            title='SATKER UNIK PER SALES PERSON'
-            color='green'
-            items={[
-              {label: fSales, value: totalVisitAll},
-            ]}
+              icon={User2}
+              title='SATKER UNIK PER SALES PERSON'
+              color='green'
+              items={bySales}
             />
             <TableCard
-            icon={User2}
-            title='SATKER UNIK PER RING'
-            color='red'
-            items={[
-              {label: fRing, value: totalSatuanKerja},
-            ]}
+              icon={MapPin}
+              title='SATKER UNIK PER RING'
+              color='red'
+              items={byRing}
             />
           </div>
           <section className='rounded-2xl bg-white p-7 shadow-sm'>

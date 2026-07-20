@@ -11,16 +11,22 @@ export async function GET(req: Request) {
   const session = auth.session
 
   const { searchParams } = new URL(req.url)
-  const excludeOffice = searchParams.get('excludeOffice') === 'true'
-  const excludeRing4 = searchParams.get('excludeRing4') === 'true'
+  const filterStatsB2G = searchParams.get('filterStatsB2G') === 'true'
 
   const client = await clientPromise
   const db = client.db(process.env.MONGODB_DB || 'MabelHub')
   const col = db.collection('VisitActivity')
 
   const extraMatch: any = {}
-  if (excludeOffice) extraMatch.satuan_kerja = { $not: /office/i }
-  if (excludeRing4) extraMatch.status_ring = { $not: /ring[\s_]*4/i }
+
+  // filterStatsB2G = gabungan excludeOffice + excludeRing4 + excludeKlpd
+  if (filterStatsB2G) {
+    extraMatch.satuan_kerja = { $not: /office/i }
+    extraMatch.status_ring = { $not: /ring[\s_]*4/i }
+    extraMatch.klpd = {
+      $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
+    }
+  }
 
   // Build role-based filter
   const { match: authMatch, error } = await getVisitAuthMatch(db, session)

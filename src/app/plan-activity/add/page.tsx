@@ -208,11 +208,11 @@ function AddPlansContent() {
       pic_default: { nama: "", no_telp: "", jabatan: "", role: "" },
     });
   }
-
   function pickCompany(id: string, c: Company) {
+    console.log(c)
     patchItem(id, {
       selectedCompany: c,
-      institusiQuery: c.institusi_kerja,
+      institusiQuery: c.institusi_kerja || '',
       showSug: false,
       kota_kab: c.kota_kab || '',
       klpd: c.klpd || '',
@@ -343,7 +343,7 @@ function AddPlansContent() {
 
             {/* HEADER */}
             <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 rounded-t-2xl">
                 <button
                   onClick={() => router.push("/plan-activity")}
                   className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-gray-500 shadow-sm ring-1 ring-gray-200 hover:bg-gray-50 hover:text-gray-700 transition"
@@ -419,7 +419,7 @@ function AddPlansContent() {
             {/* PLAN ITEMS LIST */}
             <div className="space-y-6">
               {items.map((it, idx) => (
-                <div key={it.id} className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden relative group">
+                <div key={it.id} className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 relative group">
                   <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs ring-4 ring-white">
@@ -476,7 +476,7 @@ function AddPlansContent() {
                           }}
                           disabled={!it.status_ring}
                           placeholder={!it.status_ring ? "Pilih Ring dahulu" : "Ketik untuk mencari institusi..."}
-                          className={`block w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${!it.status_ring ? "bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed" : "bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600"
+                          className={`relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${!it.status_ring ? "bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed" : "bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600"
                             }`}
                         />
 

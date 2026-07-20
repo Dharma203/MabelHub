@@ -68,33 +68,93 @@ function monthIndex(mon: string) {
   return map[m] ?? -1;
 }
 
-// parse "3-Dec-2025" -> timestamp
+// parse visit_date in multiple formats -> timestamp
 function parseVisitDateToTs(v?: string) {
   if (!v) return 0;
+
+  // Try "3-Dec-2025" or "3-Des-2025" format (d-Mon-YYYY)
   const parts = v.split("-");
-  if (parts.length !== 3) return 0;
+  if (parts.length === 3) {
+    const day = Number(parts[0]);
+    const mon = monthIndex(parts[1]);
+    let year = Number(parts[2]);
+    if (day && mon >= 0 && year) {
+      if (year < 100) year += 2000;
+      const d = new Date(year, mon, day, 12, 0, 0);
+      if (!Number.isNaN(d.getTime())) return d.getTime();
+    }
+  }
 
-  const day = Number(parts[0]);
-  const mon = monthIndex(parts[1]);
-  const year = Number(parts[2]);
-  if (!day || mon < 0 || !year) return 0;
+  // Try ISO "YYYY-MM-DD" format (manual parse to avoid timezone issues)
+  if (/^\d{4}-\d{2}-\d{2}/.test(v)) {
+    const isoYear = Number(v.substring(0, 4));
+    const isoMonth = Number(v.substring(5, 7)) - 1;
+    const isoDay = Number(v.substring(8, 10));
+    if (isoYear && isoMonth >= 0 && isoMonth <= 11 && isoDay >= 1 && isoDay <= 31) {
+      const d = new Date(isoYear, isoMonth, isoDay, 12, 0, 0);
+      if (!Number.isNaN(d.getTime())) return d.getTime();
+    }
+  }
 
-  const d = new Date(year, mon, day, 12, 0, 0);
+  // Try "DD/MM/YYYY" format
+  const slashParts = v.split("/");
+  if (slashParts.length === 3) {
+    const sDay = Number(slashParts[0]);
+    const sMonth = Number(slashParts[1]) - 1;
+    const sYear = Number(slashParts[2]);
+    if (sDay >= 1 && sDay <= 31 && sMonth >= 0 && sMonth <= 11 && sYear) {
+      const d = new Date(sYear, sMonth, sDay, 12, 0, 0);
+      if (!Number.isNaN(d.getTime())) return d.getTime();
+    }
+  }
+
+  // Generic Date.parse fallback
+  const d = new Date(v);
   return Number.isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
-// parse "3-Dec-2025" -> Date object
+// parse visit_date in multiple formats -> Date object
 function parseVisitDateToDate(v?: string): Date | null {
   if (!v) return null;
+
+  // Try "3-Dec-2025" or "3-Des-2025" format (d-Mon-YYYY)
   const parts = v.split("-");
-  if (parts.length !== 3) return null;
+  if (parts.length === 3) {
+    const day = Number(parts[0]);
+    const mon = monthIndex(parts[1]);
+    let year = Number(parts[2]);
+    if (day && mon >= 0 && year) {
+      if (year < 100) year += 2000;
+      const d = new Date(year, mon, day);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+  }
 
-  const day = Number(parts[0]);
-  const mon = monthIndex(parts[1]);
-  const year = Number(parts[2]);
-  if (!day || mon < 0 || !year) return null;
+  // Try ISO "YYYY-MM-DD" format (manual parse to avoid timezone issues)
+  if (/^\d{4}-\d{2}-\d{2}/.test(v)) {
+    const isoYear = Number(v.substring(0, 4));
+    const isoMonth = Number(v.substring(5, 7)) - 1;
+    const isoDay = Number(v.substring(8, 10));
+    if (isoYear && isoMonth >= 0 && isoMonth <= 11 && isoDay >= 1 && isoDay <= 31) {
+      const d = new Date(isoYear, isoMonth, isoDay);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+  }
 
-  const d = new Date(year, mon, day);
+  // Try "DD/MM/YYYY" format
+  const slashParts = v.split("/");
+  if (slashParts.length === 3) {
+    const sDay = Number(slashParts[0]);
+    const sMonth = Number(slashParts[1]) - 1;
+    const sYear = Number(slashParts[2]);
+    if (sDay >= 1 && sDay <= 31 && sMonth >= 0 && sMonth <= 11 && sYear) {
+      const d = new Date(sYear, sMonth, sDay);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+  }
+
+  // Generic Date.parse fallback
+  const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
@@ -278,7 +338,7 @@ export default function PlanActivityPage() {
       `Keterangan: ${plan.descriptions || "-"}`,
       `Tindak Lanjut: ${plan.tindak_lanjut || "-"}`,
       `Status: ${plan.status || "-"}`,
-      `Gambar: ${plan.visit_image ? (plan.visit_image.startsWith("http") ? plan.visit_image : `https://hub.mabel.co.id${plan.visit_image.startsWith("/") ? "" : "/"}${plan.visit_image}`) : "Tidak tersedia"}`,
+      `Gambar: ${plan.visit_image ? (plan.visit_image.startsWith("data:image") ? `https://hub.mabel.co.id/api/visits/${plan.id}/image` : plan.visit_image.startsWith("http") ? plan.visit_image : `https://hub.mabel.co.id${plan.visit_image.startsWith("/") ? "" : "/"}${plan.visit_image}`) : "Tidak tersedia"}`,
     ];
 
     const text = lines.join("\n");
