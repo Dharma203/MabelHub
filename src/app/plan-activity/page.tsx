@@ -319,6 +319,41 @@ export default function PlanActivityPage() {
     return `${parts[0]} ${parts[1]} ${parts[2]}`;
   }
 
+  function getImageUrl(visit_image: string | undefined, planId?: string, baseUrl: string = typeof window !== "undefined" ? window.location.origin : "https://hub.mabel.co.id"): string {
+  if (!visit_image) {
+    // Fallback: try to fetch from API if we have planId
+    if (planId) {
+      return `${baseUrl}/api/visits/${planId}/image`;
+    }
+    return "Tidak tersedia";
+  }
+
+  if (visit_image === '__base64_image__') {
+    // Image stored as base64 in API, fetch from endpoint
+    if (planId) {
+      return `${baseUrl}/api/visits/${planId}/image`;
+    }
+    return "Tidak tersedia";
+  }
+  
+  // Already a full URL (from external source or live server)
+  if (visit_image.startsWith("http")) {
+    return visit_image;
+  }
+  
+  // Local path from database (frontend upload: /uploads/... or from API route)
+  if (visit_image.startsWith("/")) {
+    return `${baseUrl}${visit_image}`;
+  }
+  
+  // Bare filename (fallback for old data: visit_xxx.jpeg)
+  if (visit_image.includes("visit_")) {
+    return `${baseUrl}/uploads/${visit_image}`;
+  }
+  
+  return "Tidak tersedia";
+}
+
   // Copy plan data to clipboard
   function copyPlanText(plan: PlanRow) {
     const lines = [
@@ -339,7 +374,7 @@ export default function PlanActivityPage() {
       `Keterangan: ${plan.descriptions || "-"}`,
       `Tindak Lanjut: ${plan.tindak_lanjut || "-"}`,
       `Status: ${plan.status || "-"}`,
-      `Gambar: ${plan.visit_image ? (plan.visit_image.startsWith("/uploads/") ? `https://hub.mabel.co.id${plan.visit_image}` : `https://hub.mabel.co.id/api/visits/${plan.id}/image`) : "Tidak tersedia"}`,
+      `Gambar: ${getImageUrl(plan.visit_image, plan.id)}`,
     ];
     const text = lines.join("\n");
     const copyToClipboard = (str: string) => {
@@ -718,11 +753,15 @@ export default function PlanActivityPage() {
                   <ImageIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Bukti Kunjungan</p>
-                    <div
-                      className="mt-1 w-20 h-20 rounded-xl cursor-pointer ring-1 ring-gray-200 hover:ring-blue-400 hover:shadow-lg transition-all bg-cover bg-center"
-                      style={{ backgroundImage: `url(${detailPlan.visit_image.startsWith("/") ? detailPlan.visit_image : `/api/visits/${detailPlan.id}/image`})` }}
-                      onClick={() => openImageBase64(detailPlan.visit_image.startsWith("/") ? detailPlan.visit_image : `/api/visits/${detailPlan.id}/image`)}
+                    <img
+                      src={getImageUrl(detailPlan.visit_image, detailPlan.id)}
+                      alt="Bukti kunjungan"
+                      className="mt-1 w-20 h-20 rounded-xl cursor-pointer ring-1 ring-gray-200 hover:ring-blue-400 hover:shadow-lg transition-all object-cover"
+                      onClick={() => openImageBase64(getImageUrl(detailPlan.visit_image, detailPlan.id))}
                       title="Lihat foto bukti"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
                     />
                   </div>
                 </div>
@@ -1061,11 +1100,15 @@ export default function PlanActivityPage() {
                     </div>
 
                     {plan.visit_image && (
-                      <div
-                        className="w-12 h-12 rounded-lg flex-shrink-0 bg-cover bg-center ring-1 ring-gray-200 cursor-pointer hover:ring-blue-400 transition-all"
-                        style={{ backgroundImage: `url(${plan.visit_image.startsWith("/") ? plan.visit_image : `/api/visits/${plan.id}/image`})` }}
-                        onClick={() => openImageBase64(plan.visit_image.startsWith("/") ? plan.visit_image : `/api/visits/${plan.id}/image`)}
+                      <img
+                        src={getImageUrl(plan.visit_image, plan.id)}
+                        alt="Bukti kunjungan"
+                        className="w-12 h-12 rounded-lg flex-shrink-0 ring-1 ring-gray-200 cursor-pointer hover:ring-blue-400 transition-all object-cover"
+                        onClick={() => openImageBase64(getImageUrl(plan.visit_image, plan.id))}
                         title="Lihat foto bukti"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
                       />
                     )}
 
