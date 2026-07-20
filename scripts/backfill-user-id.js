@@ -59,7 +59,7 @@ async function run() {
 
     // ========================================================
     // STEP 1: Buat lookup map fullName → userId dari collection users
-    // ========================================================
+    // =======================================================
     console.log("━".repeat(60));
     console.log("STEP 1: Membangun lookup map dari collection 'users'...");
     console.log("━".repeat(60));

@@ -32,7 +32,7 @@ async function run() {
     const totalCount = await col.countDocuments();
     console.log(`Total documents in VisitActivity: ${totalCount}\n`);
 
-    // Sample all distinct visit_date formats
+    // Sample all distinct visit_date format
     console.log("=== ALL DISTINCT visit_date VALUES (sample up to 200) ===");
     const distinctDates = await col.aggregate([
       { $group: { _id: "$visit_date", count: { $sum: 1 } } },
