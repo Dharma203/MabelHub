@@ -636,7 +636,18 @@ export async function GET(req: Request) {
     { $sort: sortStage },
     { $skip: skip },
     { $limit: limit },
-    { $project: { __visitDate: 0, __createdAt: 0, __rankIndex: 0 } },
+    {
+      $addFields: {
+        has_visit_image: {
+          $and: [
+            { $ne: [{ $type: '$visit_image' }, 'missing'] },
+            { $ne: ['$visit_image', null] },
+            { $ne: ['$visit_image', ''] },
+          ],
+        },
+      },
+    },
+    { $project: { __visitDate: 0, __createdAt: 0, __rankIndex: 0, visit_image: 0 } },
   ]
 
   const countPipeline = [...pipeline, { $count: 'count' }]
