@@ -202,6 +202,31 @@ const EXPORT_FIELDS: ExportField[] = [
   { key: 'ke_sales', label: 'Ke Sales' },
 ]
 
+function cn(...s: Array<string | false | null | undefined>) {
+  return s.filter(Boolean).join(' ')
+}
+
+function getPageWindow(current: number, totalPages: number, size: number) {
+  if (totalPages <= size)
+    return Array.from({ length: totalPages }, (_, i) => i + 1)
+
+  const half = Math.floor(size / 2)
+  let start = Math.max(1, current - half)
+  let end = start + size - 1
+
+  if (end > totalPages) {
+    end = totalPages
+    start = end - size + 1
+  }
+  return Array.from({ length: size }, (_, i) => start + i)
+}
+
+function formatBulanData(val: string): string {
+  const mm = val.split('-')
+  if (!mm) return val
+  return `${BULAN_NAMES[mm[1]] ?? mm[1]}`
+}
+
 function DetailItem({
   label,
   value,
