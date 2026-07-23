@@ -24,7 +24,6 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import React from 'react'
 import { listStatusByUpdate, getDetailOptions } from '@/data/statusupdatecall'
 import * as XLSX from 'xlsx'
-import { cn, getPageWindow, BULAN_NAMES, formatBulanData, formatBulan } from './utils'
 
 type StatusCallSummary = {
   tidak_tersedia: number
