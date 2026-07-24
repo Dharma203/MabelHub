@@ -57,7 +57,7 @@ export async function createGoogleSheet(
 
   // Share with owner (read + write)
   // Make the sheet publicly accessible via link so the user can open it
-  const drive = google.drive({ version: 'v3', auth: jwtClient })
+  const drive = google.drive({ version: 'v3', auth: jwtClient as any })
   await drive.permissions.create({
     fileId: sheetId,
     requestBody: {
