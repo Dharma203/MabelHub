@@ -24,6 +24,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import React from 'react'
 import { listStatusByUpdate, getDetailOptions } from '@/data/statusupdatecall'
 import * as XLSX from 'xlsx'
+import { useExportToSheets } from '@/hooks/useExportToSheets'
 
 type StatusCallSummary = {
   tidak_tersedia: number
@@ -414,6 +415,9 @@ export default function TrackingCallPage() {
   )
   const [exporting, setExporting] = useState(false)
 
+  // Google Sheets export
+  const { exportToSheets, loading: googleSheetsLoading } = useExportToSheets()
+
   // filter value - multi-select arrays
   const [bulan, setBulan] = useState<string[]>([])
   const [perusahaan, setPerusahaan] = useState<string[]>([])
@@ -695,74 +699,74 @@ export default function TrackingCallPage() {
   // ---- main data fetch (paginated rows) ----
   useEffect(() => {
     let mounted = true
-    ;(async () => {
-      setLoadingRows(true)
-      if (!mounted) return
-
-      const qs = new URLSearchParams()
-      qs.set('limit', String(pageSize))
-      qs.set('page', String(page))
-
-      bulan.forEach((v) => qs.append('bulan', v))
-      perusahaan.forEach((v) => qs.append('perusahaan', v))
-      produk.forEach((v) => qs.append('produk', v))
-      provinsi.forEach((v) => qs.append('provinsi', v))
-      kota.forEach((v) => qs.append('kota', v))
-      statusCall.forEach((v) => qs.append('status_call', v))
-      toSales.forEach((v) => qs.append('ke_sales', v))
-      if (startDate) qs.set('startDate', startDate)
-      if (endDate) qs.set('endDate', endDate)
-
-      try {
-        const res = await fetch(`/api/tracking-call?${qs.toString()}`, {
-          cache: 'no-store',
-        })
-        const json = await res.json().catch(() => ({}))
+      ; (async () => {
+        setLoadingRows(true)
         if (!mounted) return
 
-        setRows(Array.isArray(json?.items) ? json.items : [])
-        setStatusCallSummary({
-          tidak_tersedia: json?.statusCallSummary?.tidak_tersedia ?? 0,
-          sedang_sibuk: json?.statusCallSummary?.sedang_sibuk ?? 0,
-          tidak_diangkat: json?.statusCallSummary?.tidak_diangkat ?? 0,
-          mailbox: json?.statusCallSummary?.mailbox ?? 0,
-          positif: json?.statusCallSummary?.positif ?? 0,
-          negatif: json?.statusCallSummary?.negatif ?? 0,
-        })
-        setStats({
-          total_no_telp: json?.summaryStats?.total_no_telp ?? 0,
-          total_provinsi: json?.summaryStats?.total_provinsi ?? 0,
-          total_kota: json?.summaryStats?.total_kota ?? 0,
-          total_nama: json?.summaryStats?.total_nama ?? 0,
-          total_merek: json?.summaryStats?.total_merek ?? 0,
-          total_kontak_unik: json?.summaryStats?.total_kontak_unik ?? 0,
-          provinsi_kota: json?.summaryStats?.provinsi_kota ?? [],
-          call_provinsi_kota: json?.summaryStats?.call_provinsi_kota ?? [],
-          ke_sales_provinsi: json?.summaryStats?.ke_sales_provinsi ?? [],
-          per_sales: json?.summaryStats?.per_sales ?? [],
-        })
-        setKeSalesSummary({
-          arie: json?.keSalesSummary?.arie ?? 0,
-          beffry: json?.keSalesSummary?.beffry ?? 0,
-          ferrie: json?.keSalesSummary?.ferrie ?? 0,
-          kosong: json?.keSalesSummary?.kosong ?? 0,
-        })
-        const pg = json?.pagination ?? {}
-        setTotal(Number(pg?.total ?? 0))
-        setTotalPages(Number(pg?.totalPages ?? 1))
-        setSelected(null)
-      } catch {
-        if (!mounted) return
-        setRows([])
-        setTotal(0)
-        setTotalPages(1)
-        setSelected(null)
-      } finally {
-        if (mounted) {
-          setLoadingRows(false)
+        const qs = new URLSearchParams()
+        qs.set('limit', String(pageSize))
+        qs.set('page', String(page))
+
+        bulan.forEach((v) => qs.append('bulan', v))
+        perusahaan.forEach((v) => qs.append('perusahaan', v))
+        produk.forEach((v) => qs.append('produk', v))
+        provinsi.forEach((v) => qs.append('provinsi', v))
+        kota.forEach((v) => qs.append('kota', v))
+        statusCall.forEach((v) => qs.append('status_call', v))
+        toSales.forEach((v) => qs.append('ke_sales', v))
+        if (startDate) qs.set('startDate', startDate)
+        if (endDate) qs.set('endDate', endDate)
+
+        try {
+          const res = await fetch(`/api/tracking-call?${qs.toString()}`, {
+            cache: 'no-store',
+          })
+          const json = await res.json().catch(() => ({}))
+          if (!mounted) return
+
+          setRows(Array.isArray(json?.items) ? json.items : [])
+          setStatusCallSummary({
+            tidak_tersedia: json?.statusCallSummary?.tidak_tersedia ?? 0,
+            sedang_sibuk: json?.statusCallSummary?.sedang_sibuk ?? 0,
+            tidak_diangkat: json?.statusCallSummary?.tidak_diangkat ?? 0,
+            mailbox: json?.statusCallSummary?.mailbox ?? 0,
+            positif: json?.statusCallSummary?.positif ?? 0,
+            negatif: json?.statusCallSummary?.negatif ?? 0,
+          })
+          setStats({
+            total_no_telp: json?.summaryStats?.total_no_telp ?? 0,
+            total_provinsi: json?.summaryStats?.total_provinsi ?? 0,
+            total_kota: json?.summaryStats?.total_kota ?? 0,
+            total_nama: json?.summaryStats?.total_nama ?? 0,
+            total_merek: json?.summaryStats?.total_merek ?? 0,
+            total_kontak_unik: json?.summaryStats?.total_kontak_unik ?? 0,
+            provinsi_kota: json?.summaryStats?.provinsi_kota ?? [],
+            call_provinsi_kota: json?.summaryStats?.call_provinsi_kota ?? [],
+            ke_sales_provinsi: json?.summaryStats?.ke_sales_provinsi ?? [],
+            per_sales: json?.summaryStats?.per_sales ?? [],
+          })
+          setKeSalesSummary({
+            arie: json?.keSalesSummary?.arie ?? 0,
+            beffry: json?.keSalesSummary?.beffry ?? 0,
+            ferrie: json?.keSalesSummary?.ferrie ?? 0,
+            kosong: json?.keSalesSummary?.kosong ?? 0,
+          })
+          const pg = json?.pagination ?? {}
+          setTotal(Number(pg?.total ?? 0))
+          setTotalPages(Number(pg?.totalPages ?? 1))
+          setSelected(null)
+        } catch {
+          if (!mounted) return
+          setRows([])
+          setTotal(0)
+          setTotalPages(1)
+          setSelected(null)
+        } finally {
+          if (mounted) {
+            setLoadingRows(false)
+          }
         }
-      }
-    })()
+      })()
     return () => {
       mounted = false
     }
@@ -806,8 +810,8 @@ export default function TrackingCallPage() {
         allRows = rows
       } else {
         const qs = new URLSearchParams()
-        qs.set('limit', '50000')
-        qs.set('page', '1')
+        qs.set('limit', String(pageSize))
+        qs.set('page', String(page))
         qs.set('export', 'true')
 
         // Filter kategori tetap dipakai di semua mode (bulan, produk, dst)
@@ -880,6 +884,94 @@ export default function TrackingCallPage() {
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e)
       alert(message ?? 'gagal export data')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportToSheets = async () => {
+    if (exportMode === 'date' && !exportStartDate && !exportEndDate) {
+      alert('Silakan pilih minimal salah satu tanggal (mulai atau akhir)')
+      return
+    }
+
+    setExporting(true)
+    try {
+      let allRows: BroadCastRow[] = []
+
+      if (exportMode === 'pagination') {
+        allRows = rows
+      } else {
+        const qs = new URLSearchParams()
+        qs.set('limit', '50000')
+        qs.set('page', '1')
+        qs.set('export', 'true')
+
+        bulan.forEach((v) => qs.append('bulan', v))
+        produk.forEach((v) => qs.append('produk', v))
+        perusahaan.forEach((v) => qs.append('perusahaan', v))
+        provinsi.forEach((v) => qs.append('provinsi', v))
+        kota.forEach((v) => qs.append('kota', v))
+        statusCall.forEach((v) => qs.append('status_call', v))
+        toSales.forEach((v) => qs.append('ke_sales', v))
+        namaPic.forEach((v) => qs.append('pic', v))
+
+        if (exportMode === 'date') {
+          if (exportStartDate) qs.set('startDate', exportStartDate)
+          if (exportEndDate) qs.set('endDate', exportEndDate)
+        }
+
+        const res = await fetch(`/api/tracking-call?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        const json = await res.json().catch(() => ({}))
+        allRows = Array.isArray(json?.items) ? json.items : []
+      }
+
+      if (allRows.length === 0) {
+        alert('Tidak ada data untuk di-export')
+        return
+      }
+
+      const selectedFields = EXPORT_FIELDS.filter((f) =>
+        exportFields.has(f.key),
+      )
+      const headers = ['No', ...selectedFields.map((f) => f.label)]
+      const sheetRows = allRows.map((row, idx) => {
+        const rowData: (string | number | boolean | null)[] = [idx + 1]
+        selectedFields.forEach((f) => {
+          let val = row[f.key] ?? ''
+          if ((f.key === 'created_at' || f.key === 'updated_at') && val) {
+            try {
+              const d = new Date(val as string)
+              if (!isNaN(d.getTime())) {
+                const yyyy = d.getFullYear()
+                const mm = String(d.getMonth() + 1).padStart(2, '0')
+                const dd = String(d.getDate()).padStart(2, '0')
+                val = `${yyyy}-${mm}-${dd}`
+              }
+            } catch (err) {
+              // fallback
+            }
+          }
+          rowData.push(val)
+        })
+        return rowData
+      })
+
+      const modeLabel =
+        exportMode === 'all'
+          ? 'Semua'
+          : exportMode === 'date'
+            ? 'ByTanggal'
+            : `Hal${safePage}`
+      const title = `TrackingCall_${modeLabel}_${new Date().toISOString().slice(0, 10)}`
+
+      await exportToSheets(title, headers, sheetRows)
+      setShowExportModal(false)
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e)
+      alert(message ?? 'Gagal export ke Google Sheets')
     } finally {
       setExporting(false)
     }
@@ -999,11 +1091,11 @@ export default function TrackingCallPage() {
                   const search = dropdownSearch[btn.id] ?? ''
                   const filtered = search
                     ? opts.filter((o) => {
-                        const display = btn.id === 'Bulan' ? formatBulan(o) : o
-                        return display
-                          .toLowerCase()
-                          .includes(search.toLowerCase())
-                      })
+                      const display = btn.id === 'Bulan' ? formatBulan(o) : o
+                      return display
+                        .toLowerCase()
+                        .includes(search.toLowerCase())
+                    })
                     : opts
                   const allSelected =
                     opts.length > 0 && opts.every((o) => activeArr.includes(o))
@@ -1017,13 +1109,12 @@ export default function TrackingCallPage() {
                       <button
                         type='button'
                         onClick={() => setOpenDropdown(isOpen ? null : btn.id)}
-                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${
-                          isOpen
+                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${isOpen
                             ? 'border-2 border-blue-500 bg-white text-blue-600 shadow-md'
                             : isActive
                               ? 'border-2 border-blue-400 bg-white text-blue-700'
                               : 'border border-slate-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600'
-                        }`}
+                          }`}
                       >
                         <span className='flex items-center gap-1.5 min-w-0'>
                           <IconComponent
@@ -1142,10 +1233,10 @@ export default function TrackingCallPage() {
                 {(filterButtons.some((b) => getFilterArr(b.id).length > 0) ||
                   startDate ||
                   endDate) && (
-                  <span className='text-blue-600 font-semibold ml-1'>
-                    Menampilkan {total.toLocaleString()} data
-                  </span>
-                )}
+                    <span className='text-blue-600 font-semibold ml-1'>
+                      Menampilkan {total.toLocaleString()} data
+                    </span>
+                  )}
               </div>
 
               {/* ---- Chips row: active selections ---- */}
@@ -1409,9 +1500,9 @@ export default function TrackingCallPage() {
                       {loadingRows
                         ? '...'
                         : (stats?.provinsi_kota.reduce(
-                            (acc, row) => acc + row.unik,
-                            0,
-                          ) ?? 0)}
+                          (acc, row) => acc + row.unik,
+                          0,
+                        ) ?? 0)}
                     </span>
                     <span>total</span>
                   </div>
@@ -1529,9 +1620,9 @@ export default function TrackingCallPage() {
                       {loadingRows
                         ? '...'
                         : (stats?.per_sales?.reduce(
-                            (acc, r) => acc + r.unik,
-                            0,
-                          ) ?? 0)}
+                          (acc, r) => acc + r.unik,
+                          0,
+                        ) ?? 0)}
                     </span>
                     <span>total</span>
                   </div>
@@ -1680,9 +1771,9 @@ export default function TrackingCallPage() {
                         onChange={handleSelectAll}
                         checked={
                           rows.filter((r) => r.tipe === 'WhatsApp').length >
-                            0 &&
+                          0 &&
                           selectedIds.length ===
-                            rows.filter((r) => r.tipe === 'WhatsApp').length
+                          rows.filter((r) => r.tipe === 'WhatsApp').length
                         }
                         className='w-3.5 h-3.5 accent-blue-500 cursor-pointer'
                       />
@@ -1878,18 +1969,18 @@ export default function TrackingCallPage() {
                                         value={
                                           selected.created_at
                                             ? new Date(selected.created_at)
-                                                .toLocaleDateString('sv-SE', {
-                                                  day: '2-digit',
-                                                  month: '2-digit',
-                                                  year: 'numeric',
-                                                  hour: '2-digit',
-                                                  minute: '2-digit',
-                                                  second: '2-digit',
-                                                  hour12: false,
-                                                })
-                                                .replace('pukul', '')
-                                                .replace(' ', ' ')
-                                                .trim()
+                                              .toLocaleDateString('sv-SE', {
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                                hour12: false,
+                                              })
+                                              .replace('pukul', '')
+                                              .replace(' ', ' ')
+                                              .trim()
                                             : '-'
                                         }
                                       />
@@ -1927,7 +2018,7 @@ export default function TrackingCallPage() {
                                         label='Sumber Lain'
                                         value={
                                           selected.sumber_data ===
-                                          'Sales Internal'
+                                            'Sales Internal'
                                             ? selected.sales_internal
                                             : '-'
                                         }
@@ -2065,7 +2156,7 @@ export default function TrackingCallPage() {
                                             <span className='border rounded-sm border-gray-300 py-1 px-1.5 text-[10.5px] text-slate-700 font-medium'>
                                               📦
                                               {selected.merek_tayang &&
-                                              selected.merek_tayang.trim() !==
+                                                selected.merek_tayang.trim() !==
                                                 ''
                                                 ? `${selected.produk} / ${selected.merek_tayang}`
                                                 : selected.produk}
@@ -2393,6 +2484,29 @@ export default function TrackingCallPage() {
                   <>
                     <Download size={16} />
                     Export Excel
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleExportToSheets}
+                disabled={googleSheetsLoading || exportFields.size === 0}
+                className={cn(
+                  'h-10 px-6 rounded-xl text-sm font-bold text-white shadow-sm transition-colors flex items-center gap-2',
+                  googleSheetsLoading || exportFields.size === 0
+                    ? 'bg-blue-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700',
+                )}
+                title='Create a new Google Sheet with the data'
+              >
+                {googleSheetsLoading ? (
+                  <>
+                    <span className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <span>📊</span>
+                    Google Sheets
                   </>
                 )}
               </button>

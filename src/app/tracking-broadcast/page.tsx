@@ -30,6 +30,7 @@ import {
   getDetailOptions,
 } from '@/data/statusupdatebroadcast'
 import * as XLSX from 'xlsx'
+import { useExportToSheets } from '@/hooks/useExportToSheets'
 
 type StatusWaSummary = {
   terkirim: number
@@ -452,6 +453,9 @@ export default function TrackingBroadcastPage() {
     () => new Set(EXPORT_FIELDS.map((f) => f.key)),
   )
   const [exporting, setExporting] = useState(false)
+
+  // Google Sheets export
+  const { exportToSheets, loading: googleSheetsLoading } = useExportToSheets()
 
   // helper modal – edit PIC
   const [selectedRow, setSelectedRow] = useState<BroadCastRow | null>(null);
@@ -1015,6 +1019,93 @@ export default function TrackingBroadcastPage() {
       setShowExportModal(false)
     } catch (e: any) {
       alert(e?.message ?? 'Gagal export data')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportToSheets = async () => {
+    if (exportMode === 'date' && !exportStartDate && !exportEndDate) {
+      alert('Silakan pilih minimal salah satu tanggal (mulai atau akhir)')
+      return
+    }
+
+    setExporting(true)
+    try {
+      let allRows: BroadCastRow[] = []
+
+      if (exportMode === 'pagination') {
+        allRows = rows
+      } else {
+        const qs = new URLSearchParams()
+        qs.set('limit', '50000')
+        qs.set('page', '1')
+        qs.set('export', 'true')
+
+        bulan.forEach((v) => qs.append('bulan', v))
+        produk.forEach((v) => qs.append('produk', v))
+        perusahaan.forEach((v) => qs.append('perusahaan', v))
+        provinsi.forEach((v) => qs.append('provinsi', v))
+        kota.forEach((v) => qs.append('kota', v))
+        statusWa.forEach((v) => qs.append('status_wa', v))
+        toSales.forEach((v) => qs.append('ke_sales', v))
+        namaPic.forEach((v) => qs.append('pic', v))
+
+        if (exportMode === 'date') {
+          if (exportStartDate) qs.set('startDate', exportStartDate)
+          if (exportEndDate) qs.set('endDate', exportEndDate)
+        }
+
+        const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        const json = await res.json().catch(() => ({}))
+        allRows = Array.isArray(json?.items) ? json.items : []
+      }
+
+      if (allRows.length === 0) {
+        alert('Tidak ada data untuk di-export')
+        return
+      }
+
+      const selectedFields = EXPORT_FIELDS.filter((f) =>
+        exportFields.has(f.key),
+      )
+      const headers = ['No', ...selectedFields.map((f) => f.label)]
+      const sheetRows = allRows.map((row, idx) => {
+        const rowData: (string | number | boolean | null)[] = [idx + 1]
+        selectedFields.forEach((f) => {
+          let val = row[f.key] ?? ''
+          if ((f.key === 'created_at' || f.key === 'updated_at') && val) {
+            try {
+              const d = new Date(val as string)
+              if (!isNaN(d.getTime())) {
+                const yyyy = d.getFullYear()
+                const mm = String(d.getMonth() + 1).padStart(2, '0')
+                const dd = String(d.getDate()).padStart(2, '0')
+                val = `${yyyy}-${mm}-${dd}`
+              }
+            } catch (err) {
+              // fallback
+            }
+          }
+          rowData.push(val)
+        })
+        return rowData
+      })
+
+      const modeLabel =
+        exportMode === 'all'
+          ? 'Semua'
+          : exportMode === 'date'
+            ? 'ByTanggal'
+            : `Hal${safePage}`
+      const title = `TrackingBroadcast_${modeLabel}_${new Date().toISOString().slice(0, 10)}`
+
+      await exportToSheets(title, headers, sheetRows)
+      setShowExportModal(false)
+    } catch (e: any) {
+      alert(e?.message ?? 'Gagal export ke Google Sheets')
     } finally {
       setExporting(false)
     }
@@ -2616,6 +2707,29 @@ export default function TrackingBroadcastPage() {
                   <>
                     <Download size={16} />
                     Export Excel
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleExportToSheets}
+                disabled={googleSheetsLoading || exportFields.size === 0}
+                className={cn(
+                  'h-10 px-6 rounded-xl text-sm font-bold text-white shadow-sm transition-colors flex items-center gap-2',
+                  googleSheetsLoading || exportFields.size === 0
+                    ? 'bg-blue-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700',
+                )}
+                title='Create a new Google Sheet with the data'
+              >
+                {googleSheetsLoading ? (
+                  <>
+                    <span className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <span>📊</span>
+                    Google Sheets
                   </>
                 )}
               </button>
