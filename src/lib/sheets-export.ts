@@ -20,8 +20,9 @@ export async function createGoogleSheet(
     ],
   })
 
+  
   const auth = await jwtClient.authorize()
-  const sheets = google.sheets({ version: 'v4', auth: jwtClient })
+  const sheets = google.sheets({ version: 'v4', auth: jwtClient as any }) // Atau gunakan opsi pemanggilan alternatif
 
   // Create spreadsheet
   const createResponse = await sheets.spreadsheets.create({
