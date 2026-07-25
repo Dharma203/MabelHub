@@ -78,6 +78,11 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
       ],
     },
     {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [{ label: 'Database Prospek', href: '/database-prospek', icon: 'DatabaseZap'}]
+    },
+    {
       title: 'PRODUCT HUB',
       icon: 'Package',
       items: [{ label: 'Data Produk', href: '/produk', icon: 'CheckSquare' }],

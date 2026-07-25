@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
+import { getLeaderAllowedUserIds, getUserLiteById } from '@/lib/visit-auth'
+import { flexParseDateExpr } from '@/lib/flex-date-expr'
+import { toVisitDateStr, toCreatedAtStr } from '@/lib/visit-date'
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(Math.max(n, min), max)
@@ -12,166 +15,9 @@ function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-// "2025-12-03" -> "3-Dec-2025"
-function toVisitDateStr(yyyyMmDd: string) {
-  const d = new Date(yyyyMmDd)
-  if (Number.isNaN(d.getTime())) return ''
-  const day = d.getDate()
-  const mon = d.toLocaleString('en-US', { month: 'short' }) // Dec
-  const year = d.getFullYear()
-  return `${day}-${mon}-${year}`
-}
 
-// Date -> "YYYY-MM-DD HH:mm:ss"
-function toCreatedAtStr(dt: Date) {
-  const pad = (x: number) => String(x).padStart(2, '0')
-  const y = dt.getFullYear()
-  const m = pad(dt.getMonth() + 1)
-  const d = pad(dt.getDate())
-  const hh = pad(dt.getHours())
-  const mm = pad(dt.getMinutes())
-  const ss = pad(dt.getSeconds())
-  return `${y}-${m}-${d} ${hh}:${mm}:${ss}`
-}
 
-/**
- * Returns a MongoDB aggregation expression that flexibly parses a date string
- * field from multiple formats into a Date object.
- *
- * Supported formats:
- *   - Date object (already stored as Date in MongoDB)
- *   - "3-Dec-2025"  (%d-%b-%Y, English abbreviated month)
- *   - "3-Des-2025"  (Indonesian abbreviated months: Mei, Agu, Okt, Des)
- *   - "2025-12-03" or "2025-12-03T..." (ISO format)
- *   - "03/12/2025"  (DD/MM/YYYY)
- */
-function flexParseDateExpr(field: string) {
-  const safeField = { $ifNull: [field, ''] }
 
-  // Normalize Indonesian month abbreviations → English via $reduce + $replaceAll
-  const normalizedField = {
-    $let: {
-      vars: { low: { $toLower: safeField } },
-      in: {
-        $reduce: {
-          input: [
-            ['des', 'dec'], ['okt', 'oct'], ['agu', 'aug'],
-            ['mei', 'may'], ['nop', 'nov'], ['peb', 'feb'],
-          ],
-          initialValue: '$$low',
-          in: {
-            $replaceAll: {
-              input: '$$value',
-              find: { $arrayElemAt: ['$$this', 0] },
-              replacement: { $arrayElemAt: ['$$this', 1] },
-            },
-          },
-        },
-      },
-    },
-  }
-
-  return {
-    $switch: {
-      branches: [
-        // Already a Date object in MongoDB
-        {
-          case: { $eq: [{ $type: field }, 'date'] },
-          then: field,
-        },
-        // ISO "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm:ss" format
-        {
-          case: { $regexMatch: { input: safeField, regex: /^\d{4}-\d{2}-\d{2}/ } },
-          then: {
-            $dateFromString: {
-              dateString: { $substrCP: [field, 0, 10] },
-              format: '%Y-%m-%d',
-              onError: null,
-            },
-          },
-        },
-        // "d-Mon-YYYY" format (English or Indonesian month abbreviations)
-        {
-          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}-[A-Za-z]+-\d{4}$/ } },
-          then: {
-            $dateFromString: {
-              dateString: normalizedField,
-              format: '%d-%b-%Y',
-              onError: null,
-            },
-          },
-        },
-        // "d-Mon-YY" format (English or Indonesian, 2-digit year like "5-Jan-26")
-        {
-          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}-[A-Za-z]+-\d{2}$/ } },
-          then: {
-            $dateFromString: {
-              dateString: {
-                $let: {
-                  vars: { parts: { $split: [normalizedField, '-'] } },
-                  in: {
-                    $concat: [
-                      { $arrayElemAt: ['$$parts', 0] },
-                      '-',
-                      { $arrayElemAt: ['$$parts', 1] },
-                      '-20',
-                      { $arrayElemAt: ['$$parts', 2] }
-                    ]
-                  }
-                }
-              },
-              format: '%d-%b-%Y',
-              onError: null,
-            },
-          },
-        },
-        // "DD/MM/YYYY" format
-        {
-          case: { $regexMatch: { input: safeField, regex: /^\d{1,2}\/\d{1,2}\/\d{4}$/ } },
-          then: {
-            $dateFromString: {
-              dateString: field,
-              format: '%d/%m/%Y',
-              onError: null,
-            },
-          },
-        },
-      ],
-      default: null,
-    },
-  }
-}
-
-type TeamDoc = {
-  leaderId: string // userId leader (string ObjectId)
-  memberIds: string[] // userId sales (string ObjectId)
-}
-
-async function getLeaderAllowedUserIds(db: any, leaderId: string) {
-  const team = (await db
-    .collection('teams')
-    .findOne({ leaderId })) as TeamDoc | null
-
-  const ids = [leaderId, ...(team?.memberIds ?? [])]
-  return Array.from(new Set(ids))
-}
-
-async function getUserLiteById(db: any, userId: string) {
-  if (!ObjectId.isValid(userId)) return null
-  const u = await db
-    .collection('users')
-    .findOne(
-      { _id: new ObjectId(userId) },
-      { projection: { _id: 1, role: 1, username: 1, fullName: 1 } },
-    )
-  if (!u) return null
-  return {
-    userId: String((u as any)._id),
-    role: String((u as any).role || ''),
-    username: String((u as any).username || ''),
-    fullName: String((u as any).fullName || ''),
-  }
-}
 
 /**
  * GET /api/visits?limit=25&page=1&q=...
@@ -382,6 +228,18 @@ export async function GET(req: Request) {
   }
 
   // =========================
+  // SHARED SORT FIELD MAP
+  // =========================
+  const TEXT_SORT_FIELDS: Record<string, string> = {
+    satuan_kerja: 'satuan_kerja',
+    nama_sales: 'nama_sales',
+    city: 'city',
+    status_ring: 'status_ring',
+    pic_name: 'pic_name',
+    pic_phone: 'pic_phone',
+  }
+
+  // =========================
   // GROUP BY SATKER MODE (untuk tracking-satker page)
   // =========================
   if (groupBySatker) {
@@ -452,15 +310,7 @@ export async function GET(req: Request) {
       },
     })
 
-    // Sort
-    const TEXT_SORT_FIELDS: Record<string, string> = {
-      satuan_kerja: 'satuan_kerja',
-      nama_sales: 'nama_sales',
-      city: 'city',
-      status_ring: 'status_ring',
-      pic_name: 'pic_name',
-      pic_phone: 'pic_phone',
-    }
+    // Sort (uses TEXT_SORT_FIELDS hoisted above)
 
     let sortStage: Record<string, 1 | -1>
     if (sortByParams === 'total_visit') {
@@ -603,14 +453,6 @@ export async function GET(req: Request) {
   // SORT (baru) — dipilih dari header tabel
   // =========================
 
-  const TEXT_SORT_FIELDS: Record<string, string> = {
-    satuan_kerja: 'satuan_kerja',
-    nama_sales: 'nama_sales',
-    city: 'city',
-    status_ring: 'status_ring',
-    pic_name: 'pic_name',
-    pic_phone: 'pic_phone',
-  }
 
   let sortStage: Record<string, 1 | -1>
   if (sortByParams === 'total_visit') {

@@ -9,7 +9,10 @@ import { listProvinsi, listKabupatenKota } from '@/data/wilayah'
 import { listMerek } from '@/data/merek'
 import { useSearchPerusahaan, Perusahaan } from '@/hooks/useSearchPerusahaan'
 import { computeChangedFields } from '@/utils/validation'
-import { validateFormFields, validateContactItems } from '@/utils/formValidation'
+import {
+  validateFormFields,
+  validateContactItems,
+} from '@/utils/formValidation'
 
 type TeamMember = {
   userId: string
@@ -37,7 +40,6 @@ function displayName(m: {
     (m.fullName || '').trim() || (m.username || '').trim() || m.userId
   return m.role ? `${name} • ${m.role}` : name
 }
-
 
 function InputDatabaseContent() {
   const [isOpen, setIsOpen] = useState(false)
@@ -319,10 +321,10 @@ function InputDatabaseContent() {
       }
       setRequestor(
         header?.requestor ??
-        user?.fullName ??
-        user?.username ??
-        user?.userId ??
-        '',
+          user?.fullName ??
+          user?.username ??
+          user?.userId ??
+          '',
       )
       setSegmen(header?.segmen ?? '')
       setNamaPerusahaan(header?.namaPerusahaan ?? '')
@@ -530,14 +532,16 @@ function InputDatabaseContent() {
       setLinkToko('')
       setcodeInput('')
       setOriginalSnapshot(null)
-      setItems([{
-        id: Date.now().toString(36) + Math.random().toString(36).substring(2),
-        nama: '',
-        jabatan: '',
-        tipeKontak: '',
-        noTelp: '',
-        email: '',
-      }])
+      setItems([
+        {
+          id: Date.now().toString(36) + Math.random().toString(36).substring(2),
+          nama: '',
+          jabatan: '',
+          tipeKontak: '',
+          noTelp: '',
+          email: '',
+        },
+      ])
     } catch (error) {
       console.error('Error saving database:', error)
       alert(
@@ -616,7 +620,10 @@ function InputDatabaseContent() {
                     options={(() => {
                       const base = [
                         { value: '', label: 'Pilih requestor' },
-                        { value: user?.fullName || '', label: user?.fullName || '' },
+                        {
+                          value: user?.fullName || '',
+                          label: user?.fullName || '',
+                        },
                       ]
                       // Jika requestor dari database belum ada di list, tambahkan otomatis
                       if (

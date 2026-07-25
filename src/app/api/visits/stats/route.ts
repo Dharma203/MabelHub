@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getVisitAuthMatch } from '@/lib/visit-auth'
-import { count } from 'console'
+
 
 export async function GET(req: Request) {
   const auth = assertLoggedIn(req)
