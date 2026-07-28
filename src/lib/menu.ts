@@ -80,7 +80,13 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
     {
       title: 'DATABASE',
       icon: 'Database',
-      items: [{ label: 'Database Prospek', href: '/database-prospek', icon: 'DatabaseZap'}]
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
+      ],
     },
     {
       title: 'PRODUCT HUB',
@@ -175,6 +181,17 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
         },
         { label: 'Tracking Call', href: '/tracking-call', icon: 'Phone' },
         { label: 'Report Progres', href: '/report-progres', icon: 'FileText' },
+      ],
+    },
+    {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
       ],
     },
   ],
@@ -317,6 +334,17 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           label: 'Tracking Visit B2B',
           href: '/tracking-b2b',
           icon: 'Building',
+        },
+      ],
+    },
+    {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
         },
       ],
     },
