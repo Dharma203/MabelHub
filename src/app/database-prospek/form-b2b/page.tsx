@@ -261,6 +261,8 @@ export default function FormB2GPage() {
         brandOwner,
         sumberData,
         salesInternal,
+        linkProduk,
+        linkToko
       })
       if (headerError) {
         alert(headerError.message)

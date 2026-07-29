@@ -368,7 +368,7 @@ export default function AddInstansiPage() {
   }
   async function handleUploadExcel(file: File) {
     try {
-      const XLSX = await import("xlsx");
+      const XLSX = await import("xlsx-js-style");
 
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: "array" });
