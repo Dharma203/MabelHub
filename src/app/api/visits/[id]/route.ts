@@ -2,39 +2,9 @@ import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
+import { getLeaderAllowedUserIds, getUserLiteById } from '@/lib/visit-auth'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
-
-type TeamDoc = {
-  leaderId: string // string ObjectId user
-  memberIds: string[] // string ObjectId user
-}
-
-async function getLeaderAllowedUserIds(db: any, leaderId: string) {
-  const team = (await db
-    .collection('teams')
-    .findOne({ leaderId })) as TeamDoc | null
-
-  const ids = [leaderId, ...(team?.memberIds ?? [])]
-  return Array.from(new Set(ids))
-}
-
-async function getUserLiteById(db: any, userId: string) {
-  if (!ObjectId.isValid(userId)) return null
-  const u = await db
-    .collection('users')
-    .findOne(
-      { _id: new ObjectId(userId) },
-      { projection: { _id: 1, role: 1, username: 1, fullName: 1 } },
-    )
-  if (!u) return null
-  return {
-    userId: String(u._id),
-    role: String(u.role || ''),
-    username: String(u.username || ''),
-    fullName: String(u.fullName || ''),
-  }
-}
 
 function isAdminRole(role: string) {
   return role === 'ADMIN' || role === 'SUPERADMIN'

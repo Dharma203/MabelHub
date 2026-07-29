@@ -2,29 +2,8 @@ import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
-
-function formatVisitDate(yyyyMmDd: string) {
-  const d = new Date(yyyyMmDd);
-  if (Number.isNaN(d.getTime())) return "";
-  const day = d.getDate();
-  const mon = d.toLocaleDateString("en-US", { month: "short" });
-  const year = d.getFullYear();
-  return `${day}-${mon}-${year}`;
-}
-
-function formatCreatedAt(dt: Date) {
-  return dt.toISOString().slice(0, 19).replace("T", " ");
-}
-
-type TeamDoc = { leaderId: string; memberIds: string[] };
-
-async function getLeaderAllowedUserIds(db: any, leaderId: string) {
-  const team = (await db
-    .collection("teams")
-    .findOne({ leaderId })) as TeamDoc | null;
-  const ids = [leaderId, ...(team?.memberIds ?? [])];
-  return Array.from(new Set(ids));
-}
+import { getLeaderAllowedUserIds } from "@/lib/visit-auth";
+import { toVisitDateStr, toCreatedAtStrUTC } from "@/lib/visit-date";
 
 type UserLite = {
   userId: string;
@@ -77,7 +56,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const visit_date = formatVisitDate(tanggal);
+    const visit_date = toVisitDateStr(tanggal);
     if (!visit_date) {
       return NextResponse.json(
         { error: "format tanggal tidak valid" },
@@ -86,7 +65,7 @@ export async function POST(req: Request) {
     }
 
     const now = new Date();
-    const created_at = formatCreatedAt(now);
+    const created_at = toCreatedAtStrUTC(now);
 
     const session = auth.session;
     const client = await clientPromise;

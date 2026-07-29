@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/components/session/SessionProvider";
 import EditVisitModal from "@/components/modals/EditVisitModal";
 import { Pen, ChevronLeft, ChevronRight, X, Eye, Calendar, Clock, MapPin, Building2, Briefcase, ImageIcon, User, Copy, Check } from "lucide-react";
+import Image from "next/image";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -311,48 +312,15 @@ export default function PlanActivityPage() {
   // copy feedback state
   const [copiedPlanId, setCopiedPlanId] = useState<string | null>(null);
 
-  // Format date from "3-Jul-2026" to "17 Jul 2026"
-  function formatTanggalForCopy(tanggal: string): string {
-    if (!tanggal) return "-";
-    const parts = tanggal.split("-");
-    if (parts.length !== 3) return tanggal;
-    return `${parts[0]} ${parts[1]} ${parts[2]}`;
-  }
+  const formatTanggalForCopy = (t: string) => t?.replace(/-/g, ' ') || "-";
 
-  function getImageUrl(visit_image: string | undefined, planId?: string, baseUrl: string = typeof window !== "undefined" ? window.location.origin : "https://hub.mabel.co.id"): string {
-  if (!visit_image) {
-    // Fallback: try to fetch from API if we have planId
-    if (planId) {
-      return `${baseUrl}/api/visits/${planId}/image`;
-    }
-    return "Tidak tersedia";
-  }
 
-  if (visit_image === '__base64_image__') {
-    // Image stored as base64 in API, fetch from endpoint
-    if (planId) {
-      return `${baseUrl}/api/visits/${planId}/image`;
-    }
-    return "Tidak tersedia";
+
+
+  function getImageUrl(img?: string, planId?: string, base = typeof window !== "undefined" ? window.location.origin : "https://hub.mabel.co.id") {
+    if (!img || img === '__base64_image__') return planId ? `${base}/api/visits/${planId}/image` : "Tidak tersedia";
+    return img.startsWith("http") ? img : `${base}${img.startsWith("/") ? "" : "/uploads/"}${img}`;
   }
-  
-  // Already a full URL (from external source or live server)
-  if (visit_image.startsWith("http")) {
-    return visit_image;
-  }
-  
-  // Local path from database (frontend upload: /uploads/... or from API route)
-  if (visit_image.startsWith("/")) {
-    return `${baseUrl}${visit_image}`;
-  }
-  
-  // Bare filename (fallback for old data: visit_xxx.jpeg)
-  if (visit_image.includes("visit_")) {
-    return `${baseUrl}/uploads/${visit_image}`;
-  }
-  
-  return "Tidak tersedia";
-}
 
   // Copy plan data to clipboard
   function copyPlanText(plan: PlanRow) {
@@ -753,12 +721,15 @@ export default function PlanActivityPage() {
                   <ImageIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Bukti Kunjungan</p>
-                    <img
+                    <Image
                       src={getImageUrl(detailPlan.visit_image, detailPlan.id)}
                       alt="Bukti kunjungan"
                       className="mt-1 w-20 h-20 rounded-xl cursor-pointer ring-1 ring-gray-200 hover:ring-blue-400 hover:shadow-lg transition-all object-cover"
                       onClick={() => openImageBase64(getImageUrl(detailPlan.visit_image, detailPlan.id))}
                       title="Lihat foto bukti"
+                      width={500}
+                      height={500}
+                      unoptimized
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
@@ -779,11 +750,10 @@ export default function PlanActivityPage() {
               </button>
               <button
                 onClick={() => copyPlanText(detailPlan)}
-                className={`px-4 h-9 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  copiedPlanId === detailPlan.id
+                className={`px-4 h-9 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${copiedPlanId === detailPlan.id
                     ? "bg-emerald-100 text-emerald-700"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                  }`}
                 title="Copy Plan"
               >
                 {copiedPlanId === detailPlan.id ? (
@@ -866,11 +836,10 @@ export default function PlanActivityPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => copyPlanText(plan)}
-                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
-                          copiedPlanId === plan.id
+                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${copiedPlanId === plan.id
                             ? "bg-emerald-50 text-emerald-600"
                             : "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
-                        }`}
+                          }`}
                         title="Copy Plan"
                       >
                         {copiedPlanId === plan.id ? (
@@ -1100,12 +1069,13 @@ export default function PlanActivityPage() {
                     </div>
 
                     {plan.visit_image && (
-                      <img
+                      <Image
                         src={getImageUrl(plan.visit_image, plan.id)}
                         alt="Bukti kunjungan"
                         className="w-12 h-12 rounded-lg flex-shrink-0 ring-1 ring-gray-200 cursor-pointer hover:ring-blue-400 transition-all object-cover"
                         onClick={() => openImageBase64(getImageUrl(plan.visit_image, plan.id))}
                         title="Lihat foto bukti"
+                        unoptimized
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
@@ -1115,11 +1085,10 @@ export default function PlanActivityPage() {
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => copyPlanText(plan)}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                          copiedPlanId === plan.id
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${copiedPlanId === plan.id
                             ? "bg-emerald-50 text-emerald-600 opacity-100"
                             : "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
-                        }`}
+                          }`}
                         title="Copy Plan"
                       >
                         {copiedPlanId === plan.id ? (
