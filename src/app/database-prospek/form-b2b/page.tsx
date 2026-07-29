@@ -2,7 +2,7 @@
 
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import { listProvinsi, listKabupatenKota } from '@/data/wilayah'
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, Suspense } from 'react'
 import { useSession } from '@/components/session/SessionProvider'
 import {
   validateContactItemsB2G,
@@ -30,7 +30,7 @@ type KontakItem = {
   email: string
 }
 
-export default function FormB2GPage() {
+function FormB2GContent() {
   const [isOpen, setIsOpen] = useState(false)
   const [jenisEntitas, setJenisEntitas] = useState('')
   const [namaEntitas, setNamaEntitas] = useState('')
@@ -850,5 +850,13 @@ export default function FormB2GPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function FormB2BPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+      <FormB2GContent />
+    </Suspense>
   )
 }
