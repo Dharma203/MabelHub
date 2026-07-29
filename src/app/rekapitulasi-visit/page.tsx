@@ -5,7 +5,7 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { useSession } from '@/components/session/SessionProvider'
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useRouter } from 'next/navigation'
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
 import ExportExcelModal, {
   ExportColumn,
   ExportScope,

@@ -23,7 +23,7 @@ import {
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import React from 'react'
 import { useRouter } from 'next/navigation'
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
 import { useExportToSheets } from '@/hooks/useExportToSheets'
 
 type ProvinsiKotaRow = {
@@ -572,7 +572,7 @@ export default function TrackingDatabasePage() {
       } else {
         const qs = new URLSearchParams()
         qs.set('limit', '999999')
-        qs.set('page', 'max')
+        qs.set('page', '1')
 
         // Filter kategori tetap dipakai di semua mode (bulan, produk, dst)
         bulan.forEach((v) => qs.append('bulan', v))
@@ -670,7 +670,7 @@ export default function TrackingDatabasePage() {
       } else {
         const qs = new URLSearchParams()
         qs.set('limit', '999999')
-        qs.set('page', 'max')
+        qs.set('page', '1')
 
         bulan.forEach((v) => qs.append('bulan', v))
         produk.forEach((v) => qs.append('produk', v))
@@ -735,7 +735,7 @@ export default function TrackingDatabasePage() {
           : exportMode === 'date'
             ? 'ByTanggal'
             : `Hal${safePage}`
-      const title = `TrackingDatabase_${modeLabel}_${new Date().toISOString().slice(0, 10)}`
+      const title = `TrackingDatabase_${modeLabel}`
 
       await exportToSheets(title, headers, sheetRows)
       setShowExportModal(false)

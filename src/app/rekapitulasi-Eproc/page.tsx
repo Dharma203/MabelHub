@@ -8,7 +8,7 @@ import HistoryEprocModal, {
   EProcHistoryItem,
 } from "@/components/modals/HistoryEprocModal";
 import { useSession } from "@/components/session/SessionProvider";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import ExportExcelModal, {
   ExportColumn,
   ExportScope,

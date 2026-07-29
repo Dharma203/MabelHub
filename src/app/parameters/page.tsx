@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "@/components/session/SessionProvider";
 import { useRouter } from "next/navigation";
 import ConfirmModal from "@/components/modals/ConfirmModal";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { Download, Upload } from "lucide-react";
 
 type ParamKey =
