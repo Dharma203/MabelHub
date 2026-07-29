@@ -18,6 +18,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useSearchInstitusi, Institusi } from '@/hooks/useSearchInstitusi'
+import { validateFormFieldsB2B } from '@/utils/formValidationB2B'
 
 type KontakItem = {
   id: string
@@ -170,7 +171,7 @@ export default function FormB2GPage() {
       }
       setIsLoading(true)
       await new Promise((resolve) => setTimeout(resolve, 1000))
-      const res = await fetch(`/api/database_prospek/${codeInput}`)
+      const res = await fetch(`/api/database_b2b/${codeInput}`)
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
@@ -246,15 +247,19 @@ export default function FormB2GPage() {
 
   const handleKirim = async () => {
     try {
-      const headerError = validateFormFieldsB2G({
+      const headerError = validateFormFieldsB2B({
         requestor,
-        satuanKerja,
-        institusiKerja,
+        jenisEntitas,
+        namaEntitas,
+        bidangUsaha,
         provinsi,
         kota,
         alamat,
-        klpd,
         ring,
+        produkRelevan,
+        merekTayang,
+        brandOwner,
+        sumberData,
         salesInternal,
       })
       if (headerError) {
@@ -308,13 +313,17 @@ export default function FormB2GPage() {
         codeInput: generatedCode,
         requestor:
           requestor || user?.fullName || user?.username || user?.userId || '',
-        satuanKerja: satuanKerja,
-        institusiKerja: institusiKerja,
+        jenisEntitas: jenisEntitas,
+        namaEntitas: namaEntitas,
+        bidangUsaha: bidangUsaha,
         provinsi: provinsi,
         kota: kota,
         alamat: alamat,
-        klpd: klpd,
         ring: ring,
+        produkRelevan: produkRelevan,
+        merekTayang: merekTayang,
+        brandOwner: brandOwner,
+        sumberData: sumberData,
         salesInternal: salesInternal,
       }
 
@@ -372,14 +381,17 @@ export default function FormB2GPage() {
       )
 
       router.push('/database-prospek/form-b2g')
-      setSatuanKerja('')
-      setInstitusiKerja('')
-      setSegmentasi('')
+      setJenisEntitas('')
+      setNamaEntitas('')
+      setBidangUsaha('')
       setProvinsi('')
       setKota('')
       setAlamat('')
-      setKlpd('')
       setRing('')
+      setProdukRelevan('')
+      setMerekTayang('')
+      setBrandOwner('')
+      setSumberData('')
       setSalesInternal('')
       setCodeInput('')
       setOriginalSnapshot(null)
@@ -461,22 +473,22 @@ export default function FormB2GPage() {
             </div>
             <div className='gap-3 grid grid-cols-1 md:grid-cols-3'>
               <div>
-                <label>SATUAN KERJA</label>
+                <label>JENIS ENTITAS</label>
                 <input
                   type='text'
-                  value={satuanKerja}
-                  onChange={(e) => setSatuanKerja(e.target.value)}
-                  placeholder='Dinas/ Office / Unit Kerja'
+                  value={jenisEntitas}
+                  onChange={(e) => setJenisEntitas(e.target.value)}
+                  placeholder='Pemerintah / Swasta'
                   className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 />
               </div>
               <div ref={wrapperRef} className='relative'>
-                <label>INSTITUSI KERJA</label>
+                <label>NAMA ENTITAS</label>
                 <input
                   type='text'
-                  value={institusiKerja}
+                  value={namaEntitas}
                   onChange={(e) => {
-                    setInstitusiKerja(e.target.value)
+                    setNamaEntitas(e.target.value)
                     setIsOpen(true)
                   }}
                   onFocus={() => setIsOpen(true)}
@@ -485,8 +497,8 @@ export default function FormB2GPage() {
                   className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 />
                 {isOpen &&
-                  institusiKerja &&
-                  institusiKerja.trim().length >= 2 && (
+                  namaEntitas &&
+                  namaEntitas.trim().length >= 2 && (
                     <div className='absolute z-50 w-full rounded-xl border border-gray-200 bg-white shadow-lg'>
                       {isLoadingSearch ? (
                         <div className='px-4 py-3 text-sm w-full text-gray-400'>
@@ -560,7 +572,7 @@ export default function FormB2GPage() {
                   className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 />
               </div>
-              <div>
+              {/* <div>
                 <label className='text-sm font-semibold text-slate-600'>
                   KLPD
                 </label>
@@ -582,7 +594,7 @@ export default function FormB2GPage() {
                     ]}
                   />
                 </div>
-              </div>
+              </div> */}
             </div>
           </section>
           <section className='mt-6 rounded-2xl bg-white p-8 shadow-sm ring-1 ring-black/5'>
