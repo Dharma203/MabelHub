@@ -29,7 +29,7 @@ import {
   listStatusByUpdate,
   getDetailOptions,
 } from '@/data/statusupdatebroadcast'
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
 import { useExportToSheets } from '@/hooks/useExportToSheets'
 
 type StatusWaSummary = {
@@ -1100,7 +1100,7 @@ export default function TrackingBroadcastPage() {
           : exportMode === 'date'
             ? 'ByTanggal'
             : `Hal${safePage}`
-      const title = `TrackingBroadcast_${modeLabel}_${new Date().toISOString().slice(0, 10)}`
+      const title = `TrackingBroadcast_${modeLabel}`
 
       await exportToSheets(title, headers, sheetRows)
       setShowExportModal(false)

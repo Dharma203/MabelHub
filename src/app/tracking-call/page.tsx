@@ -23,7 +23,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import React from 'react'
 import { listStatusByUpdate, getDetailOptions } from '@/data/statusupdatecall'
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
 import { useExportToSheets } from '@/hooks/useExportToSheets'
 
 type StatusCallSummary = {
@@ -965,7 +965,7 @@ export default function TrackingCallPage() {
           : exportMode === 'date'
             ? 'ByTanggal'
             : `Hal${safePage}`
-      const title = `TrackingCall_${modeLabel}_${new Date().toISOString().slice(0, 10)}`
+      const title = `TrackingCall_${modeLabel}`
 
       await exportToSheets(title, headers, sheetRows)
       setShowExportModal(false)
