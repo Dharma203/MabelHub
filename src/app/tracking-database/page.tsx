@@ -76,7 +76,7 @@ type ExportField = {
 const EXPORT_FIELDS: ExportField[] = [
   { key: 'created_at', label: 'Tanggal Input' },
   { key: 'kode', label: 'Kode' },
-  { key: 'penginput', label: 'Penginput' },
+  { key: 'requestor', label: 'Penginput' },
   { key: 'nama_perusahaan', label: 'Nama Perusahaan' },
   { key: 'segmen', label: 'Segmen' },
   { key: 'segmentasi', label: 'Segmentasi' },
