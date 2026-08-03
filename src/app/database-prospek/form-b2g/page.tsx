@@ -10,13 +10,7 @@ import {
 } from '@/utils/formValidationB2G'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { computeChangedFields } from '@/utils/validation'
-import {
-  Building,
-  Loader2,
-  Plus,
-  Save,
-  Trash2,
-} from 'lucide-react'
+import { ArrowLeftSquareIcon, Building, Loader2, Plus, Save, Trash2 } from 'lucide-react'
 import { useSearchInstitusi, Institusi } from '@/hooks/useSearchInstitusi'
 
 type KontakItem = {
@@ -165,7 +159,7 @@ function FormB2GContent() {
       }
       setIsLoading(true)
       await new Promise((resolve) => setTimeout(resolve, 1000))
-      const res = await fetch(`/api/database_b2g/${codeInput}`)
+      const res = await fetch(`/api/form-b2g/${codeInput}`)
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
@@ -200,7 +194,8 @@ function FormB2GContent() {
           user?.userId ??
           '',
       )
-      setSatuanKerja(header?.satuanKerjaInstitusiKerja ?? '')
+      setSatuanKerja(header?.satuanKerja ?? '')
+      setInstitusiKerja(header?.institusiKerja ?? '')
       setSegmentasi(header?.segmentasi ?? '')
       setProvinsi(header?.provinsi ?? '')
       setKota(header?.kota ?? '')
@@ -212,7 +207,8 @@ function FormB2GContent() {
       // ── Simpan snapshot asli untuk diff history ──────────────────────
       setOriginalSnapshot({
         header: {
-          satuanKerjaInstitusiKerja: header?.satuanKerjaInstitusiKerja ?? '',
+          satuanKerja: header?.satuanKerja ?? '',
+          institusiKerja: header?.institusiKerja ?? '',
           segmentasi: header?.segmentasi ?? '',
           provinsi: header?.provinsi ?? '',
           kota: header?.kota ?? '',
@@ -301,6 +297,7 @@ function FormB2GContent() {
           requestor || user?.fullName || user?.username || user?.userId || '',
         satuanKerja: satuanKerja,
         institusiKerja: institusiKerja,
+        segmentasi: segmentasi,
         provinsi: provinsi,
         kota: kota,
         alamat: alamat,
@@ -308,7 +305,7 @@ function FormB2GContent() {
         ring: ring,
         salesInternal: salesInternal,
       }
-
+      
       const itemsPayload = items.map((item) => ({
         id: item.id,
         nama: item.nama,
@@ -330,7 +327,7 @@ function FormB2GContent() {
         )
 
         // mode revisi: panggil put
-        res = await fetch('/api/database_prospek', {
+        res = await fetch('/api/form-b2g', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -401,6 +398,16 @@ function FormB2GContent() {
         <div className='flex-1 p-6'>
           <div className='bg-white shadow-md rounded-xl p-6 mb-6 border border-gray-100'>
             <div className='flex flex-col'>
+              <div className='flex justify-between gap-2 pl-4'>
+                <button
+                  onClick={() => {
+                    router.push('/database-prospek')
+                  }}
+                  className='flex h-10 w-20 items-center justify-center cursor-pointer rounded-lg bg-blue-200 text-gray-500 shadow-sm ring-1 ring-gray-200 hover:bg-gray-50 hover:text-gray-700 transition'
+                >
+                  <ArrowLeftSquareIcon className='w-10 h-10' />
+                </button>
+              </div>
               <h1 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
                 Database Prospek
               </h1>
@@ -832,7 +839,7 @@ function FormB2GContent() {
 
 export default function FormB2GPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+    <Suspense fallback={<div className='p-8 text-center'>Loading...</div>}>
       <FormB2GContent />
     </Suspense>
   )
