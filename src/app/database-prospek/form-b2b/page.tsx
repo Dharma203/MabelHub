@@ -473,6 +473,7 @@ function FormB2GContent() {
       setRing('')
       setProdukRelevan('')
       setMerekTayang('')
+      setMerekLainnya('')
       setBrandOwner('')
       setSumberData('')
       setSalesInternal('')
@@ -968,7 +969,7 @@ function FormB2GContent() {
               </div>
               <div>
                 <label className='text-sm font-semibold text-slate-600'>
-                  MEREK EXISTING
+                  MEREK TAYANG
                 </label>
                 <SearchableSelect
                   value={merekTayang}

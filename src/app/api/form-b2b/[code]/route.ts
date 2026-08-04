@@ -47,7 +47,7 @@ export async function GET(
       sumberData: first.sumberData,
       linkProduk: first.linkProduk,
       linkToko: first.linkToko,
-      salesInternal: first.salesInteral,
+      salesInternal: first.salesInternal,
     }
 
     // Map setiap dokumen sebagai item kontak
