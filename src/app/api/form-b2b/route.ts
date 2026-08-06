@@ -11,41 +11,52 @@ type KontakItem = {
     email: string
 }
 
-// Mengembalikan counter berikutnya (misal "0003") berdasarkan jumlah kode unik yang sudah ada
+// mode=list  → mengembalikan seluruh data dari database_b2b
+// prefix+dmy → mengembalikan counter berikutnya (misal "0003")
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url)
+        const mode = searchParams.get('mode') || ''
         const prefix = searchParams.get('prefix') || ''
         const dmy = searchParams.get('dmy') || ''
-
-        if (!prefix || !dmy) {
-            return NextResponse.json({ counter: '0001' })
-        }
 
         const client = await clientPromise
         const db = client.db("MabelHub")
         const col = db.collection("database_b2b")
 
-        // Hitung jumlah kode unik yang sudah pakai prefix+dmy ini
+        // ── Mode LIST: kembalikan semua baris ───────────────────────────
+        if (mode === 'list' || (!prefix && !dmy)) {
+            const filter: Record<string, any> = {}
+            const namaEntitasArr = searchParams.getAll("namaEntitas")
+            if (namaEntitasArr.length > 0) {
+                filter["namaEntitas"] = { $in: namaEntitasArr }
+            }
+
+            const rows = await col
+                .find(filter)
+                .sort({ created_at: -1 })
+                .toArray()
+
+            return NextResponse.json({ rows })
+        }
+
+        // ── Mode COUNTER: hitung kode unik berikutnya ──────────────────
+        if (!prefix || !dmy) {
+            return NextResponse.json({ counter: '0001' })
+        }
+
         const pattern = `^${prefix}-${dmy}-`
         const distinct = await col.distinct("code_input", {
             code_input: { $regex: pattern }
         })
-        const namaEntitasArr = searchParams.getAll("namaEntitas");
 
-        const matchStage: Record<string, any> = {};
-        if (namaEntitasArr.length > 0) {
-            matchStage["namaEntitas"] = { $in: namaEntitasArr };
-        }
-
-        
         const next = distinct.length + 1
         const counter = String(next).padStart(4, '0')
 
         return NextResponse.json({ counter })
     } catch (error) {
-        console.error("[GET /api/database_b2b] Error:", error)
-        return NextResponse.json({ counter: '0001' })
+        console.error("[GET /api/form-b2b] Error:", error)
+        return NextResponse.json({ rows: [], error: "Terjadi kesalahan server" }, { status: 500 })
     }
 }
 

@@ -32,7 +32,7 @@ type KontakItem = {
   email: string
 }
 
-function FormB2GContent() {
+function FormB2BContent() {
   const [isOpen, setIsOpen] = useState(false)
   const [jenisEntitas, setJenisEntitas] = useState('')
   const [namaEntitas, setNamaEntitas] = useState('')
@@ -1150,7 +1150,7 @@ function FormB2GContent() {
 export default function FormB2BPage() {
   return (
     <Suspense fallback={<div className='p-8 text-center'>Loading...</div>}>
-      <FormB2GContent />
+      <FormB2BContent />
     </Suspense>
   )
 }

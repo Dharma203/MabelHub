@@ -86,6 +86,11 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/database-prospek',
           icon: 'DatabaseZap',
         },
+        {
+          label: 'Database Tracking',
+          href: '/database-tracking',
+          icon: 'Database',
+        },
       ],
     },
     {
