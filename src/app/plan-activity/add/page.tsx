@@ -12,11 +12,11 @@ import ConfirmModal from "@/components/modals/ConfirmModal";
 
 type Company = {
   _id: string;
-  institusi_kerja: string;
-  kota_kab: string;
+  institusiKerja: string;
+  kota: string;
   klpd: string;
-  satuan_kerja: string;
-  status_ring?: string;
+  satuanKerja: string;
+  ring?: string;
   pic_default?: {
     nama?: string;
     no_telp?: string;
@@ -27,12 +27,12 @@ type Company = {
 
 type PlanItem = {
   id: string; // local id for rendering
-  status_ring: string;
+  ring: string;
   institusiQuery: string;
   selectedCompany: Company | null;
-  kota_kab: string;
+  kota: string;
   klpd: string;
-  satuan_kerja: string;
+  satuanKerja: string;
   pic_default: {
     nama: string;
     no_telp: string;
@@ -72,12 +72,12 @@ function pickArray(json: Record<string, unknown> | unknown[]) {
 function newItem(): PlanItem {
   return {
     id: crypto.randomUUID(),
-    status_ring: '',
+    ring: '',
     institusiQuery: '',
     selectedCompany: null,
-    kota_kab: '',
+    kota: '',
     klpd: '',
-    satuan_kerja: '',
+    satuanKerja: '',
     pic_default: { nama: "", no_telp: "", jabatan: "", role: "" },
     targetUserId: '',
     showSug: false,
@@ -103,7 +103,7 @@ function AddPlansContent() {
   // Parameter master list (Rings)
   const [paramRing, setParamRing] = useState<string[]>([]);
   useEffect(() => {
-    fetch("/api/parameters")
+    fetch("/api/parameters-baru")
       .then((res) => res.json())
       .then((json) => {
         const d = json?.data;
@@ -202,9 +202,9 @@ function AddPlansContent() {
       institusiQuery: '',
       sugs: [],
       showSug: false,
-      kota_kab: "",
+      kota: "",
       klpd: "",
-      satuan_kerja: "",
+      satuanKerja: "",
       pic_default: { nama: "", no_telp: "", jabatan: "", role: "" },
     });
   }
@@ -212,11 +212,11 @@ function AddPlansContent() {
     console.log(c)
     patchItem(id, {
       selectedCompany: c,
-      institusiQuery: c.institusi_kerja || '',
+      institusiQuery: c.institusiKerja || '',
       showSug: false,
-      kota_kab: c.kota_kab || '',
+      kota: c.kota || '',
       klpd: c.klpd || '',
-      satuan_kerja: c.satuan_kerja || '',
+      satuanKerja: c.satuanKerja || '',
       pic_default: {
         nama: c.pic_default?.nama || '',
         no_telp: c.pic_default?.no_telp || '',
@@ -260,7 +260,7 @@ function AddPlansContent() {
   const canSubmit = useMemo(() => {
     if (!tanggal) return false;
     if (!items.length) return false;
-    return items.every((it) => it.status_ring && it.institusiQuery.trim());
+    return items.every((it) => it.ring && it.institusiQuery.trim());
   }, [tanggal, items]);
 
   async function submitAll() {
@@ -277,11 +277,11 @@ function AddPlansContent() {
         createdBy: user?.userId || null,
         nama_sales: user?.fullName || null,
         items: items.map((it) => ({
-          status_ring: it.status_ring,
-          institusi_kerja: it.institusiQuery,
-          kota_kab: it.kota_kab,
+          ring: it.ring,
+          institusiKerja: it.institusiQuery,
+          kota: it.kota,
           klpd: it.klpd,
-          satuan_kerja: it.satuan_kerja,
+          satuanKerja: it.satuanKerja,
           pic_default: it.pic_default,
           company_id: it.selectedCompany?._id || null,
           // If global assignee is set, use it; otherwise backend might default to creator
@@ -444,9 +444,9 @@ function AddPlansContent() {
                     <div>
                       <label className="text-xs font-bold tracking-wide text-gray-500 uppercase">Status Ring</label>
                       <SearchableSelect
-                        value={it.status_ring}
+                        value={it.ring}
                         onChange={(val: string) => {
-                          patchItem(it.id, { status_ring: val });
+                          patchItem(it.id, { ring: val });
                           resetCompanyFields(it.id);
                         }}
                         options={paramRing.map((opt) => ({ value: opt, label: opt }))}
@@ -469,18 +469,18 @@ function AddPlansContent() {
                           onChange={(e) => {
                             const val = e.target.value;
                             patchItem(it.id, { institusiQuery: val, showSug: true });
-                            if (it.status_ring) fetchSuggestion(it.id, it.status_ring, val);
+                            if (it.ring) fetchSuggestion(it.id, it.ring, val);
                           }}
                           onFocus={() => {
-                            if (it.status_ring) fetchSuggestion(it.id, it.status_ring, it.institusiQuery);
+                            if (it.ring) fetchSuggestion(it.id, it.ring, it.institusiQuery);
                           }}
-                          disabled={!it.status_ring}
-                          placeholder={!it.status_ring ? "Pilih Ring dahulu" : "Ketik untuk mencari institusi..."}
-                          className={`relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${!it.status_ring ? "bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed" : "bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600"
+                          disabled={!it.ring}
+                          placeholder={!it.ring ? "Pilih Ring dahulu" : "Ketik untuk mencari institusi..."}
+                          className={`relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${!it.ring ? "bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed" : "bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600"
                             }`}
                         />
 
-                        {it.showSug && it.status_ring && (
+                        {it.showSug && it.ring && (
                           <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 border border-gray-100">
                             <div className="max-h-60 overflow-y-auto">
                               {it.loadingSug ? (
@@ -495,9 +495,9 @@ function AddPlansContent() {
                                     onClick={() => pickCompany(it.id, c)}
                                     className="block w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-none"
                                   >
-                                    <div className="font-bold text-sm text-gray-900">{c.institusi_kerja}</div>
+                                    <div className="font-bold text-sm text-gray-900">{c.institusiKerja}</div>
                                     <div className="text-[11px] text-gray-500 truncate mt-0.5">
-                                      {c.kota_kab} • {c.klpd} • {c.satuan_kerja}
+                                      {c.kota} • {c.klpd} • {c.satuanKerja}
                                     </div>
                                   </button>
                                 ))
@@ -520,7 +520,7 @@ function AddPlansContent() {
                     <div>
                       <label className="text-xs font-bold tracking-wide text-gray-400 uppercase">Kota/Kabupaten</label>
                       <input
-                        value={it.kota_kab}
+                        value={it.kota}
                         readOnly
                         className="mt-2 block w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm cursor-not-allowed"
                         placeholder="Terisi otomatis"
@@ -538,10 +538,10 @@ function AddPlansContent() {
                     <div className="md:col-span-2">
                       <label className="text-xs font-bold tracking-wide text-gray-400 uppercase">Satuan Kerja</label>
                       <input
-                        value={it.satuan_kerja}
-                        readOnly
-                        className="mt-2 block w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm cursor-not-allowed"
-                        placeholder="Terisi otomatis"
+                        value={it.satuanKerja}
+                        onChange={(e) => patchItem(it.id, { satuanKerja: e.target.value })}
+                        className="mt-2 w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm"
+                        placeholder="Masukkan satuan kerja"
                       />
                     </div>
                   </div>

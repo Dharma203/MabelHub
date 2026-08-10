@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { setAbortedLogsStyle } from "next/dist/server/node-environment-extensions/console-dim.external";
 
 type KontakItem = {
     id: string
@@ -32,10 +33,14 @@ export async function GET(req: Request) {
             code_input: { $regex: pattern }
         })
         const institusiKerjaArr = searchParams.getAll("institusiKerja");
+        const satuanKerjaArr = searchParams.getAll("satuanKerja");
 
         const matchStage: Record<string, any> = {};
         if (institusiKerjaArr.length > 0) {
             matchStage["institusiKerja"] = { $in: institusiKerjaArr };
+        }
+        if (satuanKerjaArr.length > 0) {
+            matchStage["satuanKerja"] = { $in: satuanKerjaArr};
         }
 
         

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { col } from 'motion/react-client'
 
 type KontakItem = {
   id: string
@@ -15,7 +14,7 @@ type KontakItem = {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const mode = searchParams.get('mode') || ''
+    const mode = searchParams.get('mode') || 'b2g'
     const prefix = searchParams.get('prefix') || ''
     const dmy = searchParams.get('dmy') || ''
 
@@ -23,6 +22,9 @@ export async function GET(req: NextRequest) {
     const db = client.db('MabelHub')
     const colB2B = db.collection('database_b2b')
     const colB2G = db.collection('database_b2g')
+
+    // Pilih collection berdasarkan mode
+    const col = mode === 'b2b' ? colB2B : colB2G
 
     const filter: Record<string, any> = {}
 
@@ -214,6 +216,7 @@ export async function GET(req: NextRequest) {
         satuanKerja: r.satuanKerja ?? '',
         institusiKerja: r.institusiKerja ?? '',
         klpd: r.klpd ?? '',
+        segmentasi: r.segmentasi ?? '',
         jenisEntitas: r.jenisEntitas ?? '',
         namaEntitas: r.namaEntitas ?? '',
         bidangUsaha: r.bidangUsaha ?? '',
@@ -223,8 +226,8 @@ export async function GET(req: NextRequest) {
         nama: r.nama ?? '',
         jabatan: r.jabatan ?? '',
         role: r.role ?? '',
-        tipeKontak: r.tipeKontak ?? '',
-        noTelp: r.noTelp ?? '',
+        tipeKontak: r.tipe_kontak ?? r.tipeKontak ?? '',
+        noTelp: r.no_telp ?? r.noTelp ?? '',
         email: r.email ?? '',
         ring: r.ring ?? '',
         salesInternal: r.salesInternal ?? '',
@@ -235,17 +238,21 @@ export async function GET(req: NextRequest) {
         bulan: r.bulan ?? '',
         startDate: r.startDate ?? '',
         endDate: r.endDate ?? '',
-        createdAt: r.createdAt ?? '',
+        createdAt: r.created_at ?? r.createdAt ?? '',
         linkToko: r.linkToko ?? '',
         linkProduk: r.linkProduk ?? '',
-        updatedAt: r.updatedAt
+        brandOwner: r.brandOwner ?? '',
+        merekLainnya: r.merekLainnya ?? '',
+        updatedAt: r.updated_at
+        ? new Date(r.updated_at).toLocaleDateString('id-ID')
+        : r.updatedAt
         ? new Date(r.updatedAt).toLocaleDateString('id-ID')
         : '',
         }))
 
         const bulan_data = bulanAgg
         .map(r => r._id as string)
-        return NextResponse.json({ rows: data, bulan_data})
+        return NextResponse.json({ rows: data, bulan_data, mode })
     }
     
     const rawPage = Number(searchParams.get('page'))
@@ -273,6 +280,7 @@ export async function GET(req: NextRequest) {
         satuanKerja: r.satuanKerja ?? '',
         institusiKerja: r.institusiKerja ?? '',
         klpd: r.klpd ?? '',
+        segmentasi: r.segmentasi ?? '',
         jenisEntitas: r.jenisEntitas ?? '',
         namaEntitas: r.namaEntitas ?? '',
         bidangUsaha: r.bidangUsaha ?? '',
@@ -282,8 +290,8 @@ export async function GET(req: NextRequest) {
         nama: r.nama ?? '',
         jabatan: r.jabatan ?? '',
         role: r.role ?? '',
-        tipeKontak: r.tipeKontak ?? '',
-        noTelp: r.noTelp ?? '',
+        tipeKontak: r.tipe_kontak ?? r.tipeKontak ?? '',
+        noTelp: r.no_telp ?? r.noTelp ?? '',
         email: r.email ?? '',
         ring: r.ring ?? '',
         salesInternal: r.salesInternal ?? '',
@@ -294,15 +302,21 @@ export async function GET(req: NextRequest) {
         bulan: r.bulan ?? '',
         startDate: r.startDate ?? '',
         endDate: r.endDate ?? '',
-        createdAt: r.createdAt ?? '',
+        createdAt: r.created_at ?? r.createdAt ?? '',
         linkToko: r.linkToko ?? '',
         linkProduk: r.linkProduk ?? '',
-        updatedAt: r.updatedAt
+        brandOwner: r.brandOwner ?? '',
+        merekLainnya: r.merekLainnya ?? '',
+        updatedAt: r.updated_at
+        ? new Date(r.updated_at).toLocaleDateString('id-ID')
+        : r.updatedAt
         ? new Date(r.updatedAt).toLocaleDateString('id-ID')
         : '',
         }))
 
         return NextResponse.json({
+      rows: data,
+      mode,
       pagination: {
         sort: sortByDate,
         page,

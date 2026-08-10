@@ -12,6 +12,8 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { computeChangedFields } from '@/utils/validation'
 import { ArrowLeftSquareIcon, Building, Loader2, Plus, Save, Trash2 } from 'lucide-react'
 import { useSearchInstitusi, Institusi } from '@/hooks/useSearchInstitusi'
+import { useSearchSatker, SatuanKerja } from '@/hooks/useSearchSatker'
+
 
 type KontakItem = {
   id: string
@@ -24,7 +26,8 @@ type KontakItem = {
 }
 
 function FormB2GContent() {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpenSatker, setIsOpenSatker] = useState(false)
+  const [isOpenInstitusi, setIsOpenInstitusi] = useState(false)
   const [satuanKerja, setSatuanKerja] = useState('')
   const [institusiKerja, setInstitusiKerja] = useState('')
   const [segmentasi, setSegmentasi] = useState('')
@@ -38,8 +41,8 @@ function FormB2GContent() {
   const [salesInternal, setSalesInternal] = useState('')
   const [codeInput, setCodeInput] = useState('')
   const { user, loading: sessionLoading } = useSession()
-  const { results, isLoading: isLoadingSearch } =
-    useSearchInstitusi(institusiKerja)
+  const { results, isLoading: isLoadingSearch } = useSearchInstitusi(institusiKerja)
+  const { results2, isLoadingSatker: isLoadingSearchSatker } = useSearchSatker(satuanKerja)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -118,15 +121,22 @@ function FormB2GContent() {
     () => user?.fullName?.trim() || user?.username?.trim() || '',
   )
 
-  const wrapperRef = useRef<HTMLDivElement>(null)
+  const satkerRef = useRef<HTMLDivElement>(null)
+  const institusiRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
-        wrapperRef.current &&
-        !wrapperRef.current.contains(e.target as Node)
+        satkerRef.current &&
+        !satkerRef.current.contains(e.target as Node)
       ) {
-        setIsOpen(false)
+        setIsOpenSatker(false)
+      }
+      if (
+        institusiRef.current &&
+        !institusiRef.current.contains(e.target as Node)
+      ) {
+        setIsOpenInstitusi(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -135,7 +145,12 @@ function FormB2GContent() {
 
   const handleSelect = (institusiKerja: Institusi) => {
     setInstitusiKerja(institusiKerja.nama)
-    setIsOpen(false)
+    setIsOpenInstitusi(false)
+  }
+
+  const handleSelectSatker = (satuanKerja: SatuanKerja) => {
+    setSatuanKerja(satuanKerja.nama)
+    setIsOpenSatker(false)
   }
 
   const listKabupatenFiltered = useMemo(() => {
@@ -189,10 +204,10 @@ function FormB2GContent() {
       }
       setRequestor(
         header?.requestor ??
-          user?.fullName ??
-          user?.username ??
-          user?.userId ??
-          '',
+        user?.fullName ??
+        user?.username ??
+        user?.userId ??
+        '',
       )
       setSatuanKerja(header?.satuanKerja ?? '')
       setInstitusiKerja(header?.institusiKerja ?? '')
@@ -230,6 +245,66 @@ function FormB2GContent() {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    const idParam = searchParams.get('_id')
+    if (!idParam || !idParam.trim()) return
+
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`/api/form-b2g/${idParam}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!data) return
+
+        const header = data?.header ?? data
+        const kontakItems = data?.items ?? (Array.isArray(data) ? data : [])
+        if (kontakItems.length > 0) setItems(kontakItems)
+        setRequestor(
+          header?.requestor ??
+          user?.fullName ??
+          user?.username ??
+          user?.userId ??
+          '',
+        )
+        setSatuanKerja(header?.satuanKerja ?? '')
+        setInstitusiKerja(header?.institusiKerja ?? '')
+        setSegmentasi(header?.segmentasi ?? '')
+        setProvinsi(header?.provinsi ?? '')
+        setKota(header?.kota ?? '')
+        setAlamat(header?.alamat ?? '')
+        setKlpd(header?.klpd ?? '')
+        setRing(header?.ring ?? '')
+        setSalesInternal(header?.salesInternal ?? '')
+
+        // ── simpan snapshot asli untuk diff history ──────────────────────
+        setOriginalSnapshot({
+          header: {
+            satuanKerja: header?.satuanKerja ?? '',
+            institusiKerja: header?.institusiKerja ?? '',
+            segmentasi: header?.segmentasi ?? '',
+            provinsi: header?.provinsi ?? '',
+            kota: header?.kota ?? '',
+            alamat: header?.alamat ?? '',
+            klpd: header?.klpd ?? '',
+            ring: header?.ring ?? '',
+            salesInternal: header?.salesInternal ?? '',
+          },
+          items: kontakItems,
+        })
+      } catch (error) {
+        console.error('Error fetching data:', error)
+        alert(
+          error instanceof Error
+            ? error.message
+            : 'Terjadi kesalahan saat mengambil data',
+        )
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchData()
+  }, [searchParams, user?.fullName, user?.username, user?.userId])
 
   const handleKirim = async () => {
     try {
@@ -305,7 +380,7 @@ function FormB2GContent() {
         ring: ring,
         salesInternal: salesInternal,
       }
-      
+
       const itemsPayload = items.map((item) => ({
         id: item.id,
         nama: item.nama,
@@ -458,31 +533,63 @@ function FormB2GContent() {
               </div>
             </div>
             <div className='gap-3 grid grid-cols-1 md:grid-cols-3'>
-              <div>
+              <div ref={satkerRef} className='relative'>
                 <label>SATUAN KERJA</label>
                 <input
                   type='text'
                   value={satuanKerja}
-                  onChange={(e) => setSatuanKerja(e.target.value)}
+                  onChange={(e) => {
+                    setSatuanKerja(e.target.value)
+                    setIsOpenSatker(true)
+                  }}
+                  onFocus={() => setIsOpenSatker(true)}
+                  autoComplete='off'
                   placeholder='Dinas/ Office / Unit Kerja'
                   className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 />
+                {isOpenSatker &&
+                  satuanKerja &&
+                  satuanKerja.trim().length >= 2 && (
+                    <div className='absolute z-50 w-full rounded-xl border border-gray-200 bg-white shadow-lg'>
+                      {isLoadingSearchSatker ? (
+                        <div className='px-4 py-3 text-sm w-full text-gray-400'>
+                          Mencari
+                        </div>
+                      ) : results2.length > 0 ? (
+                        <ul className='max-h-100 overflow-y-auto'>
+                          {results2.map((item) => (
+                            <li
+                              key={item.id}
+                              onMouseDown={() => handleSelectSatker(item)}
+                              className='cursor-pointer px-4 py-2 hover:bg-blue-50 transition-colors text-sm'
+                            >
+                              {item.nama}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className='px-4 py-3 text-sm w-full text-gray-400'>
+                          Tidak ada data
+                        </div>
+                      )}
+                    </div>
+                  )}
               </div>
-              <div ref={wrapperRef} className='relative'>
+              <div ref={institusiRef} className='relative'>
                 <label>INSTITUSI KERJA</label>
                 <input
                   type='text'
                   value={institusiKerja}
                   onChange={(e) => {
                     setInstitusiKerja(e.target.value)
-                    setIsOpen(true)
+                    setIsOpenInstitusi(true)
                   }}
-                  onFocus={() => setIsOpen(true)}
+                  onFocus={() => setIsOpenInstitusi(true)}
                   autoComplete='off'
                   placeholder='Ketik nama perusahaan'
                   className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 />
-                {isOpen &&
+                {isOpenInstitusi &&
                   institusiKerja &&
                   institusiKerja.trim().length >= 2 && (
                     <div className='absolute z-50 w-full rounded-xl border border-gray-200 bg-white shadow-lg'>
@@ -752,9 +859,9 @@ function FormB2GContent() {
                   className='mt-2 border-0 w-full bg-white'
                   options={[
                     { value: '', label: '-- Pilih --' },
-                    { value: 'B2G-R1', label: 'B2G-R1' },
-                    { value: 'B2G-R2', label: 'B2G-R2' },
-                    { value: 'B2G-R3', label: 'B2G-R3' },
+                    { value: 'B2G-RING 1', label: 'B2G-RING 1' },
+                    { value: 'B2G-RING 2', label: 'B2G-RING 2' },
+                    { value: 'B2G-RING 3', label: 'B2G-RING 3' },
                   ]}
                 />
               </div>
