@@ -1126,9 +1126,10 @@ function InputDatabaseContent() {
                       { value: 'Ferrie Ferdinal', label: 'Ferrie Ferdinal' },
                       { value: 'Hery Nugraha', label: 'Hery Nugraha' },
                       { value: 'Hendri', label: 'Hendri' },
-                      { value: 'Ema Dwi Jayanti', label: 'Ema Dwi Jayanti' },
+                      { value: 'Eva Tamika', label: 'Eva Tamika' },
+                      { value: 'Arif Anderson', label: 'Arif Anderson' },
                       { value: 'Toni Ramdan', label: 'Toni Ramdan' },
-                      { value: 'Denden Permana', label: 'Denden Permana' },
+                      { value: 'Mugi Khairul', label: 'Mugi Khairul' },
                     ]}
                     placeholder='Ketik nama sales...'
                     className='mt-2 w-full'

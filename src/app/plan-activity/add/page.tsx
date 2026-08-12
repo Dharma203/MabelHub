@@ -12,11 +12,11 @@ import ConfirmModal from "@/components/modals/ConfirmModal";
 
 type Company = {
   _id: string;
-  institusi_kerja: string;
-  kota_kab: string;
+  institusiKerja: string;
+  kota: string;
   klpd: string;
-  satuan_kerja: string;
-  status_ring?: string;
+  satuanKerja: string;
+  ring?: string;
   pic_default?: {
     nama?: string;
     no_telp?: string;
@@ -25,14 +25,29 @@ type Company = {
   };
 };
 
+type SatuanKerja = {
+  _id: string
+  satuanKerja: string
+  kota: string
+  klpd: string
+  ring? : string;
+  pic_default?: {
+    nama?: string
+    no_telp?: string
+    jabatan?: string
+    role?: string
+  }
+}
+
 type PlanItem = {
   id: string; // local id for rendering
-  status_ring: string;
+  ring: string;
   institusiQuery: string;
   selectedCompany: Company | null;
-  kota_kab: string;
+  kota: string;
   klpd: string;
-  satuan_kerja: string;
+  satuanKerja: string;
+  selectedSatker: SatuanKerja | null;
   pic_default: {
     nama: string;
     no_telp: string;
@@ -43,6 +58,9 @@ type PlanItem = {
   showSug: boolean;
   loadingSug: boolean;
   sugs: Company[];
+  showSatkerSug: boolean;
+  loadingSatkerSug: boolean;
+  satkerSugs: SatuanKerja[];
 };
 
 type AssigneeOption = {
@@ -72,17 +90,21 @@ function pickArray(json: Record<string, unknown> | unknown[]) {
 function newItem(): PlanItem {
   return {
     id: crypto.randomUUID(),
-    status_ring: '',
+    ring: '',
     institusiQuery: '',
     selectedCompany: null,
-    kota_kab: '',
+    kota: '',
     klpd: '',
-    satuan_kerja: '',
+    satuanKerja: '',
+    selectedSatker: null,
     pic_default: { nama: "", no_telp: "", jabatan: "", role: "" },
     targetUserId: '',
     showSug: false,
     loadingSug: false,
     sugs: [],
+    showSatkerSug: false,
+    loadingSatkerSug: false,
+    satkerSugs: [],
   };
 }
 
@@ -103,7 +125,7 @@ function AddPlansContent() {
   // Parameter master list (Rings)
   const [paramRing, setParamRing] = useState<string[]>([]);
   useEffect(() => {
-    fetch("/api/parameters")
+    fetch("/api/parameters-baru")
       .then((res) => res.json())
       .then((json) => {
         const d = json?.data;
@@ -202,9 +224,12 @@ function AddPlansContent() {
       institusiQuery: '',
       sugs: [],
       showSug: false,
-      kota_kab: "",
+      kota: "",
       klpd: "",
-      satuan_kerja: "",
+      satuanKerja: "",
+      selectedSatker: null,
+      satkerSugs: [],
+      showSatkerSug: false,
       pic_default: { nama: "", no_telp: "", jabatan: "", role: "" },
     });
   }
@@ -212,11 +237,22 @@ function AddPlansContent() {
     console.log(c)
     patchItem(id, {
       selectedCompany: c,
-      institusiQuery: c.institusi_kerja || '',
+      institusiQuery: c.institusiKerja || '',
       showSug: false,
-      kota_kab: c.kota_kab || '',
+      kota: c.kota || '',
       klpd: c.klpd || '',
-      satuan_kerja: c.satuan_kerja || '',
+      satuanKerja: '',
+      selectedSatker: null,
+      satkerSugs: [],
+      showSatkerSug: false,
+      pic_default: { nama: '', no_telp: '', jabatan: '', role: '' },
+    });
+  }
+  function pickSatker(id: string, c: SatuanKerja) {
+    patchItem(id, {
+      selectedSatker: c,
+      satuanKerja: c.satuanKerja || '',
+      showSatkerSug: false,
       pic_default: {
         nama: c.pic_default?.nama || '',
         no_telp: c.pic_default?.no_telp || '',
@@ -257,10 +293,42 @@ function AddPlansContent() {
     }
   }
 
+  async function fetchSatkerSuggestion(itemId: string, ring: string, institusi: string, q: string) {
+    if (!ring || !institusi) return;
+
+    try {
+      patchItem(itemId, { loadingSatkerSug: true, showSatkerSug: true });
+
+      const qs = new URLSearchParams({
+        ring,
+        institusi,
+        q: q || "",
+        limit: "10",
+      });
+
+      const res = await fetch(`/api/companies/suggest-satker?${qs.toString()}`, {
+        cache: 'no-store',
+      });
+
+      if (!res.ok) {
+        patchItem(itemId, { satkerSugs: [], loadingSatkerSug: false });
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+      patchItem(itemId, {
+        satkerSugs: (data?.items ?? []) as SatuanKerja[],
+        loadingSatkerSug: false,
+      });
+    } catch {
+      patchItem(itemId, { satkerSugs: [], loadingSatkerSug: false });
+    }
+  }
+
   const canSubmit = useMemo(() => {
     if (!tanggal) return false;
     if (!items.length) return false;
-    return items.every((it) => it.status_ring && it.institusiQuery.trim());
+    return items.every((it) => it.ring && it.institusiQuery.trim());
   }, [tanggal, items]);
 
   async function submitAll() {
@@ -277,11 +345,11 @@ function AddPlansContent() {
         createdBy: user?.userId || null,
         nama_sales: user?.fullName || null,
         items: items.map((it) => ({
-          status_ring: it.status_ring,
-          institusi_kerja: it.institusiQuery,
-          kota_kab: it.kota_kab,
+          ring: it.ring,
+          institusiKerja: it.institusiQuery,
+          kota: it.kota,
           klpd: it.klpd,
-          satuan_kerja: it.satuan_kerja,
+          satuanKerja: it.satuanKerja,
           pic_default: it.pic_default,
           company_id: it.selectedCompany?._id || null,
           // If global assignee is set, use it; otherwise backend might default to creator
@@ -444,9 +512,9 @@ function AddPlansContent() {
                     <div>
                       <label className="text-xs font-bold tracking-wide text-gray-500 uppercase">Status Ring</label>
                       <SearchableSelect
-                        value={it.status_ring}
+                        value={it.ring}
                         onChange={(val: string) => {
-                          patchItem(it.id, { status_ring: val });
+                          patchItem(it.id, { ring: val });
                           resetCompanyFields(it.id);
                         }}
                         options={paramRing.map((opt) => ({ value: opt, label: opt }))}
@@ -469,18 +537,18 @@ function AddPlansContent() {
                           onChange={(e) => {
                             const val = e.target.value;
                             patchItem(it.id, { institusiQuery: val, showSug: true });
-                            if (it.status_ring) fetchSuggestion(it.id, it.status_ring, val);
+                            if (it.ring) fetchSuggestion(it.id, it.ring, val);
                           }}
                           onFocus={() => {
-                            if (it.status_ring) fetchSuggestion(it.id, it.status_ring, it.institusiQuery);
+                            if (it.ring) fetchSuggestion(it.id, it.ring, it.institusiQuery);
                           }}
-                          disabled={!it.status_ring}
-                          placeholder={!it.status_ring ? "Pilih Ring dahulu" : "Ketik untuk mencari institusi..."}
-                          className={`relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${!it.status_ring ? "bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed" : "bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600"
+                          disabled={!it.ring}
+                          placeholder={!it.ring ? "Pilih Ring dahulu" : "Ketik untuk mencari institusi..."}
+                          className={`relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${!it.ring ? "bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed" : "bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600"
                             }`}
                         />
 
-                        {it.showSug && it.status_ring && (
+                        {it.showSug && it.ring && (
                           <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 border border-gray-100">
                             <div className="max-h-60 overflow-y-auto">
                               {it.loadingSug ? (
@@ -495,9 +563,9 @@ function AddPlansContent() {
                                     onClick={() => pickCompany(it.id, c)}
                                     className="block w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-none"
                                   >
-                                    <div className="font-bold text-sm text-gray-900">{c.institusi_kerja}</div>
+                                    <div className="font-bold text-sm text-gray-900">{c.institusiKerja}</div>
                                     <div className="text-[11px] text-gray-500 truncate mt-0.5">
-                                      {c.kota_kab} • {c.klpd} • {c.satuan_kerja}
+                                      {c.kota} • {c.klpd} • {c.satuanKerja}
                                     </div>
                                   </button>
                                 ))
@@ -520,7 +588,7 @@ function AddPlansContent() {
                     <div>
                       <label className="text-xs font-bold tracking-wide text-gray-400 uppercase">Kota/Kabupaten</label>
                       <input
-                        value={it.kota_kab}
+                        value={it.kota}
                         readOnly
                         className="mt-2 block w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm cursor-not-allowed"
                         placeholder="Terisi otomatis"
@@ -537,12 +605,57 @@ function AddPlansContent() {
                     </div>
                     <div className="md:col-span-2">
                       <label className="text-xs font-bold tracking-wide text-gray-400 uppercase">Satuan Kerja</label>
-                      <input
-                        value={it.satuan_kerja}
-                        readOnly
-                        className="mt-2 block w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm cursor-not-allowed"
-                        placeholder="Terisi otomatis"
-                      />
+                      <div className="relative mt-2">
+                        <input
+                          value={it.satuanKerja}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            patchItem(it.id, { satuanKerja: val, showSatkerSug: true });
+                            if (it.ring && it.institusiQuery) fetchSatkerSuggestion(it.id, it.ring, it.institusiQuery, val);
+                          }}
+                          onFocus={() => {
+                            if (it.ring && it.institusiQuery) fetchSatkerSuggestion(it.id, it.ring, it.institusiQuery, it.satuanKerja);
+                          }}
+                          disabled={!it.institusiQuery}
+                          placeholder={!it.institusiQuery ? "Pilih Institusi dahulu" : "Ketik untuk mencari satuan kerja..."}
+                          className={`relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${!it.institusiQuery ? "bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed" : "bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600"
+                            }`}
+                        />
+
+                        {it.showSatkerSug && it.institusiQuery && (
+                          <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 border border-gray-100">
+                            <div className="max-h-60 overflow-y-auto">
+                              {it.loadingSatkerSug ? (
+                                <div className="px-4 py-6 text-sm text-gray-500 text-center">Loading...</div>
+                              ) : it.satkerSugs.length === 0 ? (
+                                <div className="px-4 py-6 text-sm text-gray-500 text-center">Tidak ada data ditemukan.</div>
+                              ) : (
+                                it.satkerSugs.map((c) => (
+                                  <button
+                                    key={c._id}
+                                    type="button"
+                                    onClick={() => pickSatker(it.id, c)}
+                                    className="block w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-none"
+                                  >
+                                    <div className="font-bold text-sm text-gray-900">{c.satuanKerja}</div>
+                                    <div className="text-[11px] text-gray-500 truncate mt-0.5">
+                                      {c.kota} • {c.klpd} • {c.ring}
+                                    </div>
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                            <div className="bg-gray-50 px-4 py-2 border-t border-gray-100 flex justify-end">
+                              <button
+                                onClick={() => patchItem(it.id, { showSatkerSug: false })}
+                                className="text-xs font-semibold text-gray-500 hover:text-gray-800"
+                              >
+                                Tutup
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

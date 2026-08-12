@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
-import { setAbortedLogsStyle } from "next/dist/server/node-environment-extensions/console-dim.external";
 
 type KontakItem = {
     id: string
@@ -12,45 +11,52 @@ type KontakItem = {
     email: string
 }
 
-// Mengembalikan counter berikutnya (misal "0003") berdasarkan jumlah kode unik yang sudah ada
+// mode=list  → mengembalikan seluruh data dari database_b2b
+// prefix+dmy → mengembalikan counter berikutnya (misal "0003")
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url)
+        const mode = searchParams.get('mode') || ''
         const prefix = searchParams.get('prefix') || ''
         const dmy = searchParams.get('dmy') || ''
 
+        const client = await clientPromise
+        const db = client.db("MabelHub")
+        const col = db.collection("database_b2b")
+
+        // ── Mode LIST: kembalikan semua baris ───────────────────────────
+        if (mode === 'list' || (!prefix && !dmy)) {
+            const filter: Record<string, any> = {}
+            const namaEntitasArr = searchParams.getAll("namaEntitas")
+            if (namaEntitasArr.length > 0) {
+                filter["namaEntitas"] = { $in: namaEntitasArr }
+            }
+
+            const rows = await col
+                .find(filter)
+                .sort({ created_at: -1 })
+                .toArray()
+
+            return NextResponse.json({ rows })
+        }
+
+        // ── Mode COUNTER: hitung kode unik berikutnya ──────────────────
         if (!prefix || !dmy) {
             return NextResponse.json({ counter: '0001' })
         }
 
-        const client = await clientPromise
-        const db = client.db("MabelHub")
-        const col = db.collection("database_b2g")
-
-        // Hitung jumlah kode unik yang sudah pakai prefix+dmy ini
         const pattern = `^${prefix}-${dmy}-`
         const distinct = await col.distinct("code_input", {
             code_input: { $regex: pattern }
         })
-        const institusiKerjaArr = searchParams.getAll("institusiKerja");
-        const satuanKerjaArr = searchParams.getAll("satuanKerja");
 
-        const matchStage: Record<string, any> = {};
-        if (institusiKerjaArr.length > 0) {
-            matchStage["institusiKerja"] = { $in: institusiKerjaArr };
-        }
-        if (satuanKerjaArr.length > 0) {
-            matchStage["satuanKerja"] = { $in: satuanKerjaArr};
-        }
-
-        
         const next = distinct.length + 1
         const counter = String(next).padStart(4, '0')
 
         return NextResponse.json({ counter })
     } catch (error) {
-        console.error("[GET /api/database_b2g] Error:", error)
-        return NextResponse.json({ counter: '0001' })
+        console.error("[GET /api/form-b2b] Error:", error)
+        return NextResponse.json({ rows: [], error: "Terjadi kesalahan server" }, { status: 500 })
     }
 }
 
@@ -68,7 +74,7 @@ export async function POST(req: Request) {
 
         const client = await clientPromise
         const db = client.db("MabelHub")
-        const col = db.collection("database_b2g")
+        const col = db.collection("database_b2b")
 
         const now = new Date()
 
@@ -78,13 +84,20 @@ export async function POST(req: Request) {
             code_input: header.codeInput || "",
             requestor: header.requestor || "",
             // Data perusahaan
-            satuanKerja: header.satuanKerja || "",
-            institusiKerja: header.institusiKerja || "",
+            jenisEntitas: header.jenisEntitas || "",
+            namaEntitas: header.namaEntitas || "",
+            bidangUsaha: header.bidangUsaha || "",
             provinsi: header.provinsi || "",
             kota: header.kota || "",
             alamat: header.alamat || "",
-            klpd: header.klpd || "",
             ring: header.ring || "",
+            produkRelevan: header.produkRelevan || "",
+            merekTayang: header.merekTayang || "",
+            merekLainnya: header.merekLainnya || "",
+            brandOwner: header.brandOwner || "",
+            sumberData: header.sumberData || "",
+            linkProduk: header.linkProduk || "",
+            linkToko: header.linkToko || "",
             salesInternal: header.salesInternal || "",
             // Data kontak
             nama: item.nama || "",
@@ -104,7 +117,7 @@ export async function POST(req: Request) {
             { status: 201 }
         )
     } catch (error) {
-        console.error("[POST /api/database_b2g] Error:", error)
+        console.error("[POST /api/database_b2b] Error:", error)
         return NextResponse.json(
             { error: "Terjadi kesalahan server" },
             { status: 500 }
@@ -130,8 +143,8 @@ export async function PUT(req: Request) {
 
         const client = await clientPromise
         const db = client.db("MabelHub")
-        const colMain = db.collection("database_b2g")
-        const colHistory = db.collection("database_b2g_history")
+        const colMain = db.collection("database_b2b")
+        const colHistory = db.collection("database_b2b_history")
 
         const now = new Date()
 
@@ -154,15 +167,20 @@ export async function PUT(req: Request) {
             code_input: id,
             requestor: header.requestor || "",
             // Data perusahaan
-            segmen: header.segmen || "",
-            satuanKerja: header.satuanKerja || "",
-            institusiKerja: header.institusiKerja || "",
-            segementasi: header.segmentasi || "",
+            jenisEntitas: header.jenisEntitas || "",
+            namaEntitas: header.namaEntitas || "",
+            bidangUsaha: header.bidangUsaha || "",
             provinsi: header.provinsi || "",
             kota: header.kota || "",
             alamat: header.alamat || "",
-            klpd: header.klpd || "",
             ring: header.ring || "",
+            produkRelevan: header.produkRelevan || "",
+            merekTayang: header.merekTayang || "",
+            merekLainnya: header.merekLainnya || "",
+            brandOwner: header.brandOwner || "",
+            sumberData: header.sumberData || "",
+            linkProduk: header.linkProduk || "",
+            linkToko: header.linkToko || "",
             salesInternal: header.salesInternal || "",
             // Data kontak (dari item, bukan header)
             nama: item.nama || "",
@@ -188,7 +206,7 @@ export async function PUT(req: Request) {
             { status: 200 }
         )
     } catch (error) {
-        console.error("[PUT /api/database_b2g] Error:", error)
+        console.error("[PUT /api/database_b2b] Error:", error)
         return NextResponse.json(
             { error: "Terjadi kesalahan server" },
             { status: 500 }

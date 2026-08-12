@@ -36,6 +36,14 @@ export function useSearchInstitusi(query: string = '') {
           data = await res.json()
         }
 
+        if (!data?.length) {
+          res = await fetch (
+            `/api/namaEntitas?search=${encodeURIComponent(query)}`,
+            { signal: controller.signal },
+          )
+          data = await res.json()
+        }
+
         setResults(data)
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {

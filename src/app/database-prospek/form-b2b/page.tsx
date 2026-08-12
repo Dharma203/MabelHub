@@ -4,13 +4,10 @@ import SearchableSelect from '@/components/ui/SearchableSelect'
 import { listProvinsi, listKabupatenKota } from '@/data/wilayah'
 import { useState, useMemo, useEffect, useRef, Suspense } from 'react'
 import { useSession } from '@/components/session/SessionProvider'
-import {
-  validateContactItemsB2G,
-  validateFormFieldsB2G,
-} from '@/utils/formValidationB2G'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { computeChangedFields } from '@/utils/validation'
 import {
+  ArrowLeftSquareIcon,
   Building,
   Loader2,
   Plus,
@@ -18,7 +15,12 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useSearchInstitusi, Institusi } from '@/hooks/useSearchInstitusi'
-import { validateFormFieldsB2B } from '@/utils/formValidationB2B'
+import {
+  validateContactItemsB2B,
+  validateFormFieldsB2B,
+} from '@/utils/formValidationB2B'
+import { listMerek } from '@/data/merek'
+import { label } from 'motion/react-client'
 
 type KontakItem = {
   id: string
@@ -30,7 +32,7 @@ type KontakItem = {
   email: string
 }
 
-function FormB2GContent() {
+function FormB2BContent() {
   const [isOpen, setIsOpen] = useState(false)
   const [jenisEntitas, setJenisEntitas] = useState('')
   const [namaEntitas, setNamaEntitas] = useState('')
@@ -39,14 +41,14 @@ function FormB2GContent() {
   const [kabupaten, setKabupaten] = useState('')
   const [kota, setKota] = useState('')
   const [alamat, setAlamat] = useState('')
-  const [jabatan, setJabatan] = useState('')
-  const [ring, setRing] = useState('')
+  const [ring, setRing] = useState<string>('RING 4')
   const [produkRelevan, setProdukRelevan] = useState('')
   const [merekTayang, setMerekTayang] = useState('')
   const [brandOwner, setBrandOwner] = useState('')
   const [sumberData, setSumberData] = useState('')
   const [linkProduk, setLinkProduk] = useState('')
   const [linkToko, setLinkToko] = useState('')
+  const [merekLainnya, setMerekLainnya] = useState('')
   const [salesInternal, setSalesInternal] = useState('')
   const [codeInput, setCodeInput] = useState('')
   const { user, loading: sessionLoading } = useSession()
@@ -163,6 +165,10 @@ function FormB2GContent() {
     setKota('') // reset pilihan kota saat provinsi berubah
   }
 
+  const handleMerekChange = (val: string) => {
+    setMerekLainnya(val)
+  }
+
   const handleCariKode = async () => {
     try {
       if (!codeInput.trim()) {
@@ -171,7 +177,7 @@ function FormB2GContent() {
       }
       setIsLoading(true)
       await new Promise((resolve) => setTimeout(resolve, 1000))
-      const res = await fetch(`/api/database_b2b/${codeInput}`)
+      const res = await fetch(`/api/form-b2b/${codeInput}`)
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
@@ -207,27 +213,37 @@ function FormB2GContent() {
           '',
       )
       setJenisEntitas(header.jenisEntitas ?? '')
+      setNamaEntitas(header.namaEntitas ?? '')
       setBidangUsaha(header?.bidangUsaha ?? '')
       setProvinsi(header?.provinsi ?? '')
       setKota(header?.kota ?? '')
       setAlamat(header?.alamat ?? '')
       setProdukRelevan(header?.produkRelevan ?? '')
       setMerekTayang(header?.merekTayang ?? '')
+      setMerekLainnya(header?.merekLainnya ?? '')
       setBrandOwner(header?.brandOwner ?? '')
       setSumberData(header?.sumberData ?? '')
       setSalesInternal(header?.salesInternal ?? '')
       setLinkProduk(header?.linkProduk ?? '')
       setLinkToko(header?.linkToko ?? '')
+      setRing(header?.ring ?? '')
 
       // ── Simpan snapshot asli untuk diff history ──────────────────────
       setOriginalSnapshot({
         header: {
-          setJenisEntitas: header?.jenisEntitas ?? '',
-          segmentasi: header?.segmentasi ?? '',
+          requestor: header?.requestor ?? '',
+          jenisEntitas: header.jenisEntitas ?? '',
+          namaEntitas: header.namaEntitas ?? '',
           provinsi: header?.provinsi ?? '',
           kota: header?.kota ?? '',
           alamat: header?.alamat ?? '',
-          klpd: header?.klpd ?? '',
+          produkRelevan: header?.produkRelevan ?? '',
+          merekTayang: header?.merekTayang ?? '',
+          brandOwner: header?.brandOwner ?? '',
+          sumberData: header?.sumberData ?? '',
+          linkProduk: header?.linkProduk ?? '',
+          merekLainnya: header.merekLainnya ?? '',
+          linkToko: header?.linkToko ?? '',
           ring: header?.ring ?? '',
           salesInternal: header?.salesInternal ?? '',
         },
@@ -244,6 +260,68 @@ function FormB2GContent() {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    const idParam = searchParams.get('id')
+    if (!idParam || !idParam.trim()) return
+
+    const fetchData = async () => {
+      const code = idParam.trim()
+      setCodeInput(code)
+      setIsLoading(true)
+
+      try {
+        const res = await fetch(`/api/form-b2b/${code}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!data) return
+
+        const header = data?.header ?? data
+        const kontakItems = data?.items ?? (Array.isArray(data) ? data : [])
+        if (kontakItems.length > 0) setItems(kontakItems)
+
+        setRequestor(header?.requestor ?? '')
+        setJenisEntitas(header?.jenisEntitas ?? '')
+        setNamaEntitas(header?.namaEntitas ?? '')
+        setProvinsi(header?.provinsi ?? '')
+        setKota(header?.kota ?? '')
+        setAlamat(header?.alamat ?? '')
+        setProdukRelevan(header?.produkRelevan ?? '')
+        setMerekTayang(header?.merekTayang ?? '')
+        setMerekLainnya(header?.merekLainnya ?? '')
+        setBrandOwner(header?.brandOwner ?? '')
+        setSumberData(header?.sumberData ?? '')
+        setSalesInternal(header?.salesInternal ?? '')
+        setLinkProduk(header?.linkProduk ?? '')
+        setLinkToko(header?.linkToko ?? '')
+
+        setOriginalSnapshot({
+          header: {
+            requestor: header?.requestor ?? '',
+            jenisEntitas: header?.jenisEntitas ?? '',
+            namaEntitas: header?.namaEntitas ?? '',
+            provinsi: header?.provinsi ?? '',
+            kota: header?.kota ?? '',
+            alamat: header?.alamat ?? '',
+            produkRelevan: header?.produkRelevan ?? '',
+            merekTayang: header?.merekTayang ?? '',
+            brandOwner: header?.brandOwner ?? '',
+            sumberData: header?.sumberData ?? '',
+            linkProduk: header?.linkProduk ?? '',
+            linkToko: header?.linkToko ?? '',
+          },
+          items: kontakItems,
+        })
+      } catch {
+        // silent fail
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const handleKirim = async () => {
     try {
@@ -262,14 +340,14 @@ function FormB2GContent() {
         sumberData,
         salesInternal,
         linkProduk,
-        linkToko
+        linkToko,
       })
       if (headerError) {
         alert(headerError.message)
         return
       }
 
-      const contactError = validateContactItemsB2G(items)
+      const contactError = validateContactItemsB2B(items)
       if (contactError) {
         alert(contactError.message)
         return
@@ -326,7 +404,10 @@ function FormB2GContent() {
         merekTayang: merekTayang,
         brandOwner: brandOwner,
         sumberData: sumberData,
-        salesInternal: salesInternal,
+        linkProduk: linkProduk,
+        linkToko: linkToko,
+        merekLainnya: merekLainnya,
+        salesInternal: sumberData === 'Sales Internal' ? salesInternal : '',
       }
 
       const itemsPayload = items.map((item) => ({
@@ -350,7 +431,7 @@ function FormB2GContent() {
         )
 
         // mode revisi: panggil put
-        res = await fetch('/api/database_prospek', {
+        res = await fetch('/api/form-b2b', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -364,7 +445,7 @@ function FormB2GContent() {
         })
       } else {
         // mode baru : panggil post
-        res = await fetch('/api/form-b2g', {
+        res = await fetch('/api/form-b2b', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ header: headerPayload, items: itemsPayload }),
@@ -382,7 +463,7 @@ function FormB2GContent() {
           : 'Database berhasil disimpan!',
       )
 
-      router.push('/database-prospek/form-b2g')
+      router.push('/database-prospek/form-b2b')
       setJenisEntitas('')
       setNamaEntitas('')
       setBidangUsaha('')
@@ -392,6 +473,7 @@ function FormB2GContent() {
       setRing('')
       setProdukRelevan('')
       setMerekTayang('')
+      setMerekLainnya('')
       setBrandOwner('')
       setSumberData('')
       setSalesInternal('')
@@ -424,11 +506,21 @@ function FormB2GContent() {
         <div className='flex-1 p-6'>
           <div className='bg-white shadow-md rounded-xl p-6 mb-6 border border-gray-100'>
             <div className='flex flex-col'>
+              <div className='flex justify-between gap-2 pl-4'>
+                <button
+                  onClick={() => {
+                    router.push('/database-prospek')
+                  }}
+                  className='flex h-10 w-20 items-center justify-center cursor-pointer rounded-lg bg-blue-200 text-gray-500 shadow-sm ring-1 ring-gray-200 hover:bg-gray-50 hover:text-gray-700 transition'
+                >
+                  <ArrowLeftSquareIcon className='w-10 h-10' />
+                </button>
+              </div>
               <h1 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
                 Database Prospek
               </h1>
               <div className='text-sm ml-4 mt-2 text-slate-500 font-medium'>
-                Form Input B2G
+                Form Input B2B
               </div>
             </div>
           </div>
@@ -473,16 +565,29 @@ function FormB2GContent() {
                 </p>
               </div>
             </div>
-            <div className='gap-3 grid grid-cols-1 md:grid-cols-3'>
+            <div className='gap-3 grid grid-cols-1 md:grid-cols-6'>
               <div>
-                <label>JENIS ENTITAS</label>
-                <input
-                  type='text'
-                  value={jenisEntitas}
-                  onChange={(e) => setJenisEntitas(e.target.value)}
-                  placeholder='Pemerintah / Swasta'
-                  className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
-                />
+                <label className='tex-sm font-semibold text-slate-600'>
+                  JENIS ENTITAS
+                </label>
+                <div className='relative mt-2'>
+                  <SearchableSelect
+                    value={jenisEntitas}
+                    onChange={(val: string) => setJenisEntitas(val)}
+                    options={[
+                      { value: '', label: '-- Pilih --' },
+                      { value: 'PT', label: 'PT' },
+                      { value: 'CV', label: 'CV' },
+                      { value: 'BLUD', label: 'BLUD' },
+                      { value: 'Pendidikan', label: 'Pendidikan' },
+                      { value: 'RS', label: 'RS' },
+                      { value: 'BUMN', label: 'BUMN' },
+                      { value: 'Tidak Diketahui', label: 'Tidak Diketahui' },
+                    ]}
+                    className='border-0 bg-white'
+                    placeholder='Pilih Jenis Entitas...'
+                  />
+                </div>
               </div>
               <div ref={wrapperRef} className='relative'>
                 <label>NAMA ENTITAS</label>
@@ -498,33 +603,31 @@ function FormB2GContent() {
                   placeholder='Ketik nama perusahaan'
                   className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 />
-                {isOpen &&
-                  namaEntitas &&
-                  namaEntitas.trim().length >= 2 && (
-                    <div className='absolute z-50 w-full rounded-xl border border-gray-200 bg-white shadow-lg'>
-                      {isLoadingSearch ? (
-                        <div className='px-4 py-3 text-sm w-full text-gray-400'>
-                          Mencari
-                        </div>
-                      ) : results.length > 0 ? (
-                        <ul className='max-h-100 overflow-y-auto'>
-                          {results.map((item) => (
-                            <li
-                              key={item.id}
-                              onMouseDown={() => handleSelect(item)}
-                              className='cursor-pointer px-4 py-3 text-sm hover:bg-blue-50 hover:text-blue-600'
-                            >
-                              {item.nama}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div className='px-4 py-3 text-sm text-gray-400'>
-                          Institusi Kerja tidak ditemukan
-                        </div>
-                      )}
-                    </div>
-                  )}
+                {isOpen && namaEntitas && namaEntitas.trim().length >= 2 && (
+                  <div className='absolute z-50 w-full rounded-xl border border-gray-200 bg-white shadow-lg'>
+                    {isLoadingSearch ? (
+                      <div className='px-4 py-3 text-sm w-full text-gray-400'>
+                        Mencari
+                      </div>
+                    ) : results.length > 0 ? (
+                      <ul className='max-h-100 overflow-y-auto'>
+                        {results.map((item) => (
+                          <li
+                            key={item.id}
+                            onMouseDown={() => handleSelect(item)}
+                            className='cursor-pointer px-4 py-3 text-sm hover:bg-blue-50 hover:text-blue-600'
+                          >
+                            {item.nama}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className='px-4 py-3 text-sm text-gray-400'>
+                        Institusi Kerja tidak ditemukan
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className='mt-2'>
                 <label className='text-sm font-semibold text-slate-600'>
@@ -574,29 +677,67 @@ function FormB2GContent() {
                   className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 />
               </div>
-              {/* <div>
+              <div>
                 <label className='text-sm font-semibold text-slate-600'>
-                  KLPD
+                  BIDANG USAHA
                 </label>
-                <div className='relative mt-2'>
-                  <SearchableSelect
-                    value={klpd}
-                    onChange={(val: string) => setKlpd(val)}
-                    options={[
-                      { value: '', label: '-- Pilih -- ' },
-                      { value: 'KEMENTRIAN', label: 'KEMENTRIAN' },
-                      { value: 'LEMBAGA', label: 'LEMBAGA' },
-                      { value: 'PROVINSI', label: 'PROVINSI' },
-                      { value: 'KOTA', label: 'KOTA' },
-                      { value: 'KABUPATEN', label: 'KABUPATEN' },
-                      { value: 'BUMN', label: 'BUMN' },
-                      { value: 'BUMD', label: 'BUMD' },
-                      { value: 'PTNBH', label: 'PTNBH' },
-                      { value: 'INSTANSI', label: 'INSTANSI' },
-                    ]}
-                  />
-                </div>
-              </div> */}
+                <SearchableSelect
+                  value={bidangUsaha}
+                  onChange={(val: string) => setBidangUsaha(val)}
+                  className='mt-2 border-0 bg-white'
+                  options={[
+                    { value: '', label: ' -- Pilih --' },
+                    {
+                      value: 'Energi & Pertambangan',
+                      label: 'Energi & Pertambangan',
+                    },
+                    { value: 'Jasa Profesional', label: 'Jasa Profesional' },
+                    {
+                      value: 'Jasa Umum & Lainnya',
+                      label: 'Jasa Umum & Lainnya',
+                    },
+                    { value: 'Kesehatan', label: 'Kesehatan' },
+                    {
+                      value: 'Keuangan & Asuransi',
+                      label: 'Keuangan & Asuransi',
+                    },
+                    {
+                      value: 'Kontruksi & Properti',
+                      label: 'Kontruksi & Properti',
+                    },
+                    { value: 'Kreatif & Media', label: 'Kreatif & Media' },
+                    {
+                      value: 'Manufaktur & Industri',
+                      label: 'Manufaktur & Industri',
+                    },
+                    {
+                      value: 'Perhotelan & Pariwisata',
+                      label: 'Perhotelan & Pariwisata',
+                    },
+                    {
+                      value: 'Pertanian, Perkebunan & Perikanan',
+                      label: 'Pertanian, Perkebunan & Perikanan',
+                    },
+                    {
+                      value: 'Teknologi & Digital',
+                      label: 'Teknologi & Digital',
+                    },
+                    {
+                      value: 'UMKM & Industri Rumah Tangga',
+                      label: 'UMKM & Industri Rumah Tangga',
+                    },
+                    {
+                      value: 'Pemerintahan & BUMN',
+                      label: 'Pemerintahan & BUMN',
+                    },
+                    { value: 'Pendidikan', label: 'Pendidikan' },
+                    {
+                      value: 'Perdagangan (Trading)',
+                      label: 'Perdagangan (Trading)',
+                    },
+                  ]}
+                />
+              </div>
             </div>
           </section>
           <section className='mt-6 rounded-2xl bg-white p-8 shadow-sm ring-1 ring-black/5'>
@@ -621,7 +762,7 @@ function FormB2GContent() {
               {items.map((item, index) => (
                 <div
                   key={item.id}
-                  className='relative grid grid-cols-1 gap-3 md:grid-cols-3 p-4 border border-gray-100 rounded-xl bg-gray-50/50'
+                  className='relative grid grid-cols-1 gap-3 md:grid-cols-6 p-4 border border-gray-100 rounded-xl bg-gray-50/50'
                 >
                   {items.length > 1 && (
                     <button
@@ -757,7 +898,7 @@ function FormB2GContent() {
                 </p>
               </div>
             </div>
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
               <div>
                 <label className='text-sm font-semibold text-slate-600'>
                   RING
@@ -766,12 +907,7 @@ function FormB2GContent() {
                   value={ring}
                   onChange={(val: string) => setRing(val)}
                   className='mt-2 border-0 w-full bg-white'
-                  options={[
-                    { value: '', label: '-- Pilih --' },
-                    { value: 'B2G-R1', label: 'B2G-R1' },
-                    { value: 'B2G-R2', label: 'B2G-R2' },
-                    { value: 'B2G-R3', label: 'B2G-R3' },
-                  ]}
+                  options={[{ value: 'RING 4', label: 'RING 4' }]}
                 />
               </div>
               <div>
@@ -805,37 +941,195 @@ function FormB2GContent() {
                 </div>
               </div>
               <div>
+                <label className='text-sm font-semibold text-slate-600'>
+                  PRODUK RELEVAN
+                </label>
+                <SearchableSelect
+                  value={produkRelevan}
+                  onChange={(value) => setProdukRelevan(value)}
+                  options={(() => {
+                    const base = [
+                      { value: '', label: 'Pilih Produk Relevan' },
+                      { value: 'IFP', label: 'IFP' },
+                      { value: 'MRS', label: 'MRS' },
+                      { value: 'VIDEOTRON', label: 'VIDEOTRON' },
+                      { value: 'AIO', label: 'AIO' },
+                      { value: 'Genset', label: 'Genset' },
+                    ]
+                    if (
+                      produkRelevan &&
+                      !base.find((o) => o.value === produkRelevan)
+                    ) {
+                      base.push({ value: produkRelevan, label: produkRelevan })
+                    }
+                    return base
+                  })()}
+                  className='mt-2 border-0 bg-white w-full'
+                />
+              </div>
+              <div>
+                <label className='text-sm font-semibold text-slate-600'>
+                  MEREK TAYANG
+                </label>
+                <SearchableSelect
+                  value={merekTayang}
+                  onChange={(value) => {
+                    setMerekTayang(value)
+                    if (value !== 'Lainnya') setMerekLainnya('')
+                  }}
+                  options={(() => {
+                    const base = [
+                      { value: '', label: 'Pilih Merek Tayang' },
+                      { value: 'HDe', label: 'HDe' },
+                      { value: 'MABO POWER', label: 'MABO POWER' },
+                      { value: 'MOBO POWER', label: 'MOBO POWER' },
+                      { value: 'Lainnya', label: 'Lainnya' },
+                    ]
+                    if (
+                      merekTayang &&
+                      !base.find((o) => o.value === merekTayang)
+                    ) {
+                      base.push({ value: merekTayang, label: merekTayang })
+                    }
+                    return base
+                  })()}
+                  className='mt-2 border-0 bg-white w-full'
+                />
+              </div>
+              <div>
+                <label className='text-sm font-semibold text-slate-600'>
+                  BRAND OWNER
+                </label>
+                <SearchableSelect
+                  value={brandOwner}
+                  onChange={(value) => setBrandOwner(value)}
+                  options={(() => {
+                    const base = [
+                      { value: '', label: 'Pilih Brand Owner' },
+                      { value: 'YA', label: 'YA' },
+                      { value: 'TIDAK', label: 'TIDAK' },
+                    ]
+                    if (
+                      brandOwner &&
+                      !base.find((o) => o.value === brandOwner)
+                    ) {
+                      base.push({ value: brandOwner, label: brandOwner })
+                    }
+                    return base
+                  })()}
+                  className='mt-2 border-0 bg-white w-full'
+                />
+              </div>
+              <div>
+                <label className='text-sm font-semibold text-slate-600'>
+                  SUMBER DATA
+                </label>
+                <SearchableSelect
+                  value={sumberData}
+                  onChange={(value) => {
+                    setSumberData(value)
+                    // Reset sales internal jika pindah ke sumber lain
+                    if (value !== 'Sales Internal') setSalesInternal('')
+                  }}
+                  options={(() => {
+                    const base = [
+                      { value: '', label: 'Pilih Sumber Data' },
+                      { value: 'e-Katalog LKPP', label: 'e-Katalog LKPP' },
+                      { value: 'INAPROC', label: 'INAPROC' },
+                      { value: 'PaDi UMKM', label: 'PaDi UMKM' },
+                      { value: 'Mbizmarket', label: 'Mbizmarket' },
+                      { value: 'SIPLah', label: 'SIPLah' },
+                      { value: 'SPSE Pemda', label: 'SPSE Pemda' },
+                      {
+                        value: 'Sistem Internal Instansi',
+                        label: 'Sistem Internal Instansi',
+                      },
+                      { value: 'Sales Internal', label: 'Sales Internal' },
+                    ]
+                    if (
+                      sumberData &&
+                      !base.find((o) => o.value === sumberData)
+                    ) {
+                      base.push({ value: sumberData, label: sumberData })
+                    }
+                    return base
+                  })()}
+                  className='mt-2 w-full'
+                />
+              </div>
+              {/* Hanya muncul jika sumberData === 'Sales Internal' */}
+              {sumberData === 'Sales Internal' && (
                 <div>
                   <label className='text-sm font-semibold text-slate-600'>
-                    SALES INTERNAL
+                    NAMA SALES INTERNAL
                   </label>
                   <SearchableSelect
                     value={salesInternal}
-                    onChange={(val: string) => setSalesInternal(val)}
-                    options={(() => {
-                      const base = [
-                        { value: '', label: 'Pilih Sales Internal' },
-                        {
-                          value: user?.fullName || '',
-                          label: user?.fullName || '',
-                        },
-                      ]
-                      // jika requestor dari database belum ada di list, tambahkan otomatis
-                      if (
-                        requestor &&
-                        !base.find((o) => o.value === requestor)
-                      ) {
-                        base.push({ value: requestor, label: requestor })
-                      }
-                      return base
-                    })()}
-                    className='mt-2 border-0 w-full bg-white'
-                    placeholder='silahkan pilih ....'
+                    onChange={(value) => {
+                      setSalesInternal(value)
+                    }}
+                    options={[
+                      { value: '', label: '--Pilih Nama Sales--' },
+                      {
+                        value: 'Arie Muhammad Fajar',
+                        label: 'Arie Muhammad Fajar',
+                      },
+                      { value: 'Beffry Rizkana', label: 'Beffry Rizkana' },
+                      { value: 'Ferrie Ferdinal', label: 'Ferrie Ferdinal' },
+                      { value: 'Hery Nugraha', label: 'Hery Nugraha' },
+                      { value: 'Hendri', label: 'Hendri' },
+                      { value: 'Eva Tamika', label: 'Eva Tamika' },
+                      { value: 'Toni Ramdan', label: 'Toni Ramdan' },
+                      { value: 'Mugi Khairul', label: 'Mugi Khairul' },
+                    ]}
+                    placeholder='Ketik nama sales...'
+                    className='mt-2 w-full'
                   />
                 </div>
+              )}
+              {merekTayang === 'Lainnya' && (
+                <div className=''>
+                  <label className='text-sm font-semibold text-slate-600'>
+                    MEREK LAINNYA
+                  </label>
+                  <SearchableSelect
+                    value={merekLainnya}
+                    onChange={(val: string) => handleMerekChange(val)}
+                    options={listMerek.map((p) => ({
+                      value: p.nama,
+                      label: p.nama,
+                    }))}
+                    className='mt-2 border-0 bg-white w-full'
+                  />
+                </div>
+              )}
+              <div>
+                <label className='text-sm font-semibold text-slate-600'>
+                  LINK PRODUK
+                </label>
+                <input
+                  type='text'
+                  value={linkProduk}
+                  onChange={(e) => setLinkProduk(e.target.value)}
+                  placeholder='https:// atau contoh.com'
+                  className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                />
+              </div>
+              <div>
+                <label className='text-sm font-semibold text-slate-600'>
+                  LINK TOKO
+                </label>
+                <input
+                  type='text'
+                  value={linkToko}
+                  onChange={(e) => setLinkToko(e.target.value)}
+                  placeholder='https:// atau contoh.com'
+                  className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                />
               </div>
             </div>
           </section>
+
           <div className='mt-6'>
             <div className='flex items-center justify-center gap-4 mb-6'>
               <button
@@ -855,8 +1149,8 @@ function FormB2GContent() {
 
 export default function FormB2BPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
-      <FormB2GContent />
+    <Suspense fallback={<div className='p-8 text-center'>Loading...</div>}>
+      <FormB2BContent />
     </Suspense>
   )
 }
