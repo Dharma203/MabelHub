@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertSuperadmin } from "@/lib/auth-server";
 import { ObjectId } from "mongodb";
 import { getParams, toObjectId } from "@/lib/api-helpers";
@@ -40,7 +40,7 @@ export async function PUT(
     : [];
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   const teamsCol = db.collection<TeamDoc>("teams");
   const usersCol = db.collection<UserDoc>("users");
 

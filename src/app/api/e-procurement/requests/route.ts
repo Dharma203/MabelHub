@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 
@@ -143,7 +143,7 @@ export async function GET(req: Request) {
   // const mode = (searchParams.get("mode") ?? "takeable").toLowerCase();
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   await ensureIndexes(db);
 
   const col = db.collection<EProcDoc>("eproc_requests");
@@ -257,7 +257,7 @@ export async function POST(req: Request) {
   }
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   await ensureIndexes(db);
 
   // =========================

@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const filterStatsB2G = searchParams.get('filterStatsB2G') === 'true'
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
+  const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
   const col = db.collection('VisitActivity')
 
   const extraMatch: any = {}

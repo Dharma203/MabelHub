@@ -6,7 +6,7 @@ import clientPromise from "@/lib/mongodb";
 export async function GET(req: NextRequest) {
     try {
         const client = await clientPromise
-        const db = client.db('MabelHub')
+        const db = client.db('MabelHubStaging')
         const col = db.collection('input_database')
 
         const { searchParams } = req.nextUrl

@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const session = auth.session
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
+  const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
   const col = db.collection('VisitActivity')
 
   const { searchParams } = new URL(req.url)

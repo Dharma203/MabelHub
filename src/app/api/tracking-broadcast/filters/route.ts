@@ -21,7 +21,7 @@ function normalizeStatusWa(val: string): string {
 export async function GET() {
     try {
         const client = await clientPromise;
-        const db = client.db("MabelHub");
+        const db = client.db("MabelHubStaging");
 
         // bulan, perusahaan, produk, provinsi, kota → dari input_database (sumber data utama)
         const inputCol = db.collection("input_database");

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '@/lib/mongodb'
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { ObjectId } from 'mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getLeaderAllowedUserIds, getUserLiteById } from '@/lib/visit-auth'
@@ -63,7 +63,7 @@ export async function GET(req: Request) {
   const sortDirNum = sortDirParam === 'asc' ? 1 : -1
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
+  const db = client.db(getDbName());
   const col = db.collection('VisitActivity')
 
   // =========================
@@ -564,7 +564,7 @@ export async function POST(req: Request) {
     }
 
     const client = await clientPromise
-    const db = client.db(process.env.MONGODB_DB || 'MabelHub')
+    const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
 
     // =========================
     // TARGET ASSIGNMENT RULES

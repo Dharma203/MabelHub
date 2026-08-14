@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
 
-const DB_NAME = process.env.MONGODB_DB || "MabelHub";
+const DB_NAME = getDbName();
 const COL_NAME = "contracts";
 
 async function getParams<T>(ctx: { params: T | Promise<T> }) {

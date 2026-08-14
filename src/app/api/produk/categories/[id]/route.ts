@@ -10,7 +10,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const client = await clientPromise;
-    const db = client.db("MabelHub");
+    const db = client.db("MabelHubStaging");
     const col = db.collection("product_categories");
 
     const category = await col.findOne({ id });

@@ -5,7 +5,7 @@ import clientPromise from "@/lib/mongodb";
 export async function GET(req: NextRequest) {
   try {
     const client = await clientPromise;
-    const db = client.db("MabelHub");
+    const db = client.db("MabelHubStaging");
     // ── Sumber data utama: tracking_broadcast ──────────────────────
     const col = db.collection("tracking_broadcast");
     const valCol = db.collection("validasi_sales");
@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
     }
 
     const client = await clientPromise;
-    const db = client.db("MabelHub");
+    const db = client.db("MabelHubStaging");
     const valCol = db.collection("validasi_sales");
 
     const now = new Date();

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { hashPassword } from "@/lib/password";
 import { assertSuperadmin, assertAdminOrSuperadmin } from "@/lib/auth-server";
 
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
 
   try {
     const client = await clientPromise;
-    const db = client.db(process.env.MONGODB_DB || "MabelHub");
+    const db = client.db(getDbName());
     await ensureUserIndexes(db);
 
     const users = await db
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
 
   try {
     const client = await clientPromise;
-    const db = client.db(process.env.MONGODB_DB || "MabelHub");
+    const db = client.db(getDbName());
     await ensureUserIndexes(db);
 
     const body = await req.json().catch(() => ({}));

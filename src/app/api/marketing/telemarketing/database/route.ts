@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   if (to_sales && to_sales !== "Semua Sales") query.to_sales = to_sales;
 
   const client = await clientPromise;
-  const db = client.db("MabelHub");
+  const db = client.db("MabelHubStaging");
 
   try {
     const rows = await db
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   const body = await req.json();
 
   const client = await clientPromise;
-  const db = client.db("MabelHub");
+  const db = client.db("MabelHubStaging");
 
   const doc = {
     perusahaan: body.perusahaan || "",
@@ -96,7 +96,7 @@ export async function PATCH(req: Request) {
   }
 
   const client = await clientPromise;
-  const db = client.db("MabelHub");
+  const db = client.db("MabelHubStaging");
   
   const { ObjectId } = require("mongodb");
 

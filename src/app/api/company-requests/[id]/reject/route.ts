@@ -29,7 +29,7 @@ export async function POST(
   try {
     // 3. Akses database HANYA setelah user lolos auth
     const client = await clientPromise;
-    const db = client.db("MabelHub");
+    const db = client.db("MabelHubStaging");
 
     const result = await db.collection("company_requests").updateOne(
       { id: id },

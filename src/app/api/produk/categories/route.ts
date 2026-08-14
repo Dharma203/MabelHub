@@ -17,7 +17,7 @@ const ALL_CATEGORIES = [
 export async function GET() {
   try {
     const client = await clientPromise;
-    const db = client.db("MabelHub");
+    const db = client.db("MabelHubStaging");
     const col = db.collection("product_categories");
 
     let categories = await col.find({}).toArray();
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     }
 
     const client = await clientPromise;
-    const db = client.db("MabelHub");
+    const db = client.db("MabelHubStaging");
     const col = db.collection("product_categories");
 
     // Check if category already exists
