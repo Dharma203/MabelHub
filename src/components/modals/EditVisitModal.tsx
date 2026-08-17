@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 type EditModalProps = {
   isOpen: boolean;
@@ -52,6 +52,100 @@ export default function EditVisitModal({
   // Track the owner of the visit data
   const [ownerId, setOwnerId] = useState("");
   const [picChangeHistory, setPicChangeHistory] = useState<any[]>([]);
+
+  // --- Real-Time Camera State & Refs ---
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+    setCameraError(null);
+  };
+
+  const startCamera = async (mode: "environment" | "user" = facingMode) => {
+    setCameraError(null);
+    stopCamera();
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Kamera tidak didukung oleh browser Anda atau memerlukan akses HTTPS.");
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      setIsCameraActive(true);
+    } catch (err: any) {
+      console.error("Camera access error:", err);
+      setCameraError(
+        err.message || "Gagal mengakses kamera. Pastikan izin kamera sudah diberikan."
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (isCameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch((e) => console.error("Video play error:", e));
+    }
+  }, [isCameraActive]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      stopCamera();
+    }
+  }, [isOpen]);
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current || document.createElement("canvas");
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    if (facingMode === "user") {
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0, width, height);
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+    fetch(dataUrl)
+      .then((res) => res.blob())
+      .then((blob) => {
+        const file = new File([blob], `camera_capture_${Date.now()}.jpg`, { type: "image/jpeg" });
+        setFileObj(file);
+        setForm((prev) => ({ ...prev, visit_image: dataUrl }));
+        stopCamera();
+      })
+      .catch((err) => {
+        console.error("Error creating file from capture:", err);
+        setForm((prev) => ({ ...prev, visit_image: dataUrl }));
+        stopCamera();
+      });
+  };
+
+  const switchCamera = () => {
+    const newMode = facingMode === "environment" ? "user" : "environment";
+    setFacingMode(newMode);
+    startCamera(newMode);
+  };
+
 
   useEffect(() => {
     if (!isOpen || !editId) return;
@@ -589,11 +683,11 @@ export default function EditVisitModal({
                 />
               </div>
 
-              {/* Row 5 / Image Upload/Preview */}
+              {/* Row 5 / Image Upload/Preview/Real-time Camera */}
               <div className="col-span-1 md:col-span-2">
                 <label className="mb-2 text-sm font-medium text-gray-800 flex items-center justify-between">
                   <span>
-                    Upload Foto <span className="text-red-500">*</span>
+                    Foto Dokumentasi Kunjungan <span className="text-red-500">*</span>
                   </span>
                   {form.visit_image && (
                     <button
@@ -618,46 +712,81 @@ export default function EditVisitModal({
                   )}
                 </label>
 
-                {form.visit_image && !fileObj && (
-                  <div className="mb-3">
-                    <img
-                      src={form.visit_image}
-                      alt="Preview Kunjungan"
-                      className="w-full h-40 object-contain bg-gray-200 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                )}
+                {/* Canvas tersembunyi untuk proses capture dari video */}
+                <canvas ref={canvasRef} className="hidden" />
 
-                {fileObj && (
-                  <div className="mb-3 text-sm text-green-700 font-medium px-2 py-1 bg-green-100 rounded border border-green-200">
-                    File baru terpilih: {fileObj.name}
-                  </div>
-                )}
-
-                <div className="flex items-center h-10 w-full bg-white px-2 rounded">
-                  <label
-                    className={`bg-gray-100 px-3 py-1 rounded-lg text-sm font-bold ring-1 ring-gray-300 text-black ${canEditMain
-                      ? "cursor-pointer hover:bg-gray-200"
-                      : "opacity-50 cursor-not-allowed"
-                      }`}
-                  >
-                    Choose File
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      disabled={isFieldLocked("visit_image")}
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          setFileObj(e.target.files[0]);
-                        }
-                      }}
+                {/* Tampilan Kamera Real-Time */}
+                {isCameraActive ? (
+                  <div className="relative mb-3 bg-black rounded-xl overflow-hidden shadow-lg border border-gray-800 flex flex-col items-center">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={`w-full max-h-80 object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
                     />
-                  </label>
-                  <span className="ml-3 text-sm text-gray-700 truncate">
-                    {fileObj ? fileObj.name : "No file chosen"}
-                  </span>
-                </div>
+                    <div className="p-3 w-full bg-gray-900/90 backdrop-blur flex items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={capturePhoto}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-600 hover:bg-green-700 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer"
+                      >
+                        📷 Tangkap Foto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={switchCamera}
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-gray-700 hover:bg-gray-600 text-white text-xs font-semibold shadow-md cursor-pointer"
+                        title="Ganti Kamera Depan/Belakang"
+                      >
+                        🔄 Ganti Kamera
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-md cursor-pointer"
+                      >
+                        ✖ Tutup Kamera
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {cameraError && (
+                      <div className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center justify-between">
+                        <span>{cameraError}</span>
+                        <button type="button" onClick={() => setCameraError(null)} className="text-red-500 font-bold ml-2">×</button>
+                      </div>
+                    )}
+
+                    {form.visit_image && (
+                      <div className="mb-3">
+                        <img
+                          src={form.visit_image}
+                          alt="Preview Kunjungan"
+                          className="w-full h-44 object-contain bg-gray-100 border border-gray-300 rounded-lg"
+                        />
+                        {fileObj && (
+                          <div className="mt-1 text-xs text-green-700 font-medium px-2 py-1 bg-green-100 rounded border border-green-200 inline-block">
+                            Foto baru diambil: {fileObj.name}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {!isFieldLocked("visit_image") && (
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => startCamera(facingMode)}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow transition-all active:scale-95 cursor-pointer"
+                        >
+                          📷 Ambil Foto Real-Time
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           )}
