@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise, { getDbName } from "@/lib/mongodb";
+import clientPromise from "@/lib/mongodb";
 import { ObjectId } from 'mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getLeaderAllowedUserIds, getUserLiteById } from '@/lib/visit-auth'
@@ -54,6 +54,7 @@ export async function GET(req: Request) {
   const dateStr = searchParams.get('date') // specific date e.g. "01 Feb"
   const filterStatsB2G = searchParams.get('filterStatsB2G') === 'true'
   const groupBySatker = searchParams.get('groupBySatker') === 'true'
+  const kegiatanStatus = searchParams.getAll('kegiatan_status')
 
   // Sort Params
   const sortByParams = String(searchParams.get('sortBy') || 'total_visit')
@@ -63,7 +64,7 @@ export async function GET(req: Request) {
   const sortDirNum = sortDirParam === 'asc' ? 1 : -1
 
   const client = await clientPromise
-  const db = client.db(getDbName());
+  const db = client.db('MabelHub');
   const col = db.collection('VisitActivity')
 
   // =========================
@@ -173,6 +174,7 @@ export async function GET(req: Request) {
   if (city) match.city = city
   if (satker) match.satuan_kerja = satker
   if (klpd) match.klpd = klpd
+  if (kegiatanStatus.length > 0) match.kegiatan_status = { $in: kegiatanStatus }
 
   // Partial date matching from clicked trend chart
   if (dateStr) {
@@ -365,6 +367,7 @@ export async function GET(req: Request) {
     satuan_kerja: { $exists: true, $nin: [null, ''] },
     status_ring: { $exists: true, $nin: [null, ''] },
     klpd: { $exists: true, $nin: [null, ''] },
+    kegiatan_status: { $exists: true, $nin: [null, ''] },
   }
 
   if (filterStatsB2G) {
@@ -646,17 +649,17 @@ export async function POST(req: Request) {
       // new field (biar stats/team bisa pakai assignedTo.userId)
       assignedTo: targetUser
         ? {
-            userId: targetUser.userId,
-            role: targetUser.role,
-            username: targetUser.username,
-            fullName: targetUser.fullName,
-          }
+          userId: targetUser.userId,
+          role: targetUser.role,
+          username: targetUser.username,
+          fullName: targetUser.fullName,
+        }
         : {
-            userId: targetUserId,
-            role: '',
-            username: '',
-            fullName: '',
-          },
+          userId: targetUserId,
+          role: '',
+          username: '',
+          fullName: '',
+        },
 
       visit_date: toVisitDateStr(tanggal),
       city: kota_kab,
