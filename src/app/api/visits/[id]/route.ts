@@ -129,7 +129,7 @@ export async function GET(
   }
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
+  const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
   const col = db.collection('VisitActivity')
 
   const doc = await col.findOne({ _id: new ObjectId(id) })
@@ -193,7 +193,7 @@ export async function PUT(
   const body = await req.json().catch(() => ({}))
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
+  const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
   const col = db.collection('VisitActivity')
 
   // Ambil dokumen lengkap untuk cek ownership + data PIC lama
@@ -408,7 +408,7 @@ export async function DELETE(
   }
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
+  const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
   const col = db.collection('VisitActivity')
 
   const existing = await col.findOne(

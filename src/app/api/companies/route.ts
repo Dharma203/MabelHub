@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   const q = (searchParams.get("q") || "").trim();
 
   const client = await clientPromise;
-  const db = client.db("MabelHub");
+  const db = client.db("MabelHubStaging");
 
   const filter: any = { approval_status: "APPROVED" };
   if (ring) filter.status_ring = ring;
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   const body = await req.json();
 
   const client = await clientPromise;
-  const db = client.db("MabelHub");
+  const db = client.db("MabelHubStaging");
 
   const doc = {
     institusi_kerja: body.institusi_kerja || "",

@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MabelHub",
-  description: "MabelHub Application",
+  title: "MabelHubStaging",
+  description: "MabelHubStaging Application",
 };
 
 export default function RootLayout({

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
 
 type EProcDoc = {
@@ -26,7 +26,7 @@ export async function POST(
   const rid = decodeURIComponent(requestId);
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
 
   const now = new Date();
 

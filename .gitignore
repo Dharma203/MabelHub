@@ -76,3 +76,6 @@ fix-table.js
 fetch-tree.js
 download-geojson.js
 GOOGLE_SHEET_SETUP.md
+
+.jest_cache/
+coverage/

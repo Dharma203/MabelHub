@@ -168,7 +168,7 @@ export default function NotFound() {
           </div>
 
           <div className="flex items-center justify-between border-t border-white/50 px-8 py-4 text-xs text-slate-500">
-            <span>© {new Date().getFullYear()} MabelHub</span>
+            <span>© {new Date().getFullYear()} MabelHubStaging</span>
             <span className="font-medium text-slate-600">Error Code: 404</span>
           </div>
         </div>

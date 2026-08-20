@@ -72,13 +72,13 @@ export default function LoginPage() {
         <div className="flex w-1/2 flex-col items-center justify-center">
           <Image
             src="/logo.png"
-            alt="MabelHub Logo"
+            alt="MabelHubStaging Logo"
             width={200}
             height={160}
             className="mt-7"
             unoptimized
           />
-          <h1 className="text-2xl font-semibold text-black dark:text-white">MabelHub</h1>
+          <h1 className="text-2xl font-semibold text-black dark:text-white">MabelHubStaging</h1>
         </div>
 
         <div className="flex w-1/2 flex-col justify-center px-10">

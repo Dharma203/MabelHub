@@ -138,7 +138,7 @@ export async function GET(req: Request) {
   const dateStr = searchParams.get("date"); // The formatted string e.g. "01 Feb"
 
   const client = await clientPromise;
-  const db = client.db("MabelHub");
+  const db = client.db("MabelHubStaging");
 
   // ✅ pastikan nama collection benar
   const col = db.collection("VisitActivity");

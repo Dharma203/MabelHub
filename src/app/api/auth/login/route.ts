@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { verifyPassword } from "@/lib/password";
 import { signSession } from "@/lib/jwt";
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
     // ✅ connect (native driver)
     const client = await clientPromise;
-    const db = client.db(process.env.MONGODB_DB || "MabelHub");
+    const db = client.db(getDbName());
 
     // ✅ cari user berdasarkan username/email
     // CATATAN: ini mengasumsikan username & email disimpan lowercase di DB.

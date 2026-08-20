@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   }
 
   const client = await clientPromise;
-  const db = client.db("MabelHub");
+  const db = client.db("MabelHubStaging");
 
   try {
     const rows = await db
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   const body = await req.json();
 
   const client = await clientPromise;
-  const db = client.db("MabelHub");
+  const db = client.db("MabelHubStaging");
 
   const doc = {
     tanggal: body.tanggal || new Date().toISOString().split("T")[0],

@@ -1,7 +1,7 @@
-# 📋 Log Percakapan & Perubahan Kode — MabelHub
+# 📋 Log Percakapan & Perubahan Kode — MabelHubStaging
 **Tanggal:** 2 Mei 2026
 **Developer:** Ramad
-**Project:** MabelHub (Next.js + MongoDB)
+**Project:** MabelHubStaging (Next.js + MongoDB)
 
 ---
 

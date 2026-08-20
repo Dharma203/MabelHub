@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 import { getLeaderAllowedUserIds } from "@/lib/visit-auth";
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
 
     const session = auth.session;
     const client = await clientPromise;
-    const db = client.db(process.env.MONGODB_DB || "MabelHub");
+    const db = client.db(getDbName());
     const visits = db.collection("VisitActivity");
 
     // LEADER allowed list (self + memberIds)

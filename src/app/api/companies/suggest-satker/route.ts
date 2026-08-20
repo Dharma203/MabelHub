@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
-
-function getDbName() {
-  return process.env.MONGODB_DB || "MabelHub";
-}
+import clientPromise, { getDbName } from "@/lib/mongodb";
 
 export async function GET(req: Request) {
   try {

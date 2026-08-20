@@ -7,7 +7,7 @@ Your tracking pages now have a **"Google Sheets"** export button. One click crea
 
 ### 1. Create Google Cloud Project
 - Go to https://console.cloud.google.com/
-- Click **"Create Project"** → name it anything (e.g., "MabelHub")
+- Click **"Create Project"** → name it anything (e.g., "MabelHubStaging")
 - Wait for it to load
 
 ### 2. Enable Google Sheets API

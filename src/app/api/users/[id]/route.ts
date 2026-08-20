@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { hashPassword } from "@/lib/password";
 import { assertSuperadmin } from "@/lib/auth-server";
 
@@ -68,7 +68,7 @@ export async function PUT(req: Request, context: Ctx) {
 
   try {
     const client = await clientPromise;
-    const db = client.db(process.env.MONGODB_DB || "MabelHub");
+    const db = client.db(getDbName());
     await ensureUserIndexes(db);
 
     const body = await req.json().catch(() => ({}));
@@ -167,7 +167,7 @@ export async function DELETE(req: Request, context: any) {
 
   try {
     const client = await clientPromise;
-    const db = client.db(process.env.MONGODB_DB || "MabelHub");
+    const db = client.db(getDbName());
 
     const deleted = await db
       .collection("users")
