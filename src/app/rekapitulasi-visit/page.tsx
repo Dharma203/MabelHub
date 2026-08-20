@@ -10,6 +10,7 @@ import ExportExcelModal, {
   ExportColumn,
   ExportScope,
 } from '@/components/modals/ExportExcelModal'
+import { FolderCode } from 'lucide-react'
 
 type DashboardStats = {
   totalVisits: number
@@ -29,6 +30,7 @@ type DashboardStats = {
   topVisit?: { name: string; count: number }[]
   topSales?: { name: string; count: number }[]
   klpd?: { name: string; count: number }[]
+  kegiatan_status?: { name: string; count: number }[]
 }
 
 type VisitRow = {
@@ -52,6 +54,7 @@ type VisitRow = {
   tindak_lanjut: string
   kegiatan_status: string
   descriptions: string
+  visit_image: string
 }
 
 function cn(...s: Array<string | false | null | undefined>) {
@@ -200,6 +203,87 @@ export default function RekapitulasiVisitPage() {
   // ====== export modal ======
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+
+  function LinkItem({
+    value,
+    isLink = false,
+  }: {
+    label: string
+    value?: string | null
+    isLink?: boolean
+  }) {
+    const empty = !value || value.trim() === ''
+    return (
+      <div className='flex items-start gap-1.5 min-w-0'>
+        <div className='flex flex-col min-w-0'>
+          {empty ? (
+            <span className='text-[10.5px] text-slate-300 italic'>-</span>
+          ) : isLink ? (
+            <a
+              href={value!.startsWith('http') ? value! : `https://${value}`}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='text-[10.5px] text-blue-600 underline underline-offset-2 font-medium truncate hover:text-blue-800'
+            >
+              Link Foto
+            </a>
+          ) : (
+            <span className='text-[10.5px] text-slate-700 font-medium break-words leading-snug'>
+              {value}
+            </span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  function getImageUrl(
+    img?: string,
+    _id?: string,
+    base = typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://hub.mabel.co.id',
+  ) {
+    if (!img || img === '__base64_image__')
+      return _id ? `${base}/api/visits/${_id}/image` : 'Tidak tersedia'
+    return img.startsWith('http')
+      ? img
+      : `${base}${img.startsWith('/') ? '' : '/uploads/'}${img}`
+  }
+
+  function openImageBase64(base64: string) {
+    const w = window.open('')
+    if (w) {
+      w.document.write(
+        `<!DOCTYPE html>
+        <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              background: #000;
+            }
+            img {
+              max-width: 100%;
+              max-height: 100vh;
+              object-fit: contain;
+              display: block;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${base64}" alt="Bukti Kunjungan" />
+        </body>
+        </html>`,
+      )
+      w.document.close()
+    }
+  }
 
   // fetch meta (dropdown) sekali
   useEffect(() => {
@@ -434,6 +518,8 @@ export default function RekapitulasiVisitPage() {
           row['Kegiatan Status'] = r.kegiatan_status || '-'
         if (selectedCols.includes('deskripsi'))
           row['Deskripsi Kegiatan'] = r.descriptions || '-'
+        if (selectedCols.includes('visit_image'))
+          row['Visit Image'] = r.visit_image || '-'
         return row
       })
 
@@ -533,8 +619,56 @@ export default function RekapitulasiVisitPage() {
               </div>
             </div>
 
-            <div className='mb-6 flex flex-col  gap-4 md:flex-row md:items-center justify-between px-4'>
-                  Analisa Kegiatan Status
+            <div className='mb-6 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm'>
+              <div className='mb-3 flex items-center justify-between gap-3'>
+                <div className='flex items-center gap-2'>
+                  <span className='grid h-5 w-5 place-items-center rounded bg-violet-100 text-violet-600'>
+                    <FolderCode size={13} />
+                  </span>
+                  <h1 className='text-[11px] font-bold uppercase tracking-wide text-slate-700'>
+                    Analisa Kegiatan Status
+                  </h1>
+                </div>
+                <span className='rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold text-violet-700'>
+                  Total:{' '}
+                  {stats?.kegiatan_status
+                    ?.reduce((sum, item) => sum + item.count, 0)
+                    .toLocaleString('id-ID') ?? '-'}
+                </span>
+              </div>
+              <div className='flex flex-wrap gap-2'>
+                {stats?.kegiatan_status?.map((item, index) => {
+                  const colors = [
+                    ['bg-violet-500', 'bg-violet-100', 'text-violet-700'],
+                    ['bg-blue-600', 'bg-blue-100', 'text-blue-700'],
+                    ['bg-emerald-500', 'bg-emerald-100', 'text-emerald-700'],
+                    ['bg-amber-500', 'bg-amber-100', 'text-amber-700'],
+                    ['bg-rose-500', 'bg-rose-100', 'text-rose-700'],
+                    ['bg-cyan-500', 'bg-cyan-100', 'text-cyan-700'],
+                    ['bg-lime-500', 'bg-lime-100', 'text-lime-700'],
+                    ['bg-orange-500', 'bg-orange-100', 'text-orange-700'],
+                  ][index % 8]
+
+                  return (
+                    <div
+                      key={item.name}
+                      className='inline-flex min-h-8 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1'
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${colors[0]}`}
+                      />
+                      <span className='text-[10px] font-medium text-slate-700'>
+                        {item.name}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${colors[1]} ${colors[2]}`}
+                      >
+                        {item.count.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
             {/* FILTER CARD */}
@@ -645,6 +779,7 @@ export default function RekapitulasiVisitPage() {
                         'CITY',
                         'PIC NAME',
                         'PIC PHONE',
+                        'FOTO VISIT',
                         'RING',
                       ].map((h) => (
                         <th
@@ -717,6 +852,13 @@ export default function RekapitulasiVisitPage() {
                               </td>
                               <td className='px-6 py-6 text-gray-900'>
                                 {r.pic_phone}
+                              </td>
+                              <td className='px-6 py-6 text-gray-900'>
+                                <LinkItem
+                                label=''
+                                value={r.visit_image}
+                                isLink
+                                />
                               </td>
                               <td className='px-6 py-6 font-extrabold text-[#0B6AA9]'>
                                 {r.status_ring}
