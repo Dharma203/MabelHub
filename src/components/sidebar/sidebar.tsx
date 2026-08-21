@@ -244,7 +244,7 @@ export default function Sidebar() {
             <Menu className="w-6 h-6" />
           </button>
           <span className="font-extrabold text-white text-lg tracking-wide">
-            MabelHubStaging
+            MabelHub
           </span>
         </div>
         <div className="flex items-center gap-3 text-white">
@@ -281,7 +281,7 @@ export default function Sidebar() {
              <Icons.ShieldCheck className="w-6 h-6 text-blue-900" />
           </div>
           <div className={`ml-4 flex flex-col ${labelVisibility} transition-opacity duration-300 whitespace-nowrap overflow-hidden`}>
-            <span className="text-sm font-black text-white tracking-[0.1em]">MabelHubStaging</span>
+            <span className="text-sm font-black text-white tracking-[0.1em]">MabelHub</span>
             <span className="text-[10px] text-blue-100 font-medium whitespace-nowrap">Customer Relationship Management</span>
           </div>
           

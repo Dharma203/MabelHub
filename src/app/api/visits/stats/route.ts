@@ -17,6 +17,7 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const filterStatsB2G = searchParams.get('filterStatsB2G') === 'true'
+  const filterStatsB2B = searchParams.get('filterStatsB2B') === 'true'
 
   // Build role-based filter
   const { match: authMatch, error } = await getVisitAuthMatch(db, session)
@@ -33,6 +34,16 @@ export async function GET(req: Request) {
     extraMatch.klpd = {
       $exists: true,
       $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
+    }
+  }
+
+  // filterStatsB2B = excludeOffice + includeRing4 + includeKlpd(B2B)
+  if (filterStatsB2B) {
+    extraMatch.satuan_kerja = { $exists: true, $not: /office/i }
+    extraMatch.status_ring = { $exists: true, $regex: /ring[\s_]*4/i }
+    extraMatch.klpd = {
+      $exists: true,
+      $regex: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
     }
   }
 
@@ -78,7 +89,6 @@ export async function GET(req: Request) {
   // Satker paling banyak dikunjungi
   const topSatker = ranked?.[0]?.satuan_kerja ?? '-'
   const topSatkerCount = ranked?.[0]?.total_visit ?? 0
-  const salesAktif = ranked?.[0]?.nama_sales ?? 0
 
   // Breakdown satker unik per kategori — dihitung dari `ranked`,
   // yang sudah 1 baris per satker, jadi tinggal dikelompokkan ulang
@@ -100,6 +110,7 @@ export async function GET(req: Request) {
   const byKlpd = countBy(ranked, 'klpd', 'Tidak diketahui')
   const byRing = countBy(ranked, 'status_ring', 'Tidak diketahui')
   const bySales = countBy(ranked, 'nama_sales', '(Belum dikunjungi)')
+  const salesAktif = bySales.length
 
   return NextResponse.json({
     totalSatuanKerja,

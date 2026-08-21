@@ -15,10 +15,6 @@ function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-
-
-
-
 /**
  * GET /api/visits?limit=25&page=1&q=...
  * Optional:
@@ -53,6 +49,7 @@ export async function GET(req: Request) {
   const klpd = searchParams.get('klpd')
   const dateStr = searchParams.get('date') // specific date e.g. "01 Feb"
   const filterStatsB2G = searchParams.get('filterStatsB2G') === 'true'
+  const filterStatsB2B = searchParams.get('filterStatsB2B') === 'true'
   const groupBySatker = searchParams.get('groupBySatker') === 'true'
   const kegiatanStatus = searchParams.getAll('kegiatan_status')
 
@@ -212,6 +209,16 @@ export async function GET(req: Request) {
       klpd: {
         $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
       },
+    })
+  }
+
+  // filterStatsB2B = excludeOffice + includeRing4 + includeKlpd(B2B)
+  if (filterStatsB2B) {
+    if (!match.$and) match.$and = []
+    match.$and.push({ satuan_kerja: { $not: /office/i } })
+    match.$and.push({ status_ring: /ring[\s_]*4/i })
+    match.$and.push({
+      klpd: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
     })
   }
 
@@ -376,6 +383,12 @@ export async function GET(req: Request) {
     globalRankingMatch.klpd.$not = /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i
   }
 
+  if (filterStatsB2B) {
+    globalRankingMatch.satuan_kerja.$not = /office/i
+    globalRankingMatch.status_ring = { ...globalRankingMatch.status_ring, $regex: /ring[\s_]*4/i }
+    globalRankingMatch.klpd = { ...globalRankingMatch.klpd, $regex: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i }
+  }
+
   const globalRanking = await col
     .aggregate([
       { $match: globalRankingMatch },
@@ -386,6 +399,7 @@ export async function GET(req: Request) {
 
   const satkerOrder = globalRanking.map((g: any) => String(g._id))
   const satkerVisitCounts = globalRanking.map((g: any) => g.total_visit)
+  const salesCounts = globalRanking.map((g: any) => g.nama_saless)
 
   // =========================
   // PIPELINE

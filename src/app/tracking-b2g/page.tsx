@@ -19,7 +19,6 @@ import {
   Activity,
   User2,
   UserRound,
-  BarChartBig,
   BarChart3,
 } from 'lucide-react'
 import Image from 'next/image'
@@ -40,7 +39,7 @@ type VisitRow = {
   city: string
   pic_name: string
   pic_phone: string
-  status_ring: 'RING 1' | 'RING 2' | 'RING 3' | 'RING 4' | string
+  status_ring: 'RING 1' | 'RING 2' | 'RING 3' | string
   created_at: string
   status_market: string
   klpd: string
@@ -118,10 +117,6 @@ export default function TrackingB2GPage() {
   const [fRing, setFRing] = useState<string>('ALL')
   const [fCity, setFCity] = useState<string>('ALL')
   const [fSatker, setFSatker] = useState<string>('ALL')
-
-  // card data
-  const [city, setCity] = useState<string>('')
-  const [klpd, setKlpd] = useState<string>('')
 
   //   dropdown meta
   const [salesOptions, setSalesOptions] = useState<string[]>([])
@@ -394,8 +389,8 @@ export default function TrackingB2GPage() {
           {/* TOP Bar */}
           <div className='mb-4 px-4 pt-2 pb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
             <div>
-              <h2 className='tex-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
-                Tracking Satuan Kerja
+              <h2 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
+                Tracking Visit B2G
               </h2>
             </div>
           </div>
