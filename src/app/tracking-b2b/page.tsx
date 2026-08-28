@@ -978,7 +978,327 @@ export default function TrackingB2BPage() {
               </table>
             </div>
           </section>
+
+          {/* ========== VISIT DETAIL MODAL ========== */}
+          {modalVisit && (
+            <div
+              className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4'
+              onClick={() => setModalVisit(null)}
+            >
+              <div
+                className='relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl ring-1 ring-gray-200'
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div className='sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white/95 backdrop-blur-sm rounded-t-2xl'>
+                  <div className='flex items-center gap-3'>
+                    <span className='grid h-10 w-10 place-items-center rounded-xl bg-blue-100 text-blue-600'>
+                      <FileText className='w-5 h-5' />
+                    </span>
+                    <div>
+                      <h3 className='text-lg font-extrabold text-gray-900'>
+                        Detail Kunjungan
+                      </h3>
+                      <p className='text-xs text-gray-500'>
+                        {modalVisit.visit_date} — {modalVisit.satuan_kerja}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type='button'
+                    onClick={() => setModalVisit(null)}
+                    className='grid h-9 w-9 place-items-center rounded-xl bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors'
+                  >
+                    <X className='w-5 h-5' />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className='px-6 py-5 space-y-6'>
+                  {/* Section: Detail Visit */}
+                  <div>
+                    <div className='flex items-center gap-2 mb-3'>
+                      <MapPin className='w-4 h-4 text-blue-600' />
+                      <h4 className='text-sm font-extrabold text-gray-900 uppercase tracking-wider'>
+                        Detail Visit
+                      </h4>
+                    </div>
+                    <div className='grid grid-cols-2 gap-4 md:grid-cols-3 p-4 rounded-xl bg-gray-50 border border-gray-100'>
+                      <DetailItem
+                        label='Tanggal Visit'
+                        value={modalVisit.visit_date}
+                      />
+                      <DetailItem
+                        label='Sales Person'
+                        value={modalVisit.nama_sales}
+                      />
+                      <DetailItem label='City' value={modalVisit.city} />
+                      <DetailItem label='Ring' value={modalVisit.status_ring} />
+                      <DetailItem
+                        label='Satuan Kerja'
+                        value={modalVisit.satuan_kerja}
+                      />
+                      <DetailItem label='KLPD' value={modalVisit.klpd} />
+                      <DetailItem
+                        label='Institusi Kerja'
+                        value={modalVisit.institusi_kerja}
+                      />
+                      <DetailItem
+                        label='PIC Name'
+                        value={modalVisit.pic_name}
+                      />
+                      <DetailItem
+                        label='PIC Phone'
+                        value={modalVisit.pic_phone}
+                      />
+                      <DetailItem
+                        label='PIC Position'
+                        value={modalVisit.pic_position}
+                      />
+                      <DetailItem
+                        label='PIC Role'
+                        value={modalVisit.pic_role}
+                      />
+                      <DetailItem
+                        label='Created At'
+                        value={modalVisit.created_at}
+                      />
+                      <div>
+                        <div className='text-xs font-extrabold tracking-wider text-gray-500'>
+                          STATUS VISIT
+                        </div>
+                        <div className='mt-1'>
+                          {(() => {
+                            const sc = getStatusColor(modalVisit.status_visit)
+                            return (
+                              <span
+                                className={cn(
+                                  'inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider',
+                                  sc.bg,
+                                  sc.text,
+                                )}
+                              >
+                                {modalVisit.status_visit || 'No Status'}
+                              </span>
+                            )
+                          })()}
+                        </div>
+                      </div>
+                      <DetailItem
+                        label='Market Status'
+                        value={modalVisit.status_market}
+                      />
+                      <DetailItem
+                        label='Reschedule'
+                        value={
+                          modalVisit.reschedule && modalVisit.reschedule !== '-'
+                            ? modalVisit.reschedule
+                            : '-'
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {/* Section: Aktivitas */}
+                  <div>
+                    <div className='flex items-center gap-2 mb-3'>
+                      <Activity className='w-4 h-4 text-green-600' />
+                      <h4 className='text-sm font-extrabold text-gray-900 uppercase tracking-wider'>
+                        Aktivitas
+                      </h4>
+                    </div>
+                    <div className='p-4 rounded-xl bg-gray-50 border border-gray-100 space-y-4'>
+                      <DetailItem
+                        label='Kegiatan Status'
+                        value={modalVisit.kegiatan_status}
+                      />
+                      <DetailItem
+                        label='Tindak Lanjut'
+                        value={modalVisit.tindak_lanjut}
+                      />
+                      <div>
+                        <div className='text-xs font-extrabold tracking-wider text-gray-500'>
+                          DESKRIPSI
+                        </div>
+                        <div className='mt-1 whitespace-pre-line text-sm font-semibold text-gray-900'>
+                          {modalVisit.descriptions || '-'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section: Dokumentasi Foto */}
+                  <div>
+                    <div className='flex items-center gap-2 mb-3'>
+                      <ImageIcon className='w-4 h-4 text-purple-600' />
+                      <h4 className='text-sm font-extrabold text-gray-900 uppercase tracking-wider'>
+                        Dokumentasi Foto
+                      </h4>
+                    </div>
+                    <div className='p-4 rounded-xl bg-gray-50 border border-gray-100'>
+                      {modalVisit.visit_image ? (
+                        <div
+                          className='relative w-full max-w-xs mx-auto cursor-pointer group'
+                          onClick={() =>
+                            openImageFullscreen(modalVisit.visit_image!)
+                          }
+                        >
+                          <Image
+                            src={modalVisit.visit_image}
+                            alt='Bukti Kunjungan'
+                            width={500}
+                            height={500}
+                            quality={80}
+                            className='w-full rounded-xl shadow-sm ring-1 ring-gray-200 group-hover:ring-blue-400 group-hover:shadow-lg transition-all'
+                          />
+                          <div className='absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center'>
+                            <span className='opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-lg shadow'>
+                              Klik untuk memperbesar
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className='text-center py-8 text-gray-400'>
+                          <ImageIcon className='w-10 h-10 mx-auto mb-2 opacity-30' />
+                          <p className='text-sm'>Tidak ada foto dokumentasi</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className='sticky bottom-0 px-6 py-4 border-t border-gray-100 bg-white/95 backdrop-blur-sm rounded-b-2xl'>
+                  <button
+                    type='button'
+                    onClick={() => setModalVisit(null)}
+                    className='w-full h-10 rounded-xl bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200 transition-colors'
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========== FULLSCREEN IMAGE VIEWER ========== */}
+          {viewImage && (
+            <div
+              className='fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4'
+              onClick={() => setViewImage(null)}
+            >
+              <button
+                type='button'
+                onClick={() => setViewImage(null)}
+                className='absolute top-4 right-4 z-10 grid h-10 w-10 place-items-center rounded-xl bg-white/20 text-white hover:bg-white/40 transition-colors'
+              >
+                <X className='w-6 h-6' />
+              </button>
+              <Image
+                src={viewImage}
+                height={500}
+                width={500}
+                quality={80}
+                alt='Full size'
+                className='max-w-full max-h-full rounded-xl shadow-2xl object-contain'
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          )}
+          {/* Pagination */}
+          <section className='mt-6 flex flex-col gap-3 rounded-2xl bg-white px-6 py-4 shadow-sm ring-1 ring-blue-100 md:flex-row md:items-center md:justify-between'>
+            <div className='text-sm text-gray-600'>
+              Menampilkan {showingFrom} - {showingTo} dari {total} data
+            </div>
+
+            <div className='flex flex-wrap items-center gap-3'>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value))
+                  setPage(1)
+                }}
+                className='h-10 rounded-xl border border-blue-100 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+              >
+                <option value={10}>10 / Halaman</option>
+                <option value={25}>25 / Halaman</option>
+                <option value={50}>50 / Halaman</option>
+                <option value={100}>100 / Halaman</option>
+              </select>
+
+              <div className='flex items-center gap-2'>
+                <PageBtn onClick={() => gotoPage(1)} ariaLabel='First'>
+                  ⏮
+                </PageBtn>
+                <PageBtn
+                  onClick={() => gotoPage(safePage - 1)}
+                  ariaLabel='Prev'
+                >
+                  ◀
+                </PageBtn>
+
+                {getPageWindow(safePage, totalPages, 5).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => gotoPage(p)}
+                    className={cn(
+                      'grid h-10 w-10 place-items-center rounded-xl border text-sm font-semibold',
+                      p === safePage
+                        ? 'border-blue-200 bg-blue-50 text-blue-700'
+                        : 'border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40',
+                    )}
+                  >
+                    {p}
+                  </button>
+                ))}
+
+                <PageBtn
+                  onClick={() => gotoPage(safePage + 1)}
+                  ariaLabel='Next'
+                >
+                  ▶
+                </PageBtn>
+                <PageBtn onClick={() => gotoPage(totalPages)} ariaLabel='Last'>
+                  ⏭
+                </PageBtn>
+              </div>
+            </div>
+          </section>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function PageBtn({
+  children,
+  onClick,
+  ariaLabel,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  ariaLabel: string
+}) {
+  return (
+    <button
+      type='button'
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className='grid h-10 w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40'
+    >
+      {children}
+    </button>
+  )
+}
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className='text-xs font-extrabold tracking-wider text-gray-500'>
+        {label}
+      </div>
+      <div className='mt-1 text-sm font-semibold text-gray-900'>
+        {value || '-'}
       </div>
     </div>
   )
@@ -1091,7 +1411,7 @@ function TableCard({
 
       <hr className='border-gray-100 mb-3.5' />
 
-      <div className='space-y-3.5'>
+      <div className='max-h-[230px] overflow-y-auto space-y-3.5'>
         {items.map((item) => {
           const rowTheme = item.color ? THEMES[item.color] : theme
           const width = maxValue > 0 ? (item.value / maxValue) * 100 : 0

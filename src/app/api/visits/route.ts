@@ -202,11 +202,10 @@ export async function GET(req: Request) {
   // filterStatsB2G = gabungan excludeOffice + excludeRing4 + excludeKlpd
   if (filterStatsB2G) {
     if (!match.$and) match.$and = []
-    match.$and.push({ satuan_kerja: { $exists: true, $not: /office/i } })
-    match.$and.push({ status_ring: { $exists: true, $not: /ring[\s_]*4/i } })
+    match.$and.push({ satuan_kerja: { $not : /office/i  }})
+    match.$and.push({ status_ring: { $not: /ring[\s_]*4/i } })
     match.$and.push({
       klpd: {
-        $exitst: true,
         $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
       },
     })
@@ -215,8 +214,8 @@ export async function GET(req: Request) {
   // filterStatsB2B = excludeOffice + includeRing4 + includeKlpd(B2B)
   if (filterStatsB2B) {
     if (!match.$and) match.$and = []
-    match.$and.push({ satuan_kerja: { $exists: true, $not: /office/i } })
-    match.$and.push({ status_ring: { $exists: true, $not: /ring[\s_]*1/i } })
+    match.$and.push({ satuan_kerja: { $not: /office/i } })
+    match.$and.push({ status_ring: { $regex: /ring[\s_]*4/i } })
     match.$and.push({
       klpd: /kementrian|bumd|provinsi|kota/i,
     })
