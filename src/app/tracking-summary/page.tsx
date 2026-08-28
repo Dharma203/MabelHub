@@ -381,36 +381,38 @@ export default function TrackingSummaryPage() {
     }
   }
 
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      setLoadingRows(true)
-      if (!mounted) return
+  // useEffect(() => {
+  //   let mounted = true
+  //   ;(async () => {
+  //     setLoadingRows(true)
+  //     if (!mounted) return
 
-      const qs = new URLSearchParams()
-      qs.set('limit', String(pageSize))
-      qs.set('page', String(page))
+  //     const qs = new URLSearchParams()
+  //     qs.set('limit', String(pageSize))
+  //     qs.set('page', String(page))
 
-      bulan.forEach((v) => qs.append('bulan', v))
-      perusahaan.forEach((v) => qs.append('perusahaan', v))
-      produk.forEach((v) => qs.append('produk', v))
-      provinsi.forEach((v) => qs.append('provinsi', v))
-      kota.forEach((v) => qs.append('kota', v))
-      statusTlp.forEach((v) => qs.append('status_tlp', v))
-      toSales.forEach((v) => qs.append('ke_sales', v))
-      namaPic.forEach((v) => qs.append('pic', v))
-      if (startDate) qs.set('startDate', startDate)
-      if (endDate) qs.set('endDate', endDate)
+  //     bulan.forEach((v) => qs.append('bulan', v))
+  //     perusahaan.forEach((v) => qs.append('perusahaan', v))
+  //     produk.forEach((v) => qs.append('produk', v))
+  //     provinsi.forEach((v) => qs.append('provinsi', v))
+  //     kota.forEach((v) => qs.append('kota', v))
+  //     statusTlp.forEach((v) => qs.append('status_tlp', v))
+  //     toSales.forEach((v) => qs.append('ke_sales', v))
+  //     namaPic.forEach((v) => qs.append('pic', v))
+  //     if (startDate) qs.set('startDate', startDate)
+  //     if (endDate) qs.set('endDate', endDate)
 
-      try {
-        const res = await fetch(`/api/tracking-summary?${qs.toString()}`, {
-          cache: 'no-store',
-        })
-        const json = await res.json().catch(() => ({}))
-        if (!mounted) return
+  //     try {
+  //       const res = await fetch(`/api/tracking-summary?${qs.toString()}`, {
+  //         cache: 'no-store',
+  //       })
+  //       const json = await res.json().catch(() => ({}))
+  //       if (!mounted) return
 
         
-      }
-    })
-  })
+  //     }
+  //   }
+  // )
+  // })
+  
 }

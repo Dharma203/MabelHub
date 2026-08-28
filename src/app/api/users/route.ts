@@ -93,7 +93,7 @@ export async function POST(req: Request) {
 
   try {
     const client = await clientPromise
-    const db = client.db(getDbName())
+    const db = client.db('MabelHub')
 
     await ensureUserIndexes(db)
 
