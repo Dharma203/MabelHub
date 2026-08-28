@@ -4,7 +4,7 @@ import clientPromise from "@/lib/mongodb";
 export async function GET() {
     try {
         const client = await clientPromise
-        const db = client.db('MabelHub')
+        const db = client.db('MabelHubStaging')
 
         const inputCol = db.collection("input_database");
 

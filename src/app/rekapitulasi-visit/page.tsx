@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 
 import { useSession } from '@/components/session/SessionProvider'
 import SearchableSelect from '@/components/ui/SearchableSelect'
@@ -10,6 +10,19 @@ import ExportExcelModal, {
   ExportColumn,
   ExportScope,
 } from '@/components/modals/ExportExcelModal'
+import {
+  Briefcase,
+  Building2,
+  Calendar,
+  Clock,
+  FolderCode,
+  ImageIcon,
+  MapPin,
+  Pen,
+  User,
+  X,
+} from 'lucide-react'
+import Image from 'next/image'
 
 type DashboardStats = {
   totalVisits: number
@@ -29,6 +42,7 @@ type DashboardStats = {
   topVisit?: { name: string; count: number }[]
   topSales?: { name: string; count: number }[]
   klpd?: { name: string; count: number }[]
+  kegiatan_status?: { name: string; count: number }[]
 }
 
 type VisitRow = {
@@ -52,7 +66,12 @@ type VisitRow = {
   tindak_lanjut: string
   kegiatan_status: string
   descriptions: string
+  visit_image: string
+  _date: Date | null
+  _sortTs: number
 }
+
+type CalendarView = 'month' | 'week' | 'day' | 'reschedule'
 
 function cn(...s: Array<string | false | null | undefined>) {
   return s.filter(Boolean).join(' ')
@@ -129,11 +148,64 @@ function StatusPill({ value }: { value: string }) {
   )
 }
 
+// Status badge color
+function getStatusColor(status: string): {
+  bg: string
+  text: string
+  dot: string
+  border: string
+} {
+  const s = status?.toLowerCase() || ''
+  if (s.includes('visit') && !s.includes('not'))
+    return {
+      bg: 'bg-emerald-100',
+      text: 'text-emerald-700',
+      dot: 'bg-emerald-500',
+      border: '#10b981',
+    }
+  if (s === 'planned' || s === '')
+    return {
+      bg: 'bg-blue-100',
+      text: 'text-blue-700',
+      dot: 'bg-blue-500',
+      border: '#3b82f6',
+    }
+  if (s.includes('reschedule'))
+    return {
+      bg: 'bg-amber-100',
+      text: 'text-amber-700',
+      dot: 'bg-amber-500',
+      border: '#f59e0b',
+    }
+  if (s.includes('stay'))
+    return {
+      bg: 'bg-purple-100',
+      text: 'text-purple-700',
+      dot: 'bg-purple-500',
+      border: '#a855f7',
+    }
+  return {
+    bg: 'bg-gray-100',
+    text: 'text-gray-600',
+    dot: 'bg-gray-400',
+    border: '#9ca3af',
+  }
+}
+
 export default function RekapitulasiVisitPage() {
   const router = useRouter()
   const { user, loading: sessionLoading } = useSession()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
+  const [visitRow, setVisitRow] = useState<VisitRow | null>(null)
+
+  const [visits, setVisits] = useState<VisitRow[]>([])
+
+  // Calendar state
+  const [calendarView, setCalendarView] = useState<CalendarView>('month')
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [detailKunjungan, setDetailKunjungan] = useState<VisitRow | null>(null)
 
   // ✅ Guard role (sesuaikan kalau ada rule akses lain)
   useEffect(() => {
@@ -200,6 +272,167 @@ export default function RekapitulasiVisitPage() {
   // ====== export modal ======
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+
+  // edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editId, setEditId] = useState('')
+
+  const [search, setSearch] = useState('')
+
+  // paginate
+  const [loading, setLoading] = useState(false)
+
+  const popupRef = useRef<HTMLDivElement>(null)
+
+  function LinkItem({
+    value,
+    isLink = false,
+  }: {
+    label: string
+    value?: string | null
+    isLink?: boolean
+  }) {
+    const empty = !value || value.trim() === ''
+    return (
+      <div className='flex items-start gap-1.5 min-w-0'>
+        <div className='flex flex-col min-w-0'>
+          {empty ? (
+            <span className='text-[10.5px] text-slate-300 italic'>-</span>
+          ) : isLink ? (
+            <a
+              href={value!.startsWith('http') ? value! : `https://${value}`}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='text-[10.5px] text-blue-600 underline underline-offset-2 font-medium truncate hover:text-blue-800'
+            >
+              Link Foto
+            </a>
+          ) : (
+            <span className='text-[10.5px] text-slate-700 font-medium break-words leading-snug'>
+              {value}
+            </span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Format: "Juni 2026"
+  const MONTH_NAMES_ID = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+  ]
+  const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
+  const DAY_NAMES_FULL = [
+    'Senin',
+    'Selasa',
+    'Rabu',
+    'Kamis',
+    'Jumat',
+    'Sabtu',
+    'Minggu',
+  ]
+
+  function dateToKey(d: Date): string {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  function formatFullDate(d: Date): string {
+    const dayIdx = (d.getDay() + 6) % 7 // Monday = 0
+    return `${DAY_NAMES_FULL[dayIdx]}, ${d.getDate()} ${MONTH_NAMES_ID[d.getMonth()]} ${d.getFullYear()}`
+  }
+
+  function getImageUrl(
+    img?: string,
+    _id?: string,
+    base = typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://hub.mabel.co.id',
+  ) {
+    if (!img || img === '__base64_image__')
+      return _id ? `${base}/api/visits/${_id}/image` : 'Tidak tersedia'
+    return img.startsWith('http')
+      ? img
+      : `${base}${img.startsWith('/') ? '' : '/uploads/'}${img}`
+  }
+
+  function openImageBase64(base64: string) {
+    const w = window.open('')
+    if (w) {
+      w.document.write(
+        `<!DOCTYPE html>
+        <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              background: #000;
+            }
+            img {
+              max-width: 100%;
+              max-height: 100vh;
+              object-fit: contain;
+              display: block;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${base64}" alt="Bukti Kunjungan" />
+        </body>
+        </html>`,
+      )
+      w.document.close()
+    }
+  }
+
+  // Group kunjungan by date key
+  const visitsByDate = useMemo(() => {
+    const map: Record<string, VisitRow[]> = {}
+    const filteredPlans =
+      calendarView === 'reschedule'
+        ? visits.filter((p) =>
+            p.status_visit?.toLowerCase().includes('reschedule'),
+          )
+        : visits
+
+    for (const p of filteredPlans) {
+      if (!p._date) continue
+      const key = dateToKey(p._date)
+      if (!map[key]) map[key] = []
+      map[key].push(p)
+    }
+    return map
+  }, [visits, calendarView])
+
+  // close pop up when clicling outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
+        setSelectedDate(null)
+        setDetailKunjungan(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  })
 
   // fetch meta (dropdown) sekali
   useEffect(() => {
@@ -332,6 +565,225 @@ export default function RekapitulasiVisitPage() {
     }
   }, [sessionLoading, user, activeFilters, startDate, endDate])
 
+  function getWeekDays(d: Date): Date[] {
+    const dow = (d.getDay() + 6) % 7 // Monday = 0
+    const monday = new Date(d)
+    monday.setDate(d.getDate() - dow)
+
+    const days: Date[] = []
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(monday)
+      day.setDate(monday.getDate() + i)
+      days.push(day)
+    }
+    return days
+  }
+
+  function monthIndex(mon: string) {
+    const m = mon.toLowerCase()
+    const map: Record<string, number> = {
+      jan: 0,
+      feb: 1,
+      mar: 2,
+      apr: 3,
+      may: 4,
+      mei: 4,
+      jun: 5,
+      jul: 6,
+      aug: 7,
+      agu: 7,
+      sep: 8,
+      oct: 9,
+      okt: 9,
+      nov: 10,
+      dec: 11,
+      des: 11,
+    }
+    return map[m] ?? -1
+  }
+
+  function parseVisitDateToTs(v?: string) {
+    if (!v) return 0
+  }
+
+  // parse visit_date in multiple formats -> Date object
+  function parseVisitDateToDate(v?: string): Date | null {
+    if (!v) return null
+
+    // Try "3-Dec-2025" or "3-Des-2025" format (d-Mon-YYYY)
+    const parts = v.split('-')
+    if (parts.length === 3) {
+      const day = Number(parts[0])
+      const mon = monthIndex(parts[1])
+      let year = Number(parts[2])
+      if (day && mon >= 0 && year) {
+        if (year < 100) year += 2000
+        const d = new Date(year, mon, day)
+        if (!Number.isNaN(d.getTime())) return d
+      }
+    }
+
+    // Try ISO "YYYY-MM-DD" format (manual parse to avoid timezone issues)
+    if (/^\d{4}-\d{2}-\d{2}/.test(v)) {
+      const isoYear = Number(v.substring(0, 4))
+      const isoMonth = Number(v.substring(5, 7)) - 1
+      const isoDay = Number(v.substring(8, 10))
+      if (
+        isoYear &&
+        isoMonth >= 0 &&
+        isoMonth <= 11 &&
+        isoDay >= 1 &&
+        isoDay <= 31
+      ) {
+        const d = new Date(isoYear, isoMonth, isoDay)
+        if (!Number.isNaN(d.getTime())) return d
+      }
+    }
+
+    // Try "DD/MM/YYYY" format
+    const slashParts = v.split('/')
+    if (slashParts.length === 3) {
+      const sDay = Number(slashParts[0])
+      const sMonth = Number(slashParts[1]) - 1
+      const sYear = Number(slashParts[2])
+      if (sDay >= 1 && sDay <= 31 && sMonth >= 0 && sMonth <= 11 && sYear) {
+        const d = new Date(sYear, sMonth, sDay)
+        if (!Number.isNaN(d.getTime())) return d
+      }
+    }
+
+    // Generic Date.parse fallback
+    const d = new Date(v)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+
+  // parse "2025-12-03 16:15:30" -> timestamp
+  function parseCreatedAtToTs(v?: string) {
+    if (!v) return 0
+    const iso = v.includes('T') ? v : v.replace(' ', 'T')
+    const d = new Date(iso)
+    return Number.isNaN(d.getTime()) ? 0 : d.getTime()
+  }
+
+  function getViewDateRange(
+    view: CalendarView,
+    d: Date,
+  ): { start: string; end: string } {
+    if (view === 'day') {
+      const key = dateToKey(d)
+      return { start: key, end: key }
+    }
+    if (view === 'week') {
+      const weekDays = getWeekDays(d)
+      return { start: dateToKey(weekDays[0]), end: dateToKey(weekDays[6]) }
+    }
+    // month or reschedule: fetch the full month + padding
+    const first = new Date(d.getFullYear(), d.getMonth(), 1)
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+    // Include padding days
+    const startDow = (first.getDay() + 6) % 7
+    const paddedStart = new Date(first)
+    paddedStart.setDate(first.getDate() - startDow)
+    const daysInMonth = last.getDate()
+    const totalCells = startDow + daysInMonth <= 35 ? 35 : 42
+    const paddedEnd = new Date(paddedStart)
+    paddedEnd.setDate(paddedStart.getDate() + totalCells - 1)
+
+    return { start: dateToKey(paddedStart), end: dateToKey(paddedEnd) }
+  }
+
+  const fetchVisists = useCallback(async () => {
+    if (!user) return
+
+    try {
+      setLoading(true)
+
+      const range = getViewDateRange(calendarView, currentDate)
+      const qs = new URLSearchParams({
+        limit: '100000',
+        page: '1',
+        start: range.start,
+        end: range.end,
+      })
+
+      if (search.trim()) qs.set('q', search.trim())
+
+      const res = await fetch(`/api/visits?${qs.toString()}`, {
+        cache: 'no-store',
+      })
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setVisits([])
+        return
+      }
+
+      const items: VisitRow[] = Array.isArray(json?.items) ? json.items : []
+
+      const mapped: VisitRow[] = items.map((v) => {
+        const visitTs = parseVisitDateToTs(v.visit_date)
+        const createdTs = parseCreatedAtToTs(v.created_at)
+        const sortTs = visitTs || createdTs || 0
+        const parsedDate = parseVisitDateToDate(v.visit_date)
+
+        return {
+          _id: String(v._id),
+          tanggal: v.visit_date || '',
+          kota: v.city || '',
+          klpd: v.klpd || '',
+          nama_sales: v.nama_sales || '',
+          institusi_kerja: v.institusi_kerja || '',
+          satuan_kerja: v.satuan_kerja || '',
+          status: v.status_visit || '',
+          visit_image:
+            v.visit_image && v.visit_image !== '__base64_image__'
+              ? v.visit_image
+              : v.visit_image === '__base64_image__'
+                ? '__base64_image__'
+                : '',
+          reschedule: v.reschedule || '',
+          status_ring: v.status_ring || '',
+          pic_name: v.pic_name || '',
+          pic_phone: v.pic_phone || '',
+          pic_role: v.pic_role || '',
+          pic_position: v.pic_position || '',
+          kegiatan_status: v.kegiatan_status || '',
+          descriptions: v.descriptions || '',
+          tindak_lanjut: v.tindak_lanjut || '',
+          city: v.city || '',
+          visit_date: v.visit_date || '',
+          status_visit: v.status_visit || '',
+          created_at: v.created_at || '',
+          status_market: v.status_market || '',
+          _sortTs: sortTs,
+          _date: parsedDate,
+        }
+      })
+
+      mapped.sort((a, b) => b._sortTs - a._sortTs)
+      setVisits(mapped)
+    } finally {
+      setLoading(false)
+    }
+  }, [
+    user,
+    calendarView,
+    currentDate,
+    search,
+    getViewDateRange,
+    parseVisitDateToDate,
+  ])
+
+  function handleOpenEdit(_id: string) {
+    setEditId(_id)
+    setEditModalOpen(true)
+  }
+
+  function handleEditSuccess() {
+    setEditModalOpen(false)
+    fetchVisists()
+  }
+
   const safePage = useMemo(
     () => Math.min(Math.max(1, page), Math.max(1, totalPages)),
     [page, totalPages],
@@ -434,6 +886,8 @@ export default function RekapitulasiVisitPage() {
           row['Kegiatan Status'] = r.kegiatan_status || '-'
         if (selectedCols.includes('deskripsi'))
           row['Deskripsi Kegiatan'] = r.descriptions || '-'
+        if (selectedCols.includes('visit_image'))
+          row['Visit Image'] = r.visit_image || '-'
         return row
       })
 
@@ -452,6 +906,293 @@ export default function RekapitulasiVisitPage() {
     } finally {
       setIsExporting(false)
     }
+  }
+
+  // ─── POPUP ──────────────────────────────────────────────────────────────────
+
+  function renderPopup() {
+    // Detail view — works from both table row click and calendar click
+    if (detailKunjungan) {
+      return (
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm'
+          onClick={() => {
+            setDetailKunjungan(null)
+          }}
+        >
+          <div
+            ref={popupRef}
+            className='bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden'
+            style={{ animation: 'fadeInScale 0.2s ease-out' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className='bg-linear-to-r from-blue-600 to-blue-700 px-5 py-4 text-white'>
+              <div className='flex items-center justify-between'>
+                <h3 className='font-bold text-lg'>Detail Aktivitas</h3>
+                <button
+                  onClick={() => setDetailKunjungan(null)}
+                  className='w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors'
+                >
+                  <X className='w-4 h-4' />
+                </button>
+              </div>
+              <p className='text-blue-100 text-sm mt-0.5'>
+                {detailKunjungan.visit_date}
+              </p>
+            </div>
+
+            {/* Body */}
+            <div className='max-h-[70vh] overflow-y-auto'>
+              <div className='px-5 pt-4 space-y-0'>
+                {/* Row 1: Created At | Market Status */}
+                <div className='grid grid-cols-2 gap-4 pb-3 border-b border-gray-100'>
+                  <div>
+                    <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
+                      Created At
+                    </p>
+                    <p className='text-sm font-medium text-gray-800'>
+                      {detailKunjungan.created_at
+                        ? formatDateID(detailKunjungan.created_at)
+                        : '-'}
+                    </p>
+                  </div>
+                  <div className='text-right'>
+                    <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
+                      Market Status
+                    </p>
+                    {(() => {
+                      const c = getStatusColor(detailKunjungan.status_market)
+                      return (
+                        <p className={`text-sm font-semibold ${c.text}`}>
+                          {detailKunjungan.status_market || '-'}
+                        </p>
+                      )
+                    })()}
+                  </div>
+                </div>
+
+                {/* Row 2: KLPD | Reschedule */}
+                <div className='grid grid-cols-2 gap-4 py-3 border-b border-gray-100'>
+                  <div>
+                    <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
+                      KLPD
+                    </p>
+                    <p className='text-sm font-medium text-gray-800'>
+                      {detailKunjungan.klpd || '-'}
+                    </p>
+                  </div>
+                  <div className='text-right'>
+                    <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
+                      Reschedule
+                    </p>
+                    <p className='text-sm font-medium text-gray-800'>
+                      {detailKunjungan.reschedule && detailKunjungan.reschedule !== '-'
+                        ? formatDateID(detailKunjungan.reschedule)
+                        : '-'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Row 3: Institusi Kerja (full width) */}
+                <div className='py-3 border-b border-gray-100'>
+                  <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
+                    Institusi Kerja
+                  </p>
+                  <p className='text-sm font-bold text-gray-800'>
+                    {detailKunjungan.city ? `Kota ${detailKunjungan.city}` : '-'}
+                  </p>
+                  <p className='text-sm font-medium text-gray-800'>
+                    {detailKunjungan.institusi_kerja || '-'}
+                  </p>
+                </div>
+
+                {/* Row 4: PIC Position | PIC Role */}
+                <div className='grid grid-cols-2 gap-4 py-3 border-b border-gray-100'>
+                  <div>
+                    <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
+                      PIC Position
+                    </p>
+                    <p className='text-sm font-medium text-gray-800'>
+                      {detailKunjungan.pic_position || '-'}
+                    </p>
+                  </div>
+                  <div className='text-right'>
+                    <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
+                      PIC Role
+                    </p>
+                    <p className='text-sm font-medium text-gray-800'>
+                      {detailKunjungan.pic_role || '-'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Descriptions Card */}
+              <div className='mx-5 my-4 p-4 bg-gray-50 rounded-xl border border-gray-100 shadow-sm'>
+                <p className='text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2'>
+                  Descriptions
+                </p>
+                <p className='text-sm text-gray-700 whitespace-pre-line leading-relaxed'>
+                  {detailKunjungan.descriptions || '-'}
+                </p>
+              </div>
+
+              {/* Tindak Lanjut Card */}
+              <div className='mx-5 mb-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100'>
+                <p className='text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-1'>
+                  Tindak Lanjut
+                </p>
+                <p className='text-sm font-medium text-blue-800'>
+                  {detailKunjungan.tindak_lanjut || '-'}
+                </p>
+              </div>
+
+              {/* Kegiatan Status Card */}
+              <div className='mx-5 mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100'>
+                <p className='text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-1'>
+                  Kegiatan Status
+                </p>
+                <p className='text-sm font-medium text-blue-800'>
+                  {detailKunjungan.kegiatan_status || '-'}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className='px-5 py-3 border-t border-gray-100 flex justify-end'>
+              <button
+                onClick={() => setDetailKunjungan(null)}
+                className='px-4 h-9 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors'
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (!selectedDate) return null
+
+    const key = dateToKey(selectedDate)
+    const dayPlans = visitsByDate[key] || []
+
+    // (Detail view is now handled above, before the selectedDate guard)
+
+    // Date popup — plan list
+    return (
+      <div
+        className='fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm'
+        onClick={() => setSelectedDate(null)}
+      >
+        <div
+          ref={popupRef}
+          className='bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden'
+          style={{ animation: 'fadeInScale 0.2s ease-out' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className='bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white'>
+            <div className='flex items-center justify-between'>
+              <div>
+                <h3 className='font-bold text-lg'>
+                  {formatFullDate(selectedDate)}
+                </h3>
+                <p className='text-blue-100 text-sm'>
+                  {dayPlans.length} Aktivitas
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedDate(null)}
+                className='w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors'
+              >
+                <X className='w-4 h-4' />
+              </button>
+            </div>
+          </div>
+
+          {/* Plan list */}
+          <div className='max-h-80 overflow-y-auto'>
+            {dayPlans.length === 0 ? (
+              <div className='px-5 py-10 text-center text-gray-400'>
+                <Calendar className='w-10 h-10 mx-auto mb-2 opacity-40' />
+                <p className='text-sm font-medium'>Tidak ada aktivitas</p>
+              </div>
+            ) : (
+              dayPlans.map((plan) => {
+                const colors = getStatusColor(plan.status_visit)
+                return (
+                  <div
+                    key={plan._id}
+                    className='flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-none hover:bg-gray-50 transition-colors'
+                  >
+                    <div
+                      className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`}
+                    />
+                    <div className='flex-1 min-w-0'>
+                      <p className='text-sm font-semibold text-gray-800 truncate'>
+                        {plan.institusi_kerja || plan.city || '-'}
+                      </p>
+                      <p className='text-xs text-gray-500 truncate'>
+                        {plan.city} {plan.klpd ? `• ${plan.klpd}` : ''}
+                      </p>
+                      <div className='flex items-center gap-2 mt-1'>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${colors.bg} ${colors.text}`}
+                        >
+                          {plan.status_visit || 'No Status'}
+                        </span>
+                        {plan.status_visit?.toLowerCase() === 'reschedule' &&
+                          plan.reschedule && (
+                            <span className='text-[9px] text-amber-600 font-semibold'>
+                              📅 {plan.reschedule}
+                            </span>
+                          )}
+                      </div>
+                    </div>
+                    <div className='flex items-center gap-1'>
+                      {/* <button
+                        onClick={() => copyPlanText(plan)}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+                          copiedPlanId === plan.id
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : 'text-gray-400 hover:bg-blue-50 hover:text-blue-600'
+                        }`}
+                        title='Copy Plan'
+                      >
+                        {copiedPlanId === plan.id ? (
+                          <Check className='w-3.5 h-3.5' />
+                        ) : (
+                          <Copy className='w-3.5 h-3.5' />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setDetailPlan(plan)}
+                        className='w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors'
+                        title='Lihat Detail'
+                      >
+                        <Eye className='w-3.5 h-3.5' />
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleOpenEdit(plan.id)
+                          setSelectedDate(null)
+                        }}
+                        className='w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors'
+                        title='Edit Kunjungan'
+                      >
+                        <Pen className='w-3.5 h-3.5' />
+                      </button> */}
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -533,8 +1274,56 @@ export default function RekapitulasiVisitPage() {
               </div>
             </div>
 
-            <div className='mb-6 flex flex-col  gap-4 md:flex-row md:items-center justify-between px-4'>
-                  Analisa Kegiatan Status
+            <div className='mb-6 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm'>
+              <div className='mb-3 flex items-center justify-between gap-3'>
+                <div className='flex items-center gap-2'>
+                  <span className='grid h-5 w-5 place-items-center rounded bg-violet-100 text-violet-600'>
+                    <FolderCode size={13} />
+                  </span>
+                  <h1 className='text-[11px] font-bold uppercase tracking-wide text-slate-700'>
+                    Analisa Kegiatan Status
+                  </h1>
+                </div>
+                <span className='rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold text-violet-700'>
+                  Total:{' '}
+                  {stats?.kegiatan_status
+                    ?.reduce((sum, item) => sum + item.count, 0)
+                    .toLocaleString('id-ID') ?? '-'}
+                </span>
+              </div>
+              <div className='flex flex-wrap gap-2'>
+                {stats?.kegiatan_status?.map((item, index) => {
+                  const colors = [
+                    ['bg-violet-500', 'bg-violet-100', 'text-violet-700'],
+                    ['bg-blue-600', 'bg-blue-100', 'text-blue-700'],
+                    ['bg-emerald-500', 'bg-emerald-100', 'text-emerald-700'],
+                    ['bg-amber-500', 'bg-amber-100', 'text-amber-700'],
+                    ['bg-rose-500', 'bg-rose-100', 'text-rose-700'],
+                    ['bg-cyan-500', 'bg-cyan-100', 'text-cyan-700'],
+                    ['bg-lime-500', 'bg-lime-100', 'text-lime-700'],
+                    ['bg-orange-500', 'bg-orange-100', 'text-orange-700'],
+                  ][index % 8]
+
+                  return (
+                    <div
+                      key={item.name}
+                      className='inline-flex min-h-8 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1'
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${colors[0]}`}
+                      />
+                      <span className='text-[10px] font-medium text-slate-700'>
+                        {item.name}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${colors[1]} ${colors[2]}`}
+                      >
+                        {item.count.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
             {/* FILTER CARD */}
@@ -645,6 +1434,7 @@ export default function RekapitulasiVisitPage() {
                         'CITY',
                         'PIC NAME',
                         'PIC PHONE',
+                        'FOTO VISIT',
                         'RING',
                       ].map((h) => (
                         <th
@@ -682,7 +1472,7 @@ export default function RekapitulasiVisitPage() {
                         return (
                           <React.Fragment key={r._id}>
                             <tr
-                              onClick={() => setSelected(active ? null : r)}
+                              onClick={() => setDetailKunjungan(r)}
                               className={cn(
                                 'cursor-pointer border-t border-blue-50 transition-colors',
                                 active
@@ -718,11 +1508,18 @@ export default function RekapitulasiVisitPage() {
                               <td className='px-6 py-6 text-gray-900'>
                                 {r.pic_phone}
                               </td>
+                              <td className='px-6 py-6 text-gray-900'>
+                                <LinkItem
+                                  label=''
+                                  value={r.visit_image}
+                                  isLink
+                                />
+                              </td>
                               <td className='px-6 py-6 font-extrabold text-[#0B6AA9]'>
                                 {r.status_ring}
                               </td>
                             </tr>
-                            {active && (
+                            {/* {active && (
                               <tr className='bg-blue-50/30'>
                                 <td
                                   colSpan={8}
@@ -786,7 +1583,7 @@ export default function RekapitulasiVisitPage() {
                                   </div>
                                 </td>
                               </tr>
-                            )}
+                            )} */}
                           </React.Fragment>
                         )
                       })
@@ -811,7 +1608,7 @@ export default function RekapitulasiVisitPage() {
                     return (
                       <div
                         key={r._id}
-                        onClick={() => setSelected(active ? null : r)}
+                        onClick={() => setDetailKunjungan(r)}
                         className={cn(
                           'bg-white border flex flex-col rounded-2xl shadow-sm transition-colors cursor-pointer overflow-hidden',
                           active
@@ -878,7 +1675,7 @@ export default function RekapitulasiVisitPage() {
                           </div>
                         </div>
 
-                        {active && (
+                        {/* {active && (
                           <div className='border-t border-blue-100 bg-blue-50/30 p-4'>
                             <div className='mb-4 flex items-center gap-2 text-base font-extrabold text-gray-900'>
                               <span className='grid h-7 w-7 place-items-center rounded-lg bg-blue-100 text-blue-600 text-sm'>
@@ -932,7 +1729,7 @@ export default function RekapitulasiVisitPage() {
                               </div>
                             </div>
                           </div>
-                        )}
+                        )} */}
                       </div>
                     )
                   })
@@ -1005,6 +1802,8 @@ export default function RekapitulasiVisitPage() {
           </main>
         </div>
       </div>
+
+      {renderPopup()}
 
       <ExportExcelModal
         isOpen={isExportModalOpen}

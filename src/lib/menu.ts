@@ -34,6 +34,17 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
       ],
     },
     {
+      title: 'SUMMARIZE',
+      icon: 'Book',
+      items: [
+        {
+          label: 'Tracking Summary Database',
+          href: '/tracking-summary',
+          icon: 'BookIcon',
+        },
+      ],
+    },
+    {
       title: 'SALES',
       icon: 'User',
       items: [

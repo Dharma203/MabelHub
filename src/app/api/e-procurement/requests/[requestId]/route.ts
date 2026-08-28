@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 
 type ProductItem = {
@@ -112,7 +112,7 @@ export async function GET(
   const rid = decodeURIComponent(requestId);
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   const col = db.collection<EProcDoc>("eproc_requests");
 
   const doc = await col.findOne({ requestId: rid }, { projection: { _id: 0 } });
@@ -209,7 +209,7 @@ export async function PUT(
   }
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   const col = db.collection<EProcDoc>("eproc_requests");
 
   const existing = await col.findOne(

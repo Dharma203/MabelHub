@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '@/lib/mongodb'
-import { ObjectId } from 'mongodb'
+import clientPromise from "@/lib/mongodb";
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getLeaderAllowedUserIds, getUserLiteById } from '@/lib/visit-auth'
 import { flexParseDateExpr } from '@/lib/flex-date-expr'
@@ -14,10 +13,6 @@ function clamp(n: number, min: number, max: number) {
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
-
-
-
-
 
 /**
  * GET /api/visits?limit=25&page=1&q=...
@@ -43,7 +38,7 @@ export async function GET(req: Request) {
 
   // ====== FILTER PARAMS ======
   const sales = searchParams.get('sales')
-  const status = searchParams.get('status')
+  const status_visit = searchParams.get('status_visit')
   const ring = searchParams.get('ring')
   const city = searchParams.get('city')
   const satker = searchParams.get('satker')
@@ -53,7 +48,9 @@ export async function GET(req: Request) {
   const klpd = searchParams.get('klpd')
   const dateStr = searchParams.get('date') // specific date e.g. "01 Feb"
   const filterStatsB2G = searchParams.get('filterStatsB2G') === 'true'
+  const filterStatsB2B = searchParams.get('filterStatsB2B') === 'true'
   const groupBySatker = searchParams.get('groupBySatker') === 'true'
+  const kegiatanStatus = searchParams.getAll('kegiatan_status')
 
   // Sort Params
   const sortByParams = String(searchParams.get('sortBy') || 'total_visit')
@@ -63,7 +60,7 @@ export async function GET(req: Request) {
   const sortDirNum = sortDirParam === 'asc' ? 1 : -1
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
+  const db = client.db('MabelHub');
   const col = db.collection('VisitActivity')
 
   // =========================
@@ -168,11 +165,12 @@ export async function GET(req: Request) {
   // EXACT FILTERS
   // =========================
   if (sales && sales.toUpperCase() !== 'ALL') match.nama_sales = sales
-  if (status) match.status_visit = status
+  if (status_visit) match.status_visit = status_visit
   if (ring) match.status_ring = ring.toUpperCase() // Ensure ring filter from dashboard is uppercase
   if (city) match.city = city
   if (satker) match.satuan_kerja = satker
   if (klpd) match.klpd = klpd
+  if (kegiatanStatus.length > 0) match.kegiatan_status = { $in: kegiatanStatus }
 
   // Partial date matching from clicked trend chart
   if (dateStr) {
@@ -204,12 +202,22 @@ export async function GET(req: Request) {
   // filterStatsB2G = gabungan excludeOffice + excludeRing4 + excludeKlpd
   if (filterStatsB2G) {
     if (!match.$and) match.$and = []
-    match.$and.push({ satuan_kerja: { $not: /office/i } })
+    match.$and.push({ satuan_kerja: { $not : /office/i  }})
     match.$and.push({ status_ring: { $not: /ring[\s_]*4/i } })
     match.$and.push({
       klpd: {
         $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
       },
+    })
+  }
+
+  // filterStatsB2B = excludeOffice + includeRing4 + includeKlpd(B2B)
+  if (filterStatsB2B) {
+    if (!match.$and) match.$and = []
+    match.$and.push({ satuan_kerja: { $not: /office/i } })
+    match.$and.push({ status_ring: { $regex: /ring[\s_]*4/i } })
+    match.$and.push({
+      klpd: /kementrian|bumd|provinsi|kota/i,
     })
   }
 
@@ -237,6 +245,8 @@ export async function GET(req: Request) {
     status_ring: 'status_ring',
     pic_name: 'pic_name',
     pic_phone: 'pic_phone',
+    klpd: 'klpd',
+    status_visit: 'status_visit'
   }
 
   // =========================
@@ -365,12 +375,19 @@ export async function GET(req: Request) {
     satuan_kerja: { $exists: true, $nin: [null, ''] },
     status_ring: { $exists: true, $nin: [null, ''] },
     klpd: { $exists: true, $nin: [null, ''] },
+    kegiatan_status: { $exists: true, $nin: [null, ''] },
   }
 
   if (filterStatsB2G) {
     globalRankingMatch.satuan_kerja.$not = /office/i
     globalRankingMatch.status_ring.$not = /ring[\s_]*4/i
     globalRankingMatch.klpd.$not = /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i
+  }
+
+  if (filterStatsB2B) {
+    globalRankingMatch.satuan_kerja.$not = /office/i
+    globalRankingMatch.status_ring = { ...globalRankingMatch.status_ring, $regex: /ring[\s_]*1/i }
+    globalRankingMatch.klpd = { ...globalRankingMatch.klpd, $regex: /kementrian|kota|provinsi|bumd/i }
   }
 
   const globalRanking = await col
@@ -383,6 +400,7 @@ export async function GET(req: Request) {
 
   const satkerOrder = globalRanking.map((g: any) => String(g._id))
   const satkerVisitCounts = globalRanking.map((g: any) => g.total_visit)
+  const salesCounts = globalRanking.map((g: any) => g.nama_saless)
 
   // =========================
   // PIPELINE
@@ -564,7 +582,7 @@ export async function POST(req: Request) {
     }
 
     const client = await clientPromise
-    const db = client.db(process.env.MONGODB_DB || 'MabelHub')
+    const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
 
     // =========================
     // TARGET ASSIGNMENT RULES
@@ -646,17 +664,17 @@ export async function POST(req: Request) {
       // new field (biar stats/team bisa pakai assignedTo.userId)
       assignedTo: targetUser
         ? {
-            userId: targetUser.userId,
-            role: targetUser.role,
-            username: targetUser.username,
-            fullName: targetUser.fullName,
-          }
+          userId: targetUser.userId,
+          role: targetUser.role,
+          username: targetUser.username,
+          fullName: targetUser.fullName,
+        }
         : {
-            userId: targetUserId,
-            role: '',
-            username: '',
-            fullName: '',
-          },
+          userId: targetUserId,
+          role: '',
+          username: '',
+          fullName: '',
+        },
 
       visit_date: toVisitDateStr(tanggal),
       city: kota_kab,

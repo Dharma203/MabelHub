@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 
 async function getParams<T>(ctx: { params: T | Promise<T> }) {
@@ -44,7 +44,7 @@ export async function PUT(
   const incomingItems = Array.isArray(body.items) ? body.items : [];
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   const col = db.collection("eproc_requests");
 
   const existing = await col.findOne({ requestId: rid });

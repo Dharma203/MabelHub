@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 import { ObjectId } from "mongodb";
 
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const session = auth.session;
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
 
   const team = await db.collection<TeamDoc>("teams").findOne({
     $or: [{ leaderId: session.userId }, { memberIds: session.userId }],

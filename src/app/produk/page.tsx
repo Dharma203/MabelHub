@@ -316,7 +316,7 @@ export default function ProdukPage() {
                 PRODUCT HUB
               </h1>
               <p className="text-sm text-slate-500 font-medium mt-1">
-                Pusat Dokumen & Materi Produk MabelHub
+                Pusat Dokumen & Materi Produk MabelHubStaging
               </p>
             </div>
 

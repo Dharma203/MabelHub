@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertSuperadmin } from "@/lib/auth-server";
 import { ObjectId } from "mongodb";
 import { normStr } from "@/lib/api-helpers";
@@ -54,7 +54,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: gate.error }, { status: gate.status });
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   await ensureIndexes(db);
 
   const teams = await db
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
   const cleanedMemberIds = memberIds.filter((x: string) => x && x !== leaderId);
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   await ensureIndexes(db);
 
   const usersCol = db.collection<UserDoc>("users");

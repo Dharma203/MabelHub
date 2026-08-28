@@ -14,7 +14,7 @@ export async function POST (req: NextRequest) {
         }
 
         const client = await clientPromise
-        const db = client.db("MabelHub")
+        const db = client.db("MabelHubStaging")
         const col = db.collection("validasi_sales")
 
         const now = new Date()

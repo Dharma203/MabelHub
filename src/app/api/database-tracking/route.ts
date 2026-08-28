@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const dmy = searchParams.get('dmy') || ''
 
     const client = await clientPromise
-    const db = client.db('MabelHub')
+    const db = client.db('MabelHubStaging')
     const colB2B = db.collection('database_b2b')
     const colB2G = db.collection('database_b2g')
 

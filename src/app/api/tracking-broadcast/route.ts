@@ -36,7 +36,7 @@ type KontakTrackingItem = {
 export async function GET(req: NextRequest) {
   try {
     const client = await clientPromise
-    const db = client.db('MabelHub')
+    const db = client.db('MabelHubStaging')
     const col = db.collection('input_database')
 
     const { searchParams } = req.nextUrl
@@ -747,7 +747,7 @@ export async function POST(req: Request) {
     }
 
     const client = await clientPromise
-    const db = client.db('MabelHub')
+    const db = client.db('MabelHubStaging')
     const col = db.collection('tracking_broadcast')
 
     const now = new Date()
@@ -804,7 +804,7 @@ export async function PATCH(req: Request) {
     }
 
     const client = await clientPromise
-    const db = client.db('MabelHub')
+    const db = client.db('MabelHubStaging')
     const col = db.collection('input_database')
 
     const result = await col.updateOne(

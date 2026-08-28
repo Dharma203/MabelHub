@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getVisitAuthMatch } from '@/lib/visit-auth'
+import { clamp } from 'motion/react'
 
 
 export async function GET(req: Request) {
@@ -12,12 +13,16 @@ export async function GET(req: Request) {
   const session = auth.session
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
+  const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
   const col = db.collection('VisitActivity')
+  
 
   const { searchParams } = new URL(req.url)
   const filterStatsB2G = searchParams.get('filterStatsB2G') === 'true'
-
+  const filterStatsB2B = searchParams.get('filterStatsB2B') === 'true'
+  const limit = clamp(Number(searchParams.get('limit') || 25), 1, 10000)
+  const page = Math.max(Number(searchParams.get('page') || 1), 1)
+  const skip = (page - 1) * limit
   // Build role-based filter
   const { match: authMatch, error } = await getVisitAuthMatch(db, session)
   if (error) {
@@ -33,6 +38,16 @@ export async function GET(req: Request) {
     extraMatch.klpd = {
       $exists: true,
       $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
+    }
+  }
+
+  // filterStatsB2B = excludeOffice + includeRing4 + includeKlpd(B2B)
+  if (filterStatsB2B) {
+    extraMatch.satuan_kerja = { $exists: true, $not: /office/i }
+    extraMatch.status_ring = { $exists: true, $regex: /ring[\s_]*4/i }
+    extraMatch.klpd = {
+      $exists: true,
+      $regex: /kabupaten|swasta|lainnya|b2b/i,
     }
   }
 
@@ -53,6 +68,13 @@ export async function GET(req: Request) {
       },
     },
     { $sort: { total_visit: -1 } },
+  ]
+
+   // items with pagination
+  const itemsPipeline = [
+    ...groupedPipeline,
+    { $skip: skip },
+    { $limit: limit},
   ]
 
   const groupedRows = await col.aggregate(groupedPipeline).toArray()
@@ -78,7 +100,6 @@ export async function GET(req: Request) {
   // Satker paling banyak dikunjungi
   const topSatker = ranked?.[0]?.satuan_kerja ?? '-'
   const topSatkerCount = ranked?.[0]?.total_visit ?? 0
-  const salesAktif = ranked?.[0]?.nama_sales ?? 0
 
   // Breakdown satker unik per kategori — dihitung dari `ranked`,
   // yang sudah 1 baris per satker, jadi tinggal dikelompokkan ulang
@@ -97,9 +118,25 @@ export async function GET(req: Request) {
     )
   }
 
+  const countPipeline = [...groupedPipeline, { $count: 'count' }]
+
+  const [itemsRaw, totalResult] = await Promise.all([
+    col.aggregate(itemsPipeline).toArray(),
+    col.aggregate(countPipeline).toArray(),
+  ])
+
+  const total = Number(totalResult?.[0]?.count || 0)
+  const totalPages = Math.max(1, Math.ceil(total / limit))
+
   const byKlpd = countBy(ranked, 'klpd', 'Tidak diketahui')
   const byRing = countBy(ranked, 'status_ring', 'Tidak diketahui')
   const bySales = countBy(ranked, 'nama_sales', '(Belum dikunjungi)')
+  const salesAktif = bySales.length
+
+  const items = itemsRaw.map((it : any) => ({
+    ...it,
+    _id: String(it._id),
+  }))
 
   return NextResponse.json({
     totalSatuanKerja,
@@ -111,5 +148,7 @@ export async function GET(req: Request) {
     bySales,
     byRing,
     salesAktif,
+    items,
+    pagination: { total , page, limit, totalPages}
   })
 }

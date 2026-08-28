@@ -16,7 +16,7 @@ export async function GET(
     }
 
     const client = await clientPromise
-    const db = client.db('MabelHub')
+    const db = client.db('MabelHubStaging')
     const col = db.collection('input_database')
 
     const docs = await col.find({ code_input: code.trim() }).toArray()

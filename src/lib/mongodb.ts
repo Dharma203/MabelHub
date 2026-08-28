@@ -24,4 +24,6 @@ if (process.env.NODE_ENV === "development") {
   clientPromise = client.connect();
 }
 
+export const getDbName = () => process.env.MONGODB_DB || "MabelHubStaging";
+
 export default clientPromise;

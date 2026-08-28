@@ -72,7 +72,7 @@ export default function LoginPage() {
         <div className="flex w-1/2 flex-col items-center justify-center">
           <Image
             src="/logo.png"
-            alt="MabelHub Logo"
+            alt="MabelHubStaging Logo"
             width={200}
             height={160}
             className="mt-7"

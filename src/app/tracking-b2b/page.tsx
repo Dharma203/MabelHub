@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { useSession } from '@/components/session/SessionProvider'
 import { useRouter } from 'next/navigation'
 import SearchableSelect from '@/components/ui/SearchableSelect'
-import TableCard from '@/components/ui/TableCard'
+import type { LucideIcon } from 'lucide-react'
 import {
   Building2,
   Calendar,
@@ -20,8 +20,75 @@ import {
   User2,
   UserRound,
   BarChart3,
+  BarChart2,
 } from 'lucide-react'
 import Image from 'next/image'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  Cell,
+  LabelList,
+  ResponsiveContainer,
+} from 'recharts'
+
+const THEMES = {
+  blue: {
+    iconBg: 'bg-blue-100',
+    icon: 'text-blue-600',
+    badgeBg: 'bg-blue-100',
+    badgeText: 'text-blue-700',
+    dot: 'bg-blue-500',
+    bar: 'bg-blue-500',
+    value: 'text-blue-600',
+  },
+  green: {
+    iconBg: 'bg-green-100',
+    icon: 'text-green-600',
+    badgeBg: 'bg-green-100',
+    badgeText: 'text-green-700',
+    dot: 'bg-green-500',
+    bar: 'bg-green-500',
+    value: 'text-green-600',
+  },
+  red: {
+    iconBg: 'bg-red-100',
+    icon: 'text-red-500',
+    badgeBg: 'bg-red-100',
+    badgeText: 'text-red-600',
+    dot: 'bg-red-500',
+    bar: 'bg-red-500',
+    value: 'text-red-600',
+  },
+  orange: {
+    iconBg: 'bg-orange-100',
+    icon: 'text-orange-600',
+    badgeBg: 'bg-orange-100',
+    badgeText: 'text-orange-700',
+    dot: 'bg-orange-500',
+    bar: 'bg-orange-500',
+    value: 'text-orange-600',
+  },
+} as const
+
+type ThemeColor = keyof typeof THEMES
+
+interface StatItem {
+  label: string
+  value: number
+  color?: ThemeColor // overrides the card's default color for this row only
+}
+
+interface TableCardProps {
+  icon: LucideIcon
+  title: string
+  items: StatItem[]
+  color?: ThemeColor // default color for header + all rows
+}
 
 interface StatCardProps {
   title: string
@@ -39,7 +106,7 @@ type VisitRow = {
   city: string
   pic_name: string
   pic_phone: string
-  status_ring: 'RING 1' | 'RING 2' | 'RING 3' | string
+  status_ring: 'RING 4' | string
   created_at: string
   status_market: string
   klpd: string
@@ -76,6 +143,24 @@ type VisitDetail = {
   reschedule: string
 }
 
+type MonthlyEntry = { total: number; penambahan: number }
+
+type SalesMonthly = {
+  name: string
+  color: string
+  months: Record<string, MonthlyEntry>
+  grandTotal: number
+}
+
+type MonthlyProgressData = {
+  months: string[]
+  salesData: SalesMonthly[]
+  grandTotal: {
+    months: Record<string, MonthlyEntry>
+    grandTotal: number
+  }
+}
+
 function getPageWindow(current: number, totalPages: number, size: number) {
   if (totalPages <= size)
     return Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -88,11 +173,11 @@ function getPageWindow(current: number, totalPages: number, size: number) {
     end = totalPages
     start = end - size + 1
   }
-  return Array.from({ length: size }, (_, i) => start + i)
+  return Array.from({ length: size }, (_, i) => i + 1)
 }
 
-export default function TrackingB2GPage() {
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
+export default function TrackingB2BPage() {
+  const [isFilterOpen, setIsFilterOpen] = useState(true)
   const router = useRouter()
   const { user, loading: sessionLoading } = useSession()
 
@@ -109,7 +194,6 @@ export default function TrackingB2GPage() {
   }, [sessionLoading, user, router])
 
   //   filter state
-
   const [fSales, setFSales] = useState<string>('ALL')
   const [fStart, setFStart] = useState<string>('')
   const [fEnd, setFEnd] = useState<string>('')
@@ -145,6 +229,16 @@ export default function TrackingB2GPage() {
   const [sortBy, setSortBy] = useState<string>('total_visit')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
+  // monthly progress
+  const [monthlyData, setMonthlyData] = useState<MonthlyProgressData | null>(
+    null,
+  )
+  const [loadingMonthly, setLoadingMonthly] = useState(true)
+  const [progressTab, setProgressTab] = useState<'tabel' | 'grafik'>('tabel')
+  const [chartMode, setChartMode] = useState<'penambahan' | 'kumulatif'>(
+    'penambahan',
+  )
+
   useEffect(() => {
     let mounted = true
 
@@ -153,7 +247,7 @@ export default function TrackingB2GPage() {
       if (!user) return // middleware seharusnya redirect
       try {
         setStatsLoading(true)
-        const res = await fetch('/api/visits/stats?filterStatsB2G=true', {
+        const res = await fetch('/api/visits/stats?filterStatsB2B=true', {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -181,12 +275,46 @@ export default function TrackingB2GPage() {
     return () => {
       mounted = false
     }
+  }, [sessionLoading, user, totalVisitAll])
+
+  // fetch monthly progress
+  useEffect(() => {
+    let mounted = true
+
+    ;(async () => {
+      if (sessionLoading) return
+      if (!user) return
+      try {
+        setLoadingMonthly(true)
+        const res = await fetch(
+          '/api/visits/monthly-progress?filterStatsB2B=true',
+          {
+            cache: 'no-store',
+          },
+        )
+        const json = await res.json().catch(() => ({}))
+        if (!mounted) return
+        if (json?.months && json?.salesData) {
+          setMonthlyData(json as MonthlyProgressData)
+        }
+      } catch {
+        if (!mounted) return
+        setMonthlyData(null)
+      } finally {
+        if (mounted) setLoadingMonthly(false)
+      }
+    })()
+
+    return () => {
+      mounted = false
+    }
   }, [sessionLoading, user])
 
   // selected row for detail
+
   const [selected, setSelected] = useState<VisitRow | null>(null)
 
-  // expand row: visit dates by satker
+  // expand row : visit dates by satker
   const [expandedSatker, setExpandedSatker] = useState<string | null>(null)
   const [visitDates, setVisitDates] = useState<VisitDetail[]>([])
   const [loadingVisitDates, setLoadingVisitDates] = useState(false)
@@ -210,7 +338,7 @@ export default function TrackingB2GPage() {
       if (sessionLoading) return
       if (!user) return
       try {
-        const res = await fetch('/api/visits/meta?filterStatsB2G=true', {
+        const res = await fetch('/api/visits/meta?filterStatsB2B=true', {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -218,17 +346,17 @@ export default function TrackingB2GPage() {
 
         setSalesOptions(Array.isArray(json?.sales) ? json.sales : [])
         setCityOptions(Array.isArray(json?.cities) ? json.cities : [])
+        setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
         setKlpdOptions(Array.isArray(json?.klpd) ? json.klpd : [])
         setVisitOptions(
           Array.isArray(json?.status_visit) ? json.status_visit : [],
         )
-        setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
       } catch {
         if (!mounted) return
         setSalesOptions([])
-        setCityOptions([])
         setKlpdOptions([])
         setVisitOptions([])
+        setCityOptions([])
         setSatkerOptions([])
       }
     })()
@@ -255,11 +383,11 @@ export default function TrackingB2GPage() {
         if (fCity !== 'ALL') params.set('city', fCity)
         if (fSatker !== 'ALL') params.set('satker', fSatker)
         if (fKlpd !== 'ALL') params.set('klpd', fKlpd)
-        if (fVisit !== 'ALL') params.set('satus_visit', fVisit)
+        if (fVisit !== 'ALL') params.set('status_vist', fVisit)
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
-        params.set('filterStatsB2G', 'true')
+        params.set('filterStatsB2B', 'true')
         params.set('page', String(page))
         params.set('limit', String(pageSize))
 
@@ -398,13 +526,13 @@ export default function TrackingB2GPage() {
   return (
     <div className='min-h-screen bg-blue-50'>
       <div className='flex'>
-        {/* Content goes here */}
+        {/* {Content} */}
         <div className='flex-1 p-3 sm:p-6'>
-          {/* TOP Bar */}
+          {/* {Top Bar} */}
           <div className='mb-4 px-4 pt-2 pb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
             <div>
               <h2 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
-                Tracking Visit B2G
+                Tracking Visit B2B
               </h2>
             </div>
           </div>
@@ -417,10 +545,10 @@ export default function TrackingB2GPage() {
             <StatCard
               title='TOTAL VISIT (VISITED+LEAD+NEGO)'
               value={statsLoading ? '...' : String(totalVisitAll)}
-              icon={<LucideCopyCheck className='h-6 w-6 text-green-500' />}
+              icon={<LucideCopyCheck className='h-6 w-6 text-gray-500' />}
             />
             <StatCard
-              title='SATKER PALING BANYAK DIKUNJUNGI'
+              title='SATKER PALING BANYAK DI KUNJUNGI'
               value={statsLoading ? '...' : `${topSatker} (${topSatkerCount}x)`}
               icon={<Trophy className='h-6 w-6 text-yellow-500' />}
             />
@@ -450,8 +578,73 @@ export default function TrackingB2GPage() {
               items={byRing}
             />
           </div>
-          <section className='rounded-2xl bg-white p-7 shadow-sm'>
-            {/* Mobile Filter Toggle Button */}
+          <section className='bg-white mt-4 rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
+            {/* Header */}
+            <div className='bg-white text-gray px-3 sm:px-6 h-10 flex items-center justify-between gap-2'>
+              <div className='flex items-center min-w-0'>
+                <BarChart2
+                  size={12}
+                  className='mr-1.5 sm:mr-2 shrink-0 text-gray-500'
+                  strokeWidth={2.5}
+                />
+                <strong className='text-[9px] sm:text-[10px] text-gray-500 font-bold tracking-wide whitespace-nowrap'>
+                  PROGRES B2B — PENCAPAIAN SATUAN KERJA PER BULAN
+                </strong>
+              </div>
+            </div>
+
+            <div
+              className='p-3 sm:p-4 flex flex-col gap-3'
+              style={{ display: isFilterOpen ? 'flex' : 'none' }}
+            >
+              {/* Tabs */}
+              <div className='px-3 sm:px-6 pt-2 pb-1 flex gap-1'>
+                <button
+                  onClick={() => setProgressTab('tabel')}
+                  className={`px-3 py-1 text-[10px] font-semibold rounded-md border transition-colors cursor-pointer ${
+                    progressTab === 'tabel'
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  📋 Tabel
+                </button>
+                <button
+                  onClick={() => setProgressTab('grafik')}
+                  className={`px-3 py-1 text-[10px] font-semibold rounded-md border transition-colors cursor-pointer ${
+                    progressTab === 'grafik'
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  📊 Grafik
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className='p-3 sm:p-4'>
+                {loadingMonthly ? (
+                  <div className='text-center py-10 text-gray-400 text-sm'>
+                    Memuat data...
+                  </div>
+                ) : !monthlyData || monthlyData.salesData.length === 0 ? (
+                  <div className='text-center py-10 text-gray-400 text-sm'>
+                    Belum ada data
+                  </div>
+                ) : progressTab === 'tabel' ? (
+                  <MonthlyTable data={monthlyData} />
+                ) : (
+                  <MonthlyChart
+                    data={monthlyData}
+                    chartMode={chartMode}
+                    setChartMode={setChartMode}
+                  />
+                )}
+              </div>
+            </div>
+          </section>
+          <section className='rounded-2xl bg-white mt-5 p-7 shadow-sm'>
+            {/* {Mobile filter toggle button} */}
             <div
               className='md:hidden flex items-center justify-between cursor-pointer mb-2 bg-blue-50 p-4 rounded-xl border border-blue-100'
               onClick={() => setIsFilterOpen(!isFilterOpen)}
@@ -1077,13 +1270,35 @@ export default function TrackingB2GPage() {
   )
 }
 
-function StatCard({ title, value, icon }: StatCardProps) {
+function PageBtn({
+  children,
+  onClick,
+  ariaLabel,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  ariaLabel: string
+}) {
   return (
-    <div className='rounded-xl bg-white p-7 shadow flex items-center gap-4'>
-      {icon && <div className='rounded-lg bg-blue-100 p-2'>{icon}</div>}
-      <div>
-        <p className='text-l text-gray-500'>{title}</p>
-        <p className='mt-2 text-3xl font-semibold'>{value ?? '-'}</p>
+    <button
+      type='button'
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className='grid h-10 w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40'
+    >
+      {children}
+    </button>
+  )
+}
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className='text-xs font-extrabold tracking-wider text-gray-500'>
+        {label}
+      </div>
+      <div className='mt-1 text-sm font-semibold text-gray-900'>
+        {value || '-'}
       </div>
     </div>
   )
@@ -1153,40 +1368,320 @@ function FilterDate({
   )
 }
 
-function DetailItem({ label, value }: { label: string; value: string }) {
+function StatCard({ title, value, icon }: StatCardProps) {
   return (
-    <div>
-      <div className='text-xs font-extrabold tracking-wider text-gray-500'>
-        {label}
-      </div>
-      <div className='mt-1 text-sm font-semibold text-gray-900'>
-        {value || '-'}
+    <div className='rounded-xl bg-white p-7 shadow flex items-center gap-4'>
+      {icon && <div className='rounded-lg bg-blue-100 p-2'>{icon}</div>}
+      <div>
+        <p className='text-l text-gray-500'>{title}</p>
+        <p className='mt-2 text-3xl font-semibold'>{value ?? '-'}</p>
       </div>
     </div>
   )
 }
 
-function PageBtn({
-  children,
-  onClick,
-  ariaLabel,
-}: {
-  children: React.ReactNode
-  onClick: () => void
-  ariaLabel: string
-}) {
+function TableCard({
+  icon: Icon,
+  title,
+  items,
+  color = 'blue',
+}: TableCardProps) {
+  const theme = THEMES[color]
+  const maxValue = Math.max(...items.map((item) => item.value))
+
   return (
-    <button
-      type='button'
-      onClick={onClick}
-      aria-label={ariaLabel}
-      className='grid h-10 w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40'
-    >
-      {children}
-    </button>
+    <div className='bg-white rounded-2xl shadow-sm border border-gray-100 p-5'>
+      <div className='flex items-center justify-between mb-4'>
+        <div className='flex items-center gap-3'>
+          <div
+            className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${theme.iconBg}`}
+          >
+            <Icon className={`w-4 h-4 ${theme.icon}`} strokeWidth={2} />
+          </div>
+          <h3 className='text-xs font-semibold tracking-wider text-gray-500 uppercase'>
+            {title}
+          </h3>
+        </div>
+        <span
+          className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${theme.badgeBg} ${theme.badgeText}`}
+        >
+          {items.length} Item
+        </span>
+      </div>
+
+      <hr className='border-gray-100 mb-3.5' />
+
+      <div className='max-h-[230px] overflow-y-auto space-y-3.5'>
+        {items.map((item) => {
+          const rowTheme = item.color ? THEMES[item.color] : theme
+          const width = maxValue > 0 ? (item.value / maxValue) * 100 : 0
+          return (
+            <div key={item.label}>
+              <div className='flex items-center justify-between text-sm mb-1.5'>
+                <div className='flex items-center gap-2 min-w-0'>
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${rowTheme.dot}`}
+                  />
+                  <span className='text-gray-700 truncate'>{item.label}</span>
+                </div>
+                <span
+                  className={`font-semibold shrink-0 ml-2 ${rowTheme.value}`}
+                >
+                  {item.value}
+                </span>
+              </div>
+              <div className='h-1.5 bg-gray-100 rounded-full overflow-hidden'>
+                <div
+                  className={`h-full rounded-full ${rowTheme.bar}`}
+                  style={{ width: `${width}%` }}
+                />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
+/* ─── Month column color palette (pastel backgrounds) ─── */
+const MONTH_COL_COLORS = [
+  { total: 'bg-blue-50', penambahan: 'bg-blue-100/50' },
+  { total: 'bg-emerald-50', penambahan: 'bg-emerald-100/50' },
+  { total: 'bg-amber-50', penambahan: 'bg-amber-100/50' },
+  { total: 'bg-rose-50', penambahan: 'bg-rose-100/50' },
+  { total: 'bg-violet-50', penambahan: 'bg-violet-100/50' },
+  { total: 'bg-cyan-50', penambahan: 'bg-cyan-100/50' },
+  { total: 'bg-orange-50', penambahan: 'bg-orange-100/50' },
+  { total: 'bg-pink-50', penambahan: 'bg-pink-100/50' },
+  { total: 'bg-teal-50', penambahan: 'bg-teal-100/50' },
+  { total: 'bg-indigo-50', penambahan: 'bg-indigo-100/50' },
+  { total: 'bg-lime-50', penambahan: 'bg-lime-100/50' },
+  { total: 'bg-fuchsia-50', penambahan: 'bg-fuchsia-100/50' },
+]
+
+function MonthlyTable({ data }: { data: MonthlyProgressData }) {
+  const { months, salesData, grandTotal } = data
+
+  return (
+    <div className='overflow-x-auto'>
+      <table className='w-full text-[10px] border-collapse min-w-[900px]'>
+        <thead>
+          <tr className='border-b border-gray-200'>
+            <th className='text-left py-2 px-2 text-gray-500 font-semibold sticky left-0 bg-white z-10 min-w-[140px]'>
+              Nama Sales
+            </th>
+            {months.map((m, mi) => {
+              const col = MONTH_COL_COLORS[mi % MONTH_COL_COLORS.length]
+              return (
+                <React.Fragment key={m}>
+                  <th
+                    className={`text-center py-2 px-1.5 text-gray-500 font-semibold ${col.total}`}
+                  >
+                    Total
+                    <br />
+                    <span className='font-normal text-[9px]'>{m}</span>
+                  </th>
+                  <th
+                    className={`text-center py-2 px-1.5 text-gray-500 font-semibold ${col.penambahan}`}
+                  >
+                    Penambahan
+                    <br />
+                    <span className='font-normal text-[9px]'>{m}</span>
+                  </th>
+                </React.Fragment>
+              )
+            })}
+            <th className='text-center py-2 px-2 text-gray-500 font-semibold bg-blue-100'>
+              Total
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {salesData.map((s, si) => (
+            <tr
+              key={s.name}
+              className='border-b border-gray-100 hover:bg-gray-50/50 transition-colors'
+            >
+              <td className='py-1.5 px-2 sticky left-0 bg-white z-10'>
+                <div className='flex items-center gap-1.5'>
+                  <span
+                    className='w-2 h-2 rounded-full shrink-0'
+                    style={{ backgroundColor: s.color }}
+                  />
+                  <span className='text-gray-700 font-medium truncate'>
+                    {s.name}
+                  </span>
+                </div>
+              </td>
+              {months.map((m, mi) => {
+                const col = MONTH_COL_COLORS[mi % MONTH_COL_COLORS.length]
+                const entry = s.months[m]
+                const total = entry?.total || 0
+                const penambahan = Math.max(0, entry?.penambahan || 0)
+                return (
+                  <React.Fragment key={m}>
+                    <td
+                      className={`text-center py-1.5 px-1.5 font-medium ${col.total} ${total > 0 ? 'text-gray-800' : 'text-gray-300'}`}
+                    >
+                      {total > 0 ? total : '-'}
+                    </td>
+                    <td
+                      className={`text-center py-1.5 px-1.5 font-medium ${col.penambahan} ${penambahan > 0 ? 'text-gray-800' : 'text-gray-300'}`}
+                    >
+                      {total > 0 ? penambahan : '-'}
+                    </td>
+                  </React.Fragment>
+                )
+              })}
+              <td className='text-center py-1.5 px-2 font-bold text-blue-700 bg-blue-100'>
+                {s.grandTotal}
+              </td>
+            </tr>
+          ))}
+          {/* Grand Total row */}
+          <tr className='border-t-2 border-gray-300 bg-gray-50 font-bold'>
+            <td className='py-2 px-2 sticky left-0 bg-gray-50 z-10'>
+              <div className='flex items-center gap-1.5'>
+                <span className='w-2 h-2 rounded-full shrink-0 bg-gray-600' />
+                <span className='text-gray-800'>Grand Total</span>
+              </div>
+            </td>
+            {months.map((m, mi) => {
+              const col = MONTH_COL_COLORS[mi % MONTH_COL_COLORS.length]
+              const entry = grandTotal.months[m]
+              const total = entry?.total || 0
+              const penambahan = Math.max(0, entry?.penambahan || 0)
+              return (
+                <React.Fragment key={m}>
+                  <td
+                    className={`text-center py-2 px-1.5 ${col.total} text-gray-800`}
+                  >
+                    {total > 0 ? total : '-'}
+                  </td>
+                  <td
+                    className={`text-center py-2 px-1.5 ${col.penambahan} text-gray-800`}
+                  >
+                    {total > 0 ? penambahan : '-'}
+                  </td>
+                </React.Fragment>
+              )
+            })}
+            <td className='text-center py-2 px-2 text-blue-800 bg-blue-200'>
+              {grandTotal.grandTotal}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function MonthlyChart({
+  data,
+  chartMode,
+  setChartMode,
+}: {
+  data: MonthlyProgressData
+  chartMode: 'penambahan' | 'kumulatif'
+  setChartMode: (m: 'penambahan' | 'kumulatif') => void
+}) {
+  const { months, salesData } = data
+
+  // Build chart data
+  const chartData = useMemo(() => {
+    if (chartMode === 'penambahan') {
+      return months.map((m) => {
+        const entry: Record<string, string | number> = { month: m }
+        for (const s of salesData) {
+          entry[s.name] = Math.max(0, s.months[m]?.penambahan || 0)
+        }
+        return entry
+      })
+    } else {
+      // kumulatif: running total per sales across months
+      const cumulative: Record<string, number> = {}
+      return months.map((m) => {
+        const entry: Record<string, string | number> = { month: m }
+        for (const s of salesData) {
+          cumulative[s.name] =
+            (cumulative[s.name] || 0) + (s.months[m]?.total || 0)
+          entry[s.name] = cumulative[s.name]
+        }
+        return entry
+      })
+    }
+  }, [months, salesData, chartMode])
+
+  return (
+    <div>
+      {/* Toggle buttons */}
+      <div className='flex gap-1 mb-4'>
+        <button
+          onClick={() => setChartMode('penambahan')}
+          className={`px-3 py-1.5 text-[10px] font-semibold rounded-md transition-colors cursor-pointer ${
+            chartMode === 'penambahan'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          📊 Penambahan Bulanan
+        </button>
+        <button
+          onClick={() => setChartMode('kumulatif')}
+          className={`px-3 py-1.5 text-[10px] font-semibold rounded-md transition-colors cursor-pointer ${
+            chartMode === 'kumulatif'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          📈 Total Kumulatif
+        </button>
+      </div>
+
+      <ResponsiveContainer width='100%' height={380}>
+        <BarChart
+          data={chartData}
+          margin={{ top: 20, right: 10, left: 0, bottom: 5 }}
+        >
+          <CartesianGrid strokeDasharray='3 3' stroke='#f0f0f0' />
+          <XAxis dataKey='month' tick={{ fontSize: 10 }} />
+          <YAxis tick={{ fontSize: 10 }} />
+          <Tooltip
+            contentStyle={{
+              fontSize: 11,
+              borderRadius: 8,
+              border: '1px solid #e5e7eb',
+            }}
+          />
+          <Legend
+            wrapperStyle={{ fontSize: 10, paddingTop: 10 }}
+            formatter={(value: string) => {
+              const s = salesData.find((sd) => sd.name === value)
+              return <span style={{ color: s?.color || '#666' }}>{value}</span>
+            }}
+          />
+          {salesData.map((s) => (
+            <Bar
+              key={s.name}
+              dataKey={s.name}
+              fill={s.color}
+              radius={[2, 2, 0, 0]}
+              maxBarSize={28}
+            >
+              <LabelList
+                dataKey={s.name}
+                position='top'
+                style={{ fontSize: 8, fill: s.color, fontWeight: 600 }}
+                formatter={((v: number) => (v > 0 ? String(v) : '')) as any}
+              />
+            </Bar>
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
 function SortableHeader({
   label,
   field,

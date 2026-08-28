@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const skip = (page - 1) * limit;
 
   const client = await clientPromise;
-  const db = client.db("MabelHub");
+  const db = client.db("MabelHubStaging");
   const col = db.collection("companies");
 
   const filter: any = { approval_status: "APPROVED" };

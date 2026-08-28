@@ -22,7 +22,7 @@ export async function GET(req: Request) {
         }
 
         const client = await clientPromise
-        const db = client.db("MabelHub")
+        const db = client.db("MabelHubStaging")
         const col = db.collection("input_database")
 
         // Hitung jumlah kode unik yang sudah pakai prefix+dmy ini
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
         }
 
         const client = await clientPromise
-        const db = client.db("MabelHub")
+        const db = client.db("MabelHubStaging")
         const col = db.collection("input_database")
 
         const now = new Date()
@@ -130,7 +130,7 @@ export async function PUT(req: Request) {
         }
 
         const client = await clientPromise
-        const db = client.db("MabelHub")
+        const db = client.db("MabelHubStaging")
         const colMain = db.collection("input_database")
         const colHistory = db.collection("input_database_history")
 

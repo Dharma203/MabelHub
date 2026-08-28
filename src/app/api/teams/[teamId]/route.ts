@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertSuperadmin } from "@/lib/auth-server";
 import { ObjectId } from "mongodb";
 import { getParams, normStr, toObjectId } from "@/lib/api-helpers";
@@ -35,7 +35,7 @@ export async function GET(
     return NextResponse.json({ error: "teamId tidak valid" }, { status: 400 });
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
 
   const team = await db.collection<TeamDoc>("teams").findOne({ _id: oid });
   if (!team)
@@ -76,7 +76,7 @@ export async function PUT(
   }
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
 
   try {
     const res = await db
@@ -127,7 +127,7 @@ export async function DELETE(
     return NextResponse.json({ error: "teamId tidak valid" }, { status: 400 });
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
 
   const teamsCol = db.collection<TeamDoc>("teams");
   const usersCol = db.collection<UserDoc>("users");
