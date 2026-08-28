@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import clientPromise from "@/lib/mongodb";
-import { ObjectId } from 'mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getLeaderAllowedUserIds, getUserLiteById } from '@/lib/visit-auth'
 import { flexParseDateExpr } from '@/lib/flex-date-expr'
@@ -39,7 +38,7 @@ export async function GET(req: Request) {
 
   // ====== FILTER PARAMS ======
   const sales = searchParams.get('sales')
-  const status = searchParams.get('status')
+  const status_visit = searchParams.get('status_visit')
   const ring = searchParams.get('ring')
   const city = searchParams.get('city')
   const satker = searchParams.get('satker')
@@ -166,7 +165,7 @@ export async function GET(req: Request) {
   // EXACT FILTERS
   // =========================
   if (sales && sales.toUpperCase() !== 'ALL') match.nama_sales = sales
-  if (status) match.status_visit = status
+  if (status_visit) match.status_visit = status_visit
   if (ring) match.status_ring = ring.toUpperCase() // Ensure ring filter from dashboard is uppercase
   if (city) match.city = city
   if (satker) match.satuan_kerja = satker
@@ -203,10 +202,11 @@ export async function GET(req: Request) {
   // filterStatsB2G = gabungan excludeOffice + excludeRing4 + excludeKlpd
   if (filterStatsB2G) {
     if (!match.$and) match.$and = []
-    match.$and.push({ satuan_kerja: { $not: /office/i } })
-    match.$and.push({ status_ring: { $not: /ring[\s_]*4/i } })
+    match.$and.push({ satuan_kerja: { $exists: true, $not: /office/i } })
+    match.$and.push({ status_ring: { $exists: true, $not: /ring[\s_]*4/i } })
     match.$and.push({
       klpd: {
+        $exitst: true,
         $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
       },
     })
@@ -215,10 +215,10 @@ export async function GET(req: Request) {
   // filterStatsB2B = excludeOffice + includeRing4 + includeKlpd(B2B)
   if (filterStatsB2B) {
     if (!match.$and) match.$and = []
-    match.$and.push({ satuan_kerja: { $not: /office/i } })
-    match.$and.push({ status_ring: /ring[\s_]*4/i })
+    match.$and.push({ satuan_kerja: { $exists: true, $not: /office/i } })
+    match.$and.push({ status_ring: { $exists: true, $not: /ring[\s_]*1/i } })
     match.$and.push({
-      klpd: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
+      klpd: /kementrian|bumd|provinsi|kota/i,
     })
   }
 
@@ -246,6 +246,8 @@ export async function GET(req: Request) {
     status_ring: 'status_ring',
     pic_name: 'pic_name',
     pic_phone: 'pic_phone',
+    klpd: 'klpd',
+    status_visit: 'status_visit'
   }
 
   // =========================
@@ -385,8 +387,8 @@ export async function GET(req: Request) {
 
   if (filterStatsB2B) {
     globalRankingMatch.satuan_kerja.$not = /office/i
-    globalRankingMatch.status_ring = { ...globalRankingMatch.status_ring, $regex: /ring[\s_]*4/i }
-    globalRankingMatch.klpd = { ...globalRankingMatch.klpd, $regex: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i }
+    globalRankingMatch.status_ring = { ...globalRankingMatch.status_ring, $regex: /ring[\s_]*1/i }
+    globalRankingMatch.klpd = { ...globalRankingMatch.klpd, $regex: /kementrian|kota|provinsi|bumd/i }
   }
 
   const globalRanking = await col

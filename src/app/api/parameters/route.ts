@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { assertSuperadmin, assertLoggedIn } from "@/lib/auth-server";
 
-const DB_NAME = "MabelHubStaging";
+const DB_NAME = "MabelHub";
 const COL_NAME = "Parameters";
 const DOC_ID = "global";
 

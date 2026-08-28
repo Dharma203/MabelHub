@@ -117,12 +117,16 @@ export default function TrackingB2GPage() {
   const [fRing, setFRing] = useState<string>('ALL')
   const [fCity, setFCity] = useState<string>('ALL')
   const [fSatker, setFSatker] = useState<string>('ALL')
+  const [fKlpd, setFKlpd] = useState<string>('ALL')
+  const [fVisit, setFVisit] = useState<string>('ALL')
 
   //   dropdown meta
   const [salesOptions, setSalesOptions] = useState<string[]>([])
   const [cityOptions, setCityOptions] = useState<string[]>([])
   const [satkerOptions, setSatkerOptions] = useState<string[]>([])
   const [phoneOptions, setPhoneOptions] = useState<string[]>([])
+  const [klpdOptions, setKlpdOptions] = useState<string[]>([])
+  const [visitOptions, setVisitOptions] = useState<string[]>([])
 
   // pagination
   const [pageSize, setPageSize] = useState<number>(25)
@@ -214,11 +218,17 @@ export default function TrackingB2GPage() {
 
         setSalesOptions(Array.isArray(json?.sales) ? json.sales : [])
         setCityOptions(Array.isArray(json?.cities) ? json.cities : [])
+        setKlpdOptions(Array.isArray(json?.klpd) ? json.klpd : [])
+        setVisitOptions(
+          Array.isArray(json?.status_visit) ? json.status_visit : [],
+        )
         setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
       } catch {
         if (!mounted) return
         setSalesOptions([])
         setCityOptions([])
+        setKlpdOptions([])
+        setVisitOptions([])
         setSatkerOptions([])
       }
     })()
@@ -244,6 +254,8 @@ export default function TrackingB2GPage() {
         if (fRing !== 'ALL') params.set('ring', fRing)
         if (fCity !== 'ALL') params.set('city', fCity)
         if (fSatker !== 'ALL') params.set('satker', fSatker)
+        if (fKlpd !== 'ALL') params.set('klpd', fKlpd)
+        if (fVisit !== 'ALL') params.set('satus_visit', fVisit)
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
@@ -284,6 +296,8 @@ export default function TrackingB2GPage() {
     fRing,
     fCity,
     fSatker,
+    fKlpd,
+    fVisit,
     sortBy,
     sortDir,
     page,
@@ -453,19 +467,10 @@ export default function TrackingB2GPage() {
 
             <div
               className={cn(
-                'grid grid-cols-1 gap-6 md:grid-cols-7 mt-4 md:mt-0',
+                'grid grid-cols-1 gap-6 md:grid-cols-9 mt-4 md:mt-0',
                 !isFilterOpen ? 'hidden md:grid' : 'grid',
               )}
             >
-              <FilterSelect
-                label='SALES PERSON'
-                value={fSales}
-                onChange={(v) => onChangeFilter(setFSales, v)}
-                options={[{ label: 'Semua Sales', value: 'ALL' }].concat(
-                  salesOptions.map((s) => ({ label: s, value: s })),
-                )}
-              />
-
               <FilterDate
                 label='TANGGAL MULAI'
                 value={fStart}
@@ -485,6 +490,14 @@ export default function TrackingB2GPage() {
                     e.currentTarget.showPicker()
                   }
                 }}
+              />
+              <FilterSelect
+                label='SALES PERSON'
+                value={fSales}
+                onChange={(v) => onChangeFilter(setFSales, v)}
+                options={[{ label: 'Semua Sales', value: 'ALL' }].concat(
+                  salesOptions.map((s) => ({ label: s, value: s })),
+                )}
               />
 
               <FilterSelect
@@ -506,11 +519,29 @@ export default function TrackingB2GPage() {
               />
 
               <FilterSelect
+                label='KLPD'
+                value={fKlpd}
+                onChange={(v) => onChangeFilter(setFKlpd, v)}
+                options={[{ label: 'Semua KLPD', value: 'ALL' }].concat(
+                  klpdOptions.map((c) => ({ label: c, value: c })),
+                )}
+              />
+
+              <FilterSelect
                 label='PIC PHONE'
                 value={fPhone}
                 onChange={(v) => onChangeFilter(setFPhone, v)}
                 options={[{ label: 'Semua Kontak', value: 'ALL' }].concat(
                   phoneOptions.map((c) => ({ label: c, value: c })),
+                )}
+              />
+
+              <FilterSelect
+                label='STATUS VISIT'
+                value={fVisit}
+                onChange={(v) => onChangeFilter(setFVisit, v)}
+                options={[{ label: 'Semua Status', value: 'VISITED' }].concat(
+                  visitOptions.map((c) => ({ label: c, value: c })),
                 )}
               />
 

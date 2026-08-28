@@ -43,7 +43,7 @@ export async function GET(req: Request) {
     extraMatch.status_ring = { $exists: true, $regex: /ring[\s_]*4/i }
     extraMatch.klpd = {
       $exists: true,
-      $regex: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
+      $regex: /kabupaten|swasta|lainnya|b2b/i,
     }
   }
 
