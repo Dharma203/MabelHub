@@ -582,7 +582,7 @@ export async function POST(req: Request) {
     }
 
     const client = await clientPromise
-    const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
+    const db = client.db(process.env.MONGODB_DB || 'MabelHub')
 
     // =========================
     // TARGET ASSIGNMENT RULES

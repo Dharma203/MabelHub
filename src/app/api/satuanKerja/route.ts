@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     }
 
     const client = await clientPromise
-    const db = client.db('MabelHubStaging')
+    const db = client.db('MabelHub')
     const col = db.collection('database_b2g')
 
     // Cari nama_perusahaan yang mengandung kata kunci, case-insensitive

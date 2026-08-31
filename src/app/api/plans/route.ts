@@ -5,7 +5,7 @@ export async function POST(req: Request) {
   const body = await req.json();
 
   const client = await clientPromise;
-  const db = client.db("MabelHubStaging");
+  const db = client.db("MabelHub");
 
   const doc = {
     tanggal_plan: body.tanggal_plan ? new Date(body.tanggal_plan) : null,
