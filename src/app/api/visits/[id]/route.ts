@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
-import clientPromise from '@/lib/mongodb'
+import clientPromise, { getDbName } from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getLeaderAllowedUserIds, getUserLiteById } from '@/lib/visit-auth'
 import { writeFile, mkdir } from 'fs/promises'
@@ -15,7 +15,9 @@ function isAdminRole(role: string) {
  * Returns true if the doc has no user_id AND the nama_sales matches the user's fullName.
  */
 function isLegacyOwner(doc: any, fullName: string | null): boolean {
-  const namaSales = String(doc.nama_sales || '').trim().toLowerCase()
+  const namaSales = String(doc.nama_sales || '')
+    .trim()
+    .toLowerCase()
   const name = (fullName || '').trim().toLowerCase()
   return name !== '' && namaSales === name
 }
@@ -24,7 +26,11 @@ function isLegacyOwner(doc: any, fullName: string | null): boolean {
  * Check if a legacy doc belongs to any of the given user IDs,
  * by resolving their fullNames and matching against nama_sales.
  */
-async function isLegacyTeamOwner(db: any, doc: any, userIds: string[]): Promise<boolean> {
+async function isLegacyTeamOwner(
+  db: any,
+  doc: any,
+  userIds: string[],
+): Promise<boolean> {
   for (const uid of userIds) {
     const u = await getUserLiteById(db, uid)
     if (u?.fullName && isLegacyOwner(doc, u.fullName)) {
@@ -129,7 +135,7 @@ export async function GET(
   }
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
+  const db = client.db(getDbName())
   const col = db.collection('VisitActivity')
 
   const doc = await col.findOne({ _id: new ObjectId(id) })
@@ -162,7 +168,7 @@ export async function GET(
       }
     } else {
       // Legacy doc: check if nama_sales matches any team member
-      if (!await isLegacyTeamOwner(db, doc, allowed)) {
+      if (!(await isLegacyTeamOwner(db, doc, allowed))) {
         return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
       }
     }
@@ -193,7 +199,7 @@ export async function PUT(
   const body = await req.json().catch(() => ({}))
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
+  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
   const col = db.collection('VisitActivity')
 
   // Ambil dokumen lengkap untuk cek ownership + data PIC lama
@@ -230,7 +236,7 @@ export async function PUT(
       }
     } else {
       // Legacy doc: check if nama_sales matches any team member
-      if (!await isLegacyTeamOwner(db, existingDoc, allowed)) {
+      if (!(await isLegacyTeamOwner(db, existingDoc, allowed))) {
         return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
       }
     }
@@ -250,7 +256,8 @@ export async function PUT(
     const b64Match = imgStr.match(/data:image\/([a-zA-Z0-9]+);base64,(.+)$/)
     if (b64Match) {
       try {
-        const ext = b64Match[1] === 'jpeg' || b64Match[1] === 'jpg' ? 'jpeg' : b64Match[1]
+        const ext =
+          b64Match[1] === 'jpeg' || b64Match[1] === 'jpg' ? 'jpeg' : b64Match[1]
         const base64Data = b64Match[2]
         const buffer = Buffer.from(base64Data, 'base64')
         const filename = `visit_${Date.now()}.${ext}`
@@ -408,7 +415,7 @@ export async function DELETE(
   }
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
+  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
   const col = db.collection('VisitActivity')
 
   const existing = await col.findOne(
@@ -445,7 +452,7 @@ export async function DELETE(
       }
     } else {
       // Legacy doc: check if nama_sales matches any team member
-      if (!await isLegacyTeamOwner(db, existing, allowed)) {
+      if (!(await isLegacyTeamOwner(db, existing, allowed))) {
         return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
       }
     }

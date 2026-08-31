@@ -293,6 +293,12 @@ export default function RekapitulasiVisitPage() {
     isLink?: boolean
   }) {
     const empty = !value || value.trim() === ''
+    const resolveHref = (val: string) => {
+      if (val.startsWith('http')) return val
+      const origin = window.location.origin
+      const path = val.startsWith('/') ? val : `/${val}`
+      return `${origin}${path}`
+    }
     return (
       <div className='flex items-start gap-1.5 min-w-0'>
         <div className='flex flex-col min-w-0'>
@@ -300,7 +306,7 @@ export default function RekapitulasiVisitPage() {
             <span className='text-[10.5px] text-slate-300 italic'>-</span>
           ) : isLink ? (
             <a
-              href={value!.startsWith('http') ? value! : `https://${value}`}
+              href={resolveHref(value!)}
               target='_blank'
               rel='noopener noreferrer'
               className='text-[10.5px] text-blue-600 underline underline-offset-2 font-medium truncate hover:text-blue-800'
@@ -308,7 +314,7 @@ export default function RekapitulasiVisitPage() {
               Link Foto
             </a>
           ) : (
-            <span className='text-[10.5px] text-slate-700 font-medium break-words leading-snug'>
+            <span className='text-[10.5px] text-slate-700 font-medium -wrap-break-words leading-snug'>
               {value}
             </span>
           )}
@@ -987,7 +993,8 @@ export default function RekapitulasiVisitPage() {
                       Reschedule
                     </p>
                     <p className='text-sm font-medium text-gray-800'>
-                      {detailKunjungan.reschedule && detailKunjungan.reschedule !== '-'
+                      {detailKunjungan.reschedule &&
+                      detailKunjungan.reschedule !== '-'
                         ? formatDateID(detailKunjungan.reschedule)
                         : '-'}
                     </p>
@@ -1000,7 +1007,9 @@ export default function RekapitulasiVisitPage() {
                     Institusi Kerja
                   </p>
                   <p className='text-sm font-bold text-gray-800'>
-                    {detailKunjungan.city ? `Kota ${detailKunjungan.city}` : '-'}
+                    {detailKunjungan.city
+                      ? `Kota ${detailKunjungan.city}`
+                      : '-'}
                   </p>
                   <p className='text-sm font-medium text-gray-800'>
                     {detailKunjungan.institusi_kerja || '-'}

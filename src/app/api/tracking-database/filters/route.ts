@@ -4,7 +4,7 @@ import clientPromise from "@/lib/mongodb";
 export async function GET() {
     try {
         const client = await clientPromise;
-        const db = client.db("MabelHubStaging");
+        const db = client.db("MabelHub");
         const col = db.collection("input_database");
 
         // Ambil distinct values untuk filter (non-date fields)

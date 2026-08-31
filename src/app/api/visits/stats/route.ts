@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   const session = auth.session
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHubStaging')
+  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
   const col = db.collection('VisitActivity')
   
 

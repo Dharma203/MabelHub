@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   const status = searchParams.get("status") || "PENDING";
 
   const client = await clientPromise;
-  const db = client.db("MabelHubStaging");
+  const db = client.db("MabelHub");
 
   const rows = await db
     .collection("company_requests")
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   const body = await req.json();
 
   const client = await clientPromise;
-  const db = client.db("MabelHubStaging");
+  const db = client.db("MabelHub");
 
   const doc = {
     institusi_kerja: body.institusi_kerja || "",

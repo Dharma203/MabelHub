@@ -1232,7 +1232,7 @@ export default function TrackingB2BPage() {
                 </PageBtn>
                 <PageBtn
                   onClick={() => gotoPage(safePage - 1)}
-                  ariaLabel='Prev'
+                ariaLabel='Prev'
                 >
                   ◀
                 </PageBtn>

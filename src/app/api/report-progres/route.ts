@@ -5,7 +5,7 @@ import clientPromise from "@/lib/mongodb";
 export async function GET(req: NextRequest) {
   try {
     const client = await clientPromise;
-    const db = client.db("MabelHubStaging");
+    const db = client.db("MabelHub");
     const colInput = db.collection("input_database");
     const colBroadcast = db.collection("tracking_broadcast");
     const colValidasi = db.collection("validasi_sales");

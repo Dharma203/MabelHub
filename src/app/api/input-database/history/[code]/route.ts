@@ -21,7 +21,7 @@ export async function GET(
     }
 
     const client = await clientPromise
-    const db = client.db('MabelHubStaging')
+    const db = client.db('MabelHub')
     const col = db.collection('input_database_history')
 
     // Ambil entri terbaru (sort revised_at descending, limit 1)

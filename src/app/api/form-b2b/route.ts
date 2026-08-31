@@ -21,7 +21,7 @@ export async function GET(req: Request) {
         const dmy = searchParams.get('dmy') || ''
 
         const client = await clientPromise
-        const db = client.db("MabelHubStaging")
+        const db = client.db("MabelHub")
         const col = db.collection("database_b2b")
 
         // ── Mode LIST: kembalikan semua baris ───────────────────────────
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
         }
 
         const client = await clientPromise
-        const db = client.db("MabelHubStaging")
+        const db = client.db("MabelHub")
         const col = db.collection("database_b2b")
 
         const now = new Date()
@@ -142,7 +142,7 @@ export async function PUT(req: Request) {
         }
 
         const client = await clientPromise
-        const db = client.db("MabelHubStaging")
+        const db = client.db("MabelHub")
         const colMain = db.collection("database_b2b")
         const colHistory = db.collection("database_b2b_history")
 
