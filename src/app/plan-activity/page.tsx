@@ -18,6 +18,8 @@ type VisitRow = {
   klpd?: string;
   nama_sales?: string;
   institusi_kerja?: string;
+  jenisEntitas: string
+  namaEntitas: string
   satuan_kerja?: string;
   status_visit?: string; // "Visited"
   visit_image?: string;
@@ -42,6 +44,8 @@ type PlanRow = {
   institusi_kerja: string;
   satuan_kerja: string;
   status: string;
+  jenisEntitas: string;
+  namaEntitas: string;
   visit_image: string;
   reschedule_date: string;
   status_ring: string;
@@ -324,6 +328,11 @@ export default function PlanActivityPage() {
 
   // Copy plan data to clipboard
   function copyPlanText(plan: PlanRow) {
+    const institusiValue = plan.institusi_kerja || plan.namaEntitas || "-";
+    const institusiLabel = plan.institusi_kerja ? "Institusi Kerja" : (plan.namaEntitas ? "Nama Entitas" : "Institusi Kerja");
+    const satuanValue = plan.satuan_kerja || plan.jenisEntitas || "-";
+    const satuanLabel = plan.satuan_kerja ? "Satuan Kerja" : (plan.jenisEntitas ? "Jenis Entitas" : "Satuan Kerja");
+
     const lines = [
       `🗓️ Tanggal Kegiatan - ${formatTanggalForCopy(plan.tanggal)}`,
       `👥 Nama Sales: ${plan.nama_sales || "-"}`,
@@ -331,8 +340,8 @@ export default function PlanActivityPage() {
       `------------------------------`,
       `City: ${plan.kota || "-"}`,
       `K/L/PD: ${plan.klpd || "-"}`,
-      `Institusi Kerja: ${plan.institusi_kerja || "-"}`,
-      `Satuan Kerja: ${plan.satuan_kerja || "-"}`,
+      `${institusiLabel}: ${institusiValue}`,
+      `${satuanLabel}: ${satuanValue}`,
       `Status Ring: ${plan.status_ring || "-"}`,
       `Nama PIC: ${plan.pic_name || "-"}`,
       `Nomor HP: ${plan.pic_phone || "-"}`,
@@ -479,6 +488,8 @@ export default function PlanActivityPage() {
           klpd: v.klpd || "",
           nama_sales: v.nama_sales || "",
           institusi_kerja: v.institusi_kerja || "",
+          jenisEntitas: v.jenisEntitas || "",
+          namaEntitas: v.namaEntitas || v.institusi_kerja || "",
           satuan_kerja: v.satuan_kerja || "",
           status: v.status_visit || "",
           visit_image: v.visit_image && v.visit_image !== '__base64_image__' ? v.visit_image : (v.visit_image === '__base64_image__' ? '__base64_image__' : ""),
@@ -607,6 +618,10 @@ export default function PlanActivityPage() {
 
   // ─── RENDER HELPERS ───────────────────────────────────────────────────────
 
+  function getPlanDisplayName(plan: Partial<PlanRow>) {
+    return plan.satuan_kerja || plan.namaEntitas || plan.institusi_kerja || "Plan";
+  }
+
   function renderPlanChip(plan: PlanRow) {
     const colors = getStatusColor(plan.status);
     return (
@@ -615,7 +630,7 @@ export default function PlanActivityPage() {
         className={`text-[10px] leading-tight px-1.5 py-0.5 rounded ${colors.bg} ${colors.text} font-medium truncate cursor-pointer hover:opacity-80 transition-opacity`}
         title={`${plan.institusi_kerja || plan.kota || "Plan"} — ${plan.status || "No Status"}`}
       >
-        {plan.satuan_kerja || plan.kota || "Plan"}
+        {getPlanDisplayName(plan)}
       </div>
     );
   }
@@ -678,21 +693,33 @@ export default function PlanActivityPage() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Institusi Kerja</p>
-                  <p className="text-sm font-medium text-gray-800">{detailPlan.institusi_kerja || "-"}</p>
-                </div>
-              </div>
+              {(() => {
+                const institusiValue = detailPlan.institusi_kerja || detailPlan.namaEntitas || "";
+                const institusiLabel = detailPlan.institusi_kerja ? "Institusi Kerja" : (detailPlan.namaEntitas ? "Institusi Kerja" : "Nama Entitas");
+                return (
+                  <div className="flex items-start gap-3">
+                    <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{institusiLabel}</p>
+                      <p className="text-sm font-medium text-gray-800 break-words">{institusiValue || "-"}</p>
+                    </div>
+                  </div>
+                );
+              })()}
 
-              <div className="flex items-start gap-3">
-                <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Satuan Kerja</p>
-                  <p className="text-sm font-medium text-gray-800">{detailPlan.satuan_kerja || "-"}</p>
-                </div>
-              </div>
+              {(() => {
+                const satuanValue = detailPlan.satuan_kerja || detailPlan.jenisEntitas || "";
+                const satuanLabel = detailPlan.satuan_kerja ? "Satuan Kerja" : (detailPlan.jenisEntitas ? "Jenis Entitas" : "Satuan Kerja");
+                return (
+                  <div className="flex items-start gap-3">
+                    <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{satuanLabel}</p>
+                      <p className="text-sm font-medium text-gray-800 break-words">{satuanValue || "-"}</p>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex items-start gap-3">
                 <Clock className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />

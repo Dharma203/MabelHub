@@ -61,7 +61,7 @@ export async function GET(req: Request) {
       .find(filterB2B)
       .sort({ namaEntitas: 1 })
       .limit(limit)
-      .project({ namaEntitas: 1, kota: 1, ring: 1, pic_default: 1 })
+      .project({ namaEntitas: 1, jenisEntitas: 1, kota: 1, ring: 1, pic_default: 1 })
       .toArray();
 
     // Normalize ke shape yang sama
@@ -78,6 +78,8 @@ export async function GET(req: Request) {
       ...b2bItems.map((x: any) => ({
         _id: String(x._id),
         institusiKerja: x.namaEntitas || "",
+        namaEntitas: x.namaEntitas || "",
+        jenisEntitas: x.jenisEntitas || "",
         kota: x.kota || "",
         klpd: "",
         satuanKerja: "",

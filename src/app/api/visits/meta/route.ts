@@ -32,6 +32,7 @@ export async function GET(req: Request) {
 
   if (filterStatsB2B) {
     extraMatch.satuan_kerja = { $exists: true, $not: /office/i }
+    extraMatch.namaEntitas = { $exists: true, $not: /office/i }
     extraMatch.status_ring = { $exists: true, $not: /ring[\s_]*4/i }
     extraMatch.klpd = {
       $exists: true, 
@@ -53,6 +54,8 @@ export async function GET(req: Request) {
     ringResult,
     klpdResult,
     statusVisitResult,
+    namaEntitasResult,
+    jenisEntitasResult
   ] = await Promise.all([
     col
       .aggregate([
@@ -96,6 +99,20 @@ export async function GET(req: Request) {
         { $sort: { _id: 1 } },
       ])
       .toArray(),
+    col
+      .aggregate([
+        { $match: combinedMatch },
+        { $group: { _id: '$namaEntitas' } },
+        { $sort: { _id: 1 } },
+      ])
+      .toArray(),
+    col
+      .aggregate([
+        { $match: combinedMatch },
+        { $group: { _id: '$jenisEntitas' } },
+        { $sort: { _id: 1 } },
+      ])
+      .toArray(),
   ])
 
   return NextResponse.json({
@@ -105,5 +122,7 @@ export async function GET(req: Request) {
     rings: ringResult.map((r: any) => r._id).filter(Boolean),
     klpd: klpdResult.map((r: any) => r._id).filter(Boolean),
     status_visit: statusVisitResult.map((r: any) => r._id).filter(Boolean),
+    namaEntitas: namaEntitasResult.map((r: any) => r._id).filter(Boolean),
+    jenisEntitas: jenisEntitasResult.map((r: any) => r._id).filter(Boolean),
   })
 }

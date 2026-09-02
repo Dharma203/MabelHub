@@ -55,7 +55,8 @@ type VisitRow = {
   pic_name: string
   pic_phone: string
   status_ring: 'RING 1' | 'RING 2' | 'RING 3' | 'RING 4' | string
-
+  namaEntitas: string
+  jenisEntitas: string
   created_at: string
   status_market: string
   klpd: string
@@ -227,10 +228,14 @@ export default function RekapitulasiVisitPage() {
     sales: string | null
     klpd: string | null
     date: string | null
+    namaEntitas: string | null
+    jenisEntitas: string | null
   }>({
     ring: null,
     statusGroup: null,
     city: null,
+    namaEntitas: null,
+    jenisEntitas: null,
     satker: null,
     sales: null,
     klpd: null,
@@ -247,6 +252,8 @@ export default function RekapitulasiVisitPage() {
   const [fSatker, setFSatker] = useState<string>('ALL')
   const [startDate, setStartDate] = useState<string | null>(null)
   const [endDate, setEndDate] = useState<string | null>(null)
+  const [fNamaEntitas, setFNamaEntitas] = useState<string>('ALL')
+  const [fJenisEntitas, setFJenisEntitas] = useState<string>('ALL')
 
   // ====== mobile filter toggle ======
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -268,6 +275,7 @@ export default function RekapitulasiVisitPage() {
   const [salesOptions, setSalesOptions] = useState<string[]>([])
   const [cityOptions, setCityOptions] = useState<string[]>([])
   const [satkerOptions, setSatkerOptions] = useState<string[]>([])
+  const [entitasOptions, setEntitasOptions] = useState<string[]>([])
 
   // ====== export modal ======
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
@@ -375,6 +383,14 @@ export default function RekapitulasiVisitPage() {
       : `${base}${img.startsWith('/') ? '' : '/uploads/'}${img}`
   }
 
+  function getEntityDisplayValue(row: Partial<VisitRow>) {
+    if (row.status_ring === 'RING 4') {
+      return row.namaEntitas || row.jenisEntitas || row.institusi_kerja || '-'
+    }
+
+    return row.satuan_kerja || row.namaEntitas || row.institusi_kerja || '-'
+  }
+
   function openImageBase64(base64: string) {
     const w = window.open('')
     if (w) {
@@ -453,11 +469,13 @@ export default function RekapitulasiVisitPage() {
         setSalesOptions(Array.isArray(json?.sales) ? json.sales : [])
         setCityOptions(Array.isArray(json?.cities) ? json.cities : [])
         setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
+        setEntitasOptions(Array.isArray(json?.namaEntitas) ? json.namaEntitas : [])
       } catch {
         if (!mounted) return
         setSalesOptions([])
         setCityOptions([])
         setSatkerOptions([])
+        setEntitasOptions([])
       }
     })()
 
@@ -497,6 +515,8 @@ export default function RekapitulasiVisitPage() {
       if (fRing !== 'ALL') qs.set('ring', fRing)
       if (fCity !== 'ALL') qs.set('city', fCity)
       if (fSatker !== 'ALL') qs.set('satker', fSatker)
+      if (fNamaEntitas !== 'ALL') qs.set('namaEntitas', fNamaEntitas)
+      if (fJenisEntitas !== 'ALL') qs.set('jenisEntitas', fJenisEntitas)
       if (fStart) qs.set('start', fStart)
       if (fEnd) qs.set('end', fEnd)
 
@@ -531,7 +551,7 @@ export default function RekapitulasiVisitPage() {
     return () => {
       mounted = false
     }
-  }, [pageSize, page, fSales, fStatus, fRing, fCity, fSatker, fStart, fEnd])
+  }, [pageSize, page, fSales, fStatus, fRing, fCity, fSatker, fNamaEntitas, fJenisEntitas, fStart, fEnd])
 
   useEffect(() => {
     let mounted = true
@@ -547,6 +567,8 @@ export default function RekapitulasiVisitPage() {
           params.set('statusGroup', activeFilters.statusGroup)
         if (activeFilters.city) params.set('city', activeFilters.city)
         if (activeFilters.satker) params.set('satker', activeFilters.satker)
+        if (activeFilters.namaEntitas) params.set('namaEntitas', activeFilters.namaEntitas)
+        if (activeFilters.jenisEntitas) params.set('jenisEntitas', activeFilters.jenisEntitas)
         if (activeFilters.sales) params.set('sales', activeFilters.sales)
         if (activeFilters.klpd) params.set('klpd', activeFilters.klpd)
         if (activeFilters.date) params.set('date', activeFilters.date)
@@ -739,6 +761,8 @@ export default function RekapitulasiVisitPage() {
           klpd: v.klpd || '',
           nama_sales: v.nama_sales || '',
           institusi_kerja: v.institusi_kerja || '',
+          namaEntitas: v.namaEntitas || '',
+          jenisEntitas: v.jenisEntitas || '',
           satuan_kerja: v.satuan_kerja || '',
           status: v.status_visit || '',
           visit_image:
@@ -843,6 +867,8 @@ export default function RekapitulasiVisitPage() {
         if (fRing !== 'ALL') qs.set('ring', fRing)
         if (fCity !== 'ALL') qs.set('city', fCity)
         if (fSatker !== 'ALL') qs.set('satker', fSatker)
+        if (fNamaEntitas !== 'ALL') qs.set('namaEntitas', fNamaEntitas)
+        if (fJenisEntitas !== 'ALL') qs.set('jenisEntitas', fJenisEntitas)
         if (fStart) qs.set('start', fStart)
         if (fEnd) qs.set('end', fEnd)
 
@@ -863,7 +889,7 @@ export default function RekapitulasiVisitPage() {
         if (selectedCols.includes('statusVisit'))
           row['Status Visit'] = r.status_visit || '-'
         if (selectedCols.includes('satuanKerja'))
-          row['Satuan Kerja'] = r.satuan_kerja || '-'
+          row['Satuan Kerja'] = getEntityDisplayValue(r)
         if (selectedCols.includes('city')) row['City'] = r.city || '-'
         if (selectedCols.includes('picName'))
           row['PIC Name'] = r.pic_name || '-'
@@ -1417,10 +1443,29 @@ export default function RekapitulasiVisitPage() {
                 <div>
                   <FilterSelect
                     label='SATUAN KERJA'
-                    value={fSatker}
-                    onChange={(v) => onChangeFilter(setFSatker, v)}
+                    value={
+                      fNamaEntitas !== 'ALL'
+                        ? fNamaEntitas
+                        : fSatker !== 'ALL'
+                          ? fSatker
+                          : 'ALL'
+                    }
+                    onChange={(v) => {
+                      if (v === 'ALL') {
+                        setFSatker('ALL')
+                        setFNamaEntitas('ALL')
+                        return
+                      }
+
+                      const matchesSatker = satkerOptions.includes(v)
+                      const matchesEntitas = entitasOptions.includes(v)
+
+                      setFSatker(matchesSatker ? v : 'ALL')
+                      setFNamaEntitas(matchesEntitas ? v : 'ALL')
+                    }}
                     options={[{ label: 'Semua Satker', value: 'ALL' }].concat(
                       satkerOptions.map((s) => ({ label: s, value: s })),
+                      entitasOptions.map((e) => ({ label: e, value: e })),
                     )}
                     full
                   />
@@ -1439,7 +1484,7 @@ export default function RekapitulasiVisitPage() {
                         'NAMA SALES',
                         'VISIT DATE',
                         'STATUS',
-                        'SATUAN KERJA',
+                        'SATUAN KERJA / NAMA ENTITAS',
                         'CITY',
                         'PIC NAME',
                         'PIC PHONE',
@@ -1506,7 +1551,7 @@ export default function RekapitulasiVisitPage() {
                                 <StatusPill value={r.status_visit} />
                               </td>
                               <td className='px-6 py-6 text-gray-900'>
-                                {r.satuan_kerja}
+                                {getEntityDisplayValue(r)}
                               </td>
                               <td className='px-6 py-6 text-gray-900'>
                                 {r.city}

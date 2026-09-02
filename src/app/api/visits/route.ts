@@ -42,6 +42,8 @@ export async function GET(req: Request) {
   const ring = searchParams.get('ring')
   const city = searchParams.get('city')
   const satker = searchParams.get('satker')
+  const namaEntitas = searchParams.get('namaEntitas')
+  const jenisEntitas = searchParams.get('jenisEntitas')
   const startStr = searchParams.get('start')
   const endStr = searchParams.get('end')
   const statusGroup = searchParams.get('statusGroup')
@@ -155,6 +157,8 @@ export async function GET(req: Request) {
       { klpd: rx },
       { institusi_kerja: rx },
       { satuan_kerja: rx },
+      { namaEntitas: rx },
+      { jenisEntitas: rx }, 
       { status_visit: rx },
       { nama_sales: rx },
       { status_ring: rx },
@@ -169,6 +173,8 @@ export async function GET(req: Request) {
   if (ring) match.status_ring = ring.toUpperCase() // Ensure ring filter from dashboard is uppercase
   if (city) match.city = city
   if (satker) match.satuan_kerja = satker
+  if (namaEntitas) match.namaEntitas = namaEntitas
+  if (jenisEntitas) match.jenisEntitas = jenisEntitas
   if (klpd) match.klpd = klpd
   if (kegiatanStatus.length > 0) match.kegiatan_status = { $in: kegiatanStatus }
 
@@ -246,7 +252,9 @@ export async function GET(req: Request) {
     pic_name: 'pic_name',
     pic_phone: 'pic_phone',
     klpd: 'klpd',
-    status_visit: 'status_visit'
+    status_visit: 'status_visit',
+    namaEntitas : 'namaEntitas',
+    jenisEntitas : 'jenisEntitas',
   }
 
   // =========================
@@ -295,6 +303,8 @@ export async function GET(req: Request) {
         tindak_lanjut: { $first: '$tindak_lanjut' },
         kegiatan_status: { $first: '$kegiatan_status' },
         descriptions: { $first: '$descriptions' },
+        namaEntitas: { $first: '$namaEntitas' },
+        jenisEntitas: { $first: '$jenisEntitas' },
         status_visit: { $first: '$status_visit' },
         total_visit: { $sum: 1 },
         __latestVisitDate: { $max: '$__visitDate' },
@@ -376,6 +386,7 @@ export async function GET(req: Request) {
     status_ring: { $exists: true, $nin: [null, ''] },
     klpd: { $exists: true, $nin: [null, ''] },
     kegiatan_status: { $exists: true, $nin: [null, ''] },
+    namaEntitas : { $exists: true, $nin: [null, '']},
   }
 
   if (filterStatsB2G) {

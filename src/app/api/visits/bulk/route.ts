@@ -146,15 +146,28 @@ export async function POST(req: Request) {
 
       const status_ring = String(it?.status_ring ?? '').trim()
       const institusi_kerja = String(it?.institusi_kerja ?? '').trim()
+      const jenisEntitas = String(it?.jenisEntitas ?? '').trim()
+      const namaEntitas = String(it?.namaEntitas ?? '').trim()
       const kota_kab = String(it?.kota_kab ?? '').trim()
       const klpd = String(it?.klpd ?? '').trim()
       const satuan_kerja = String(it?.satuan_kerja ?? '').trim()
 
-      if (!status_ring || !institusi_kerja) {
-        return NextResponse.json(
-          { error: 'Setiap plan wajib punya status_ring & institusi_kerja' },
-          { status: 400 },
-        )
+      const isRing4 = status_ring === 'RING 4'
+
+      if (isRing4) {
+        if (!jenisEntitas || !namaEntitas) {
+          return NextResponse.json(
+            { error: 'RING 4 wajib punya jenisEntitas dan namaEntitas' },
+            { status: 400 },
+          )
+        }
+      } else {
+        if (!institusi_kerja || !satuan_kerja) {
+          return NextResponse.json(
+            { error: 'Setiap plan non-RING 4 wajib punya institusi_kerja dan satuan_kerja' },
+            { status: 400 },
+          )
+        }
       }
 
       const targetUserId = resolvedTargets[i]
@@ -169,6 +182,16 @@ export async function POST(req: Request) {
 
       const pic = it?.pic_default ?? {}
 
+      const activeFields = isRing4
+        ? {
+            jenisEntitas: jenisEntitas || null,
+            namaEntitas: namaEntitas || null,
+          }
+        : {
+            institusi_kerja: institusi_kerja || null,
+            satuan_kerja: satuan_kerja || null,
+          }
+
       docs.push({
         // legacy
         user_id: targetUserId || null,
@@ -178,9 +201,7 @@ export async function POST(req: Request) {
         visit_date,
         city: kota_kab || null,
         klpd: klpd || null,
-        institusi_kerja,
-        satuan_kerja: satuan_kerja || null,
-
+        ...activeFields,
         pic_name: pic?.nama ?? null,
         pic_phone: pic?.no_telp ?? null,
         pic_position: pic?.jabatan ?? null,
