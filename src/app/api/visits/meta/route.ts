@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getVisitAuthMatch } from '@/lib/visit-auth'
+import { normalizeRing } from '@/lib/ring'
 
 export async function GET(req: Request) {
   const auth = assertLoggedIn(req)
@@ -119,7 +120,7 @@ export async function GET(req: Request) {
     sales: salesResult.map((r: any) => r._id).filter(Boolean),
     cities: citiesResult.map((r: any) => r._id).filter(Boolean),
     satkers: satkersResult.map((r: any) => r._id).filter(Boolean),
-    rings: ringResult.map((r: any) => r._id).filter(Boolean),
+    rings: [...new Set(ringResult.map((r: any) => normalizeRing(r._id)).filter(Boolean))].sort(),
     klpd: klpdResult.map((r: any) => r._id).filter(Boolean),
     status_visit: statusVisitResult.map((r: any) => r._id).filter(Boolean),
     namaEntitas: namaEntitasResult.map((r: any) => r._id).filter(Boolean),

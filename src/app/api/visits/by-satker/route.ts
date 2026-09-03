@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getVisitAuthMatch } from '@/lib/visit-auth'
+import { normalizeRing } from '@/lib/ring'
 import { flexParseDateExpr } from '@/lib/flex-date-expr'
 
 
@@ -62,7 +63,7 @@ export async function GET(req: Request) {
     status_visit: d.status_visit || '-',
     nama_sales: d.nama_sales || '-',
     city: d.city || '-',
-    status_ring: d.status_ring || '-',
+    status_ring: normalizeRing(d.status_ring) || '-',
     satuan_kerja: d.satuan_kerja || '-',
     pic_name: d.pic_name || '-',
     pic_phone: d.pic_phone || '-',

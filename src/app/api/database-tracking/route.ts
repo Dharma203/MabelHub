@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
+import { normalizeRing } from '@/lib/ring'
 
 type KontakItem = {
   id: string
@@ -71,7 +72,12 @@ export async function GET(req: NextRequest) {
 
     // data sekunder
     const ring = searchParams.get('ring')
-    if (ring) filter['ring'] = ring
+    if (ring) {
+      const normalizedRing = normalizeRing(ring)
+      filter['ring'] = normalizedRing
+        ? { $regex: normalizedRing.replace(' ', '\\s*'), $options: 'i' }
+        : ring
+    }
     const salesInternal = searchParams.get('salesInternal')
     if (salesInternal) filter['salesInternal'] = salesInternal
     const alamat = searchParams.get('alamat')
@@ -229,7 +235,7 @@ export async function GET(req: NextRequest) {
         tipeKontak: r.tipe_kontak ?? r.tipeKontak ?? '',
         noTelp: r.no_telp ?? r.noTelp ?? '',
         email: r.email ?? '',
-        ring: r.ring ?? '',
+        ring: normalizeRing(r.ring),
         salesInternal: r.salesInternal ?? '',
         alamat: r.alamat ?? '',
         kota: r.kota ?? '',
@@ -293,7 +299,7 @@ export async function GET(req: NextRequest) {
         tipeKontak: r.tipe_kontak ?? r.tipeKontak ?? '',
         noTelp: r.no_telp ?? r.noTelp ?? '',
         email: r.email ?? '',
-        ring: r.ring ?? '',
+        ring: normalizeRing(r.ring),
         salesInternal: r.salesInternal ?? '',
         alamat: r.alamat ?? '',
         kota: r.kota ?? '',

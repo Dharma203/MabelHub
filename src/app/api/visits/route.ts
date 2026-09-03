@@ -4,6 +4,7 @@ import { assertLoggedIn } from '@/lib/auth-server'
 import { getLeaderAllowedUserIds, getUserLiteById } from '@/lib/visit-auth'
 import { flexParseDateExpr } from '@/lib/flex-date-expr'
 import { toVisitDateStr, toCreatedAtStr } from '@/lib/visit-date'
+import { normalizeRing } from '@/lib/ring'
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(Math.max(n, min), max)
@@ -170,7 +171,12 @@ export async function GET(req: Request) {
   // =========================
   if (sales && sales.toUpperCase() !== 'ALL') match.nama_sales = sales
   if (status_visit) match.status_visit = status_visit
-  if (ring) match.status_ring = ring.toUpperCase() // Ensure ring filter from dashboard is uppercase
+  if (ring) {
+    const normalizedRing = normalizeRing(ring)
+    match.status_ring = normalizedRing
+      ? { $regex: normalizedRing.replace(' ', '[\\s_-]*'), $options: 'i' }
+      : ring
+  }
   if (city) match.city = city
   if (satker) match.satuan_kerja = satker
   if (namaEntitas) match.namaEntitas = namaEntitas
@@ -368,6 +374,7 @@ export async function GET(req: Request) {
     const items = itemsRaw.map((it: any) => ({
       ...it,
       _id: String(it._id),
+      status_ring: normalizeRing(it.status_ring) || '-',
     }))
 
     return NextResponse.json({
@@ -548,7 +555,11 @@ export async function GET(req: Request) {
   const total = Number(totalResult?.[0]?.count || 0)
   const totalPages = Math.max(1, Math.ceil(total / limit))
 
-  const items = itemsRaw.map((it: any) => ({ ...it, _id: String(it._id) }))
+  const items = itemsRaw.map((it: any) => ({
+    ...it,
+    _id: String(it._id),
+    status_ring: normalizeRing(it.status_ring) || '-',
+  }))
 
   return NextResponse.json({
     items,

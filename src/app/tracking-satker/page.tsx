@@ -18,6 +18,7 @@ import { useSession } from '@/components/session/SessionProvider'
 import { useRouter } from 'next/navigation'
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import Image from 'next/image'
+import { normalizeRing } from '@/lib/ring'
 
 interface StatCardProps {
   title: string
@@ -226,7 +227,7 @@ export default function TrackingSatuanKerja() {
         if (fSales !== 'ALL') params.set('sales', fSales)
         if (fStart) params.set('start', fStart)
         if (fEnd) params.set('end', fEnd)
-        if (fRing !== 'ALL') params.set('ring', fRing)
+        if (fRing !== 'ALL') params.set('ring', normalizeRing(fRing))
         if (fCity !== 'ALL') params.set('city', fCity)
         if (fSatker !== 'ALL') params.set('satker', fSatker)
         params.set('sortBy', sortBy)
@@ -601,7 +602,7 @@ export default function TrackingSatuanKerja() {
                               {r.city}
                             </td>
                             <td className='px-6 py-6 font-extrabold text-[#0B6AA9]'>
-                              {r.status_ring}
+                              {normalizeRing(r.status_ring) || '-'}
                             </td>
                             <td className='px-6 py-6 text-gray-900'>
                               {r.satuan_kerja}
@@ -768,7 +769,7 @@ export default function TrackingSatuanKerja() {
                         value={modalVisit.nama_sales}
                       />
                       <DetailItem label='City' value={modalVisit.city} />
-                      <DetailItem label='Ring' value={modalVisit.status_ring} />
+                      <DetailItem label='Ring' value={normalizeRing(modalVisit.status_ring) || '-'} />
                       <DetailItem
                         label='Satuan Kerja'
                         value={modalVisit.satuan_kerja}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import SearchableSelect from '@/components/ui/SearchableSelect'
+import { normalizeRing } from '@/lib/ring'
 import {
   Search,
   ChevronsLeft,
@@ -167,7 +168,8 @@ export default function DatabaseTrackingPage() {
     const klpdSet = new Set<string>()
 
     rows.forEach((r) => {
-      if (r.ring) ringSet.add(r.ring)
+      const normalized = normalizeRing(r.ring)
+      if (normalized) ringSet.add(normalized)
       if (r.kota) kotaSet.add(r.kota)
       if (r.klpd) klpdSet.add(r.klpd)
     })
@@ -193,7 +195,7 @@ export default function DatabaseTrackingPage() {
       const qs = new URLSearchParams()
       qs.set('mode', mode)
 
-      if (ring) qs.set('ring', ring)
+      if (ring) qs.set('ring', normalizeRing(ring))
       if (klpd) qs.set('klpd', klpd)
       if (kota) qs.append('kota', kota)
 
@@ -469,7 +471,9 @@ export default function DatabaseTrackingPage() {
                                 key={col.key}
                                 className='whitespace-nowrap px-5 py-3.5 text-sm text-gray-700'
                               >
-                                {String(row[col.key] || '-')}
+                                {col.key === 'ring'
+                                  ? normalizeRing(row[col.key]) || '-'
+                                  : String(row[col.key] || '-')}
                               </td>
                             ))}
                             <td className='whitespace-nowrap px-5 py-3.5'>
@@ -507,7 +511,9 @@ export default function DatabaseTrackingPage() {
                                         {f.label}
                                       </div>
                                       <div className='text-sm text-gray-800 mt-0.5'>
-                                        {String(row[f.key] || '-')}
+                                        {f.key === 'ring'
+                                          ? normalizeRing(row[f.key]) || '-'
+                                          : String(row[f.key] || '-')}
                                       </div>
                                     </div>
                                   ))}

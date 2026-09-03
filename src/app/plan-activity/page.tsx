@@ -7,6 +7,7 @@ import { useSession } from "@/components/session/SessionProvider";
 import EditVisitModal from "@/components/modals/EditVisitModal";
 import { Pen, ChevronLeft, ChevronRight, X, Eye, Calendar, Clock, MapPin, Building2, Briefcase, ImageIcon, User, Copy, Check } from "lucide-react";
 import Image from "next/image";
+import { normalizeRing } from "@/lib/ring";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -19,8 +20,11 @@ type VisitRow = {
   nama_sales?: string;
   institusi_kerja?: string;
   jenisEntitas: string
+  jenis_entitas?: string
   namaEntitas: string
   satuan_kerja?: string;
+  satuanKerja?: string;
+  institusiKerja?: string;
   status_visit?: string; // "Visited"
   visit_image?: string;
   has_visit_image?: boolean;
@@ -329,9 +333,9 @@ export default function PlanActivityPage() {
   // Copy plan data to clipboard
   function copyPlanText(plan: PlanRow) {
     const institusiValue = plan.institusi_kerja || plan.namaEntitas || "-";
-    const institusiLabel = plan.institusi_kerja ? "Institusi Kerja" : (plan.namaEntitas ? "Nama Entitas" : "Institusi Kerja");
+    const institusiLabel = plan.institusi_kerja ? "Institusi Kerja" : "Nama Entitas";
     const satuanValue = plan.satuan_kerja || plan.jenisEntitas || "-";
-    const satuanLabel = plan.satuan_kerja ? "Satuan Kerja" : (plan.jenisEntitas ? "Jenis Entitas" : "Satuan Kerja");
+    const satuanLabel = plan.satuan_kerja ? "Satuan Kerja" : "Jenis Entitas";
 
     const lines = [
       `🗓️ Tanggal Kegiatan - ${formatTanggalForCopy(plan.tanggal)}`,
@@ -342,7 +346,7 @@ export default function PlanActivityPage() {
       `K/L/PD: ${plan.klpd || "-"}`,
       `${institusiLabel}: ${institusiValue}`,
       `${satuanLabel}: ${satuanValue}`,
-      `Status Ring: ${plan.status_ring || "-"}`,
+      `Status Ring: ${normalizeRing(plan.status_ring) || "-"}`,
       `Nama PIC: ${plan.pic_name || "-"}`,
       `Nomor HP: ${plan.pic_phone || "-"}`,
       `Jabatan: ${plan.pic_role || "-"}`,
@@ -487,10 +491,10 @@ export default function PlanActivityPage() {
           kota: v.city || "",
           klpd: v.klpd || "",
           nama_sales: v.nama_sales || "",
-          institusi_kerja: v.institusi_kerja || "",
-          jenisEntitas: v.jenisEntitas || "",
-          namaEntitas: v.namaEntitas || v.institusi_kerja || "",
-          satuan_kerja: v.satuan_kerja || "",
+          institusi_kerja: v.institusi_kerja || v.institusiKerja || "",
+          jenisEntitas: v.jenisEntitas || v.jenis_entitas || "",
+          namaEntitas: v.namaEntitas || v.institusi_kerja || v.institusiKerja || "",
+          satuan_kerja: v.satuan_kerja || v.satuanKerja || "",
           status: v.status_visit || "",
           visit_image: v.visit_image && v.visit_image !== '__base64_image__' ? v.visit_image : (v.visit_image === '__base64_image__' ? '__base64_image__' : ""),
           reschedule_date: v.reschedule_date || "",
@@ -619,7 +623,13 @@ export default function PlanActivityPage() {
   // ─── RENDER HELPERS ───────────────────────────────────────────────────────
 
   function getPlanDisplayName(plan: Partial<PlanRow>) {
-    return plan.satuan_kerja || plan.namaEntitas || plan.institusi_kerja || "Plan";
+    return (
+      plan.satuan_kerja ||
+      plan.jenisEntitas ||
+      plan.namaEntitas ||
+      plan.institusi_kerja ||
+      "Plan"
+    );
   }
 
   function renderPlanChip(plan: PlanRow) {
@@ -654,7 +664,7 @@ export default function PlanActivityPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
+            <div className="bg-linear-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-lg">Detail Aktivitas</h3>
                 <button
@@ -670,7 +680,7 @@ export default function PlanActivityPage() {
             {/* Body */}
             <div className="p-5 space-y-4">
               <div className="flex items-start gap-3">
-                <User className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <User className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Sales</p>
                   <p className="text-sm font-medium text-gray-800">{detailPlan.nama_sales || "-"}</p>
@@ -678,7 +688,7 @@ export default function PlanActivityPage() {
               </div>
 
               <div className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Kota</p>
                   <p className="text-sm font-medium text-gray-800">{detailPlan.kota || "-"}</p>
@@ -686,7 +696,7 @@ export default function PlanActivityPage() {
               </div>
 
               <div className="flex items-start gap-3">
-                <Building2 className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <Building2 className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">K/L/PD</p>
                   <p className="text-sm font-medium text-gray-800">{detailPlan.klpd || "-"}</p>
@@ -695,13 +705,13 @@ export default function PlanActivityPage() {
 
               {(() => {
                 const institusiValue = detailPlan.institusi_kerja || detailPlan.namaEntitas || "";
-                const institusiLabel = detailPlan.institusi_kerja ? "Institusi Kerja" : (detailPlan.namaEntitas ? "Institusi Kerja" : "Nama Entitas");
+                const institusiLabel = detailPlan.institusi_kerja ? "Institusi Kerja" : "Nama Entitas";
                 return (
                   <div className="flex items-start gap-3">
-                    <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                     <div>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{institusiLabel}</p>
-                      <p className="text-sm font-medium text-gray-800 break-words">{institusiValue || "-"}</p>
+                      <p className="text-sm font-medium text-gray-800 wrap-break-words">{institusiValue || "-"}</p>
                     </div>
                   </div>
                 );
@@ -709,20 +719,20 @@ export default function PlanActivityPage() {
 
               {(() => {
                 const satuanValue = detailPlan.satuan_kerja || detailPlan.jenisEntitas || "";
-                const satuanLabel = detailPlan.satuan_kerja ? "Satuan Kerja" : (detailPlan.jenisEntitas ? "Jenis Entitas" : "Satuan Kerja");
+                const satuanLabel = detailPlan.satuan_kerja ? "Satuan Kerja" : "Jenis Entitas";
                 return (
                   <div className="flex items-start gap-3">
-                    <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                     <div>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{satuanLabel}</p>
-                      <p className="text-sm font-medium text-gray-800 break-words">{satuanValue || "-"}</p>
+                      <p className="text-sm font-medium text-gray-800 wrap-break-words">{satuanValue || "-"}</p>
                     </div>
                   </div>
                 );
               })()}
 
               <div className="flex items-start gap-3">
-                <Clock className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <Clock className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Status</p>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -745,7 +755,7 @@ export default function PlanActivityPage() {
 
               {detailPlan.visit_image && (
                 <div className="flex items-start gap-3">
-                  <ImageIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <ImageIcon className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Bukti Kunjungan</p>
                     <Image
@@ -811,7 +821,7 @@ export default function PlanActivityPage() {
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
+          <div className="bg-linear-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-lg">{formatFullDate(selectedDate)}</h3>
@@ -843,7 +853,7 @@ export default function PlanActivityPage() {
                     key={plan.id}
                     className="flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-none hover:bg-gray-50 transition-colors"
                   >
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-800 truncate">
                         {plan.institusi_kerja || plan.kota || "-"}
@@ -932,7 +942,7 @@ export default function PlanActivityPage() {
                 key={i}
                 onClick={() => handleDateClick(day)}
                 className={`
-                  min-h-[100px] md:min-h-[120px] border-b border-r border-gray-100 p-1.5 cursor-pointer transition-all duration-150
+                  min-h-25 md:min-h-30 border-b border-r border-gray-100 p-1.5 cursor-pointer transition-all duration-150
                   ${!isCurrentMonth ? "bg-gray-50/50" : "bg-white hover:bg-blue-50/30"}
                   ${isSelected ? "ring-2 ring-blue-500 ring-inset bg-blue-50/40" : ""}
                 `}
@@ -1000,7 +1010,7 @@ export default function PlanActivityPage() {
         </div>
 
         {/* Day columns */}
-        <div className="grid grid-cols-7 min-h-[400px]">
+        <div className="grid grid-cols-7 min-h-100">
           {weekDays.map((day, i) => {
             const key = dateToKey(day);
             const dayPlans = plansByDate[key] || [];
@@ -1050,7 +1060,7 @@ export default function PlanActivityPage() {
     return (
       <div className="bg-white rounded-xl shadow-md ring-1 ring-black/5 overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 px-6 py-4 border-b border-gray-200">
+        <div className="bg-linear-to-r from-blue-50 to-blue-100/50 px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-gray-800">{formatFullDate(currentDate)}</h3>
@@ -1081,7 +1091,7 @@ export default function PlanActivityPage() {
                     key={plan.id}
                     className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all group"
                   >
-                    <div className={`w-1.5 h-14 rounded-full flex-shrink-0 ${colors.dot}`} />
+                    <div className={`w-1.5 h-14 rounded-full shrink-0 ${colors.dot}`} />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-800 truncate">{plan.satuan_kerja || "-"}</p>
                       <p className="text-sm text-gray-500 truncate">{plan.kota} {plan.klpd ? `• ${plan.klpd}` : ""}</p>
@@ -1099,7 +1109,7 @@ export default function PlanActivityPage() {
                       <Image
                         src={getImageUrl(plan.visit_image, plan.id)}
                         alt="Bukti kunjungan"
-                        className="w-12 h-12 rounded-lg flex-shrink-0 ring-1 ring-gray-200 cursor-pointer hover:ring-blue-400 transition-all object-cover"
+                        className="w-12 h-12 rounded-lg shrink-0 ring-1 ring-gray-200 cursor-pointer hover:ring-blue-400 transition-all object-cover"
                         onClick={() => openImageBase64(getImageUrl(plan.visit_image, plan.id))}
                         title="Lihat foto bukti"
                         unoptimized

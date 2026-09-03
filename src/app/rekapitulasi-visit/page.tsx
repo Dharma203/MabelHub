@@ -11,18 +11,11 @@ import ExportExcelModal, {
   ExportScope,
 } from '@/components/modals/ExportExcelModal'
 import {
-  Briefcase,
-  Building2,
   Calendar,
-  Clock,
   FolderCode,
-  ImageIcon,
-  MapPin,
-  Pen,
-  User,
   X,
 } from 'lucide-react'
-import Image from 'next/image'
+import { normalizeRing } from '@/lib/ring'
 
 type DashboardStats = {
   totalVisits: number
@@ -198,7 +191,6 @@ export default function RekapitulasiVisitPage() {
   const { user, loading: sessionLoading } = useSession()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
-  const [visitRow, setVisitRow] = useState<VisitRow | null>(null)
 
   const [visits, setVisits] = useState<VisitRow[]>([])
 
@@ -281,10 +273,6 @@ export default function RekapitulasiVisitPage() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
 
-  // edit modal state
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [editId, setEditId] = useState('')
-
   const [search, setSearch] = useState('')
 
   // paginate
@@ -346,7 +334,6 @@ export default function RekapitulasiVisitPage() {
     'November',
     'Desember',
   ]
-  const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
   const DAY_NAMES_FULL = [
     'Senin',
     'Selasa',
@@ -369,60 +356,12 @@ export default function RekapitulasiVisitPage() {
     return `${DAY_NAMES_FULL[dayIdx]}, ${d.getDate()} ${MONTH_NAMES_ID[d.getMonth()]} ${d.getFullYear()}`
   }
 
-  function getImageUrl(
-    img?: string,
-    _id?: string,
-    base = typeof window !== 'undefined'
-      ? window.location.origin
-      : 'https://hub.mabel.co.id',
-  ) {
-    if (!img || img === '__base64_image__')
-      return _id ? `${base}/api/visits/${_id}/image` : 'Tidak tersedia'
-    return img.startsWith('http')
-      ? img
-      : `${base}${img.startsWith('/') ? '' : '/uploads/'}${img}`
-  }
-
   function getEntityDisplayValue(row: Partial<VisitRow>) {
     if (row.status_ring === 'RING 4') {
       return row.namaEntitas || row.jenisEntitas || row.institusi_kerja || '-'
     }
 
     return row.satuan_kerja || row.namaEntitas || row.institusi_kerja || '-'
-  }
-
-  function openImageBase64(base64: string) {
-    const w = window.open('')
-    if (w) {
-      w.document.write(
-        `<!DOCTYPE html>
-        <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              min-height: 100vh;
-              background: #000;
-            }
-            img {
-              max-width: 100%;
-              max-height: 100vh;
-              object-fit: contain;
-              display: block;
-            }
-          </style>
-        </head>
-        <body>
-          <img src="${base64}" alt="Bukti Kunjungan" />
-        </body>
-        </html>`,
-      )
-      w.document.close()
-    }
   }
 
   // Group kunjungan by date key
@@ -469,7 +408,9 @@ export default function RekapitulasiVisitPage() {
         setSalesOptions(Array.isArray(json?.sales) ? json.sales : [])
         setCityOptions(Array.isArray(json?.cities) ? json.cities : [])
         setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
-        setEntitasOptions(Array.isArray(json?.namaEntitas) ? json.namaEntitas : [])
+        setEntitasOptions(
+          Array.isArray(json?.namaEntitas) ? json.namaEntitas : [],
+        )
       } catch {
         if (!mounted) return
         setSalesOptions([])
@@ -551,7 +492,19 @@ export default function RekapitulasiVisitPage() {
     return () => {
       mounted = false
     }
-  }, [pageSize, page, fSales, fStatus, fRing, fCity, fSatker, fNamaEntitas, fJenisEntitas, fStart, fEnd])
+  }, [
+    pageSize,
+    page,
+    fSales,
+    fStatus,
+    fRing,
+    fCity,
+    fSatker,
+    fNamaEntitas,
+    fJenisEntitas,
+    fStart,
+    fEnd,
+  ])
 
   useEffect(() => {
     let mounted = true
@@ -562,13 +515,16 @@ export default function RekapitulasiVisitPage() {
       try {
         setLoadingStats(true)
         const params = new URLSearchParams()
-        if (activeFilters.ring) params.set('ring', activeFilters.ring)
+        if (activeFilters.ring)
+          params.set('ring', normalizeRing(activeFilters.ring))
         if (activeFilters.statusGroup)
           params.set('statusGroup', activeFilters.statusGroup)
         if (activeFilters.city) params.set('city', activeFilters.city)
         if (activeFilters.satker) params.set('satker', activeFilters.satker)
-        if (activeFilters.namaEntitas) params.set('namaEntitas', activeFilters.namaEntitas)
-        if (activeFilters.jenisEntitas) params.set('jenisEntitas', activeFilters.jenisEntitas)
+        if (activeFilters.namaEntitas)
+          params.set('namaEntitas', activeFilters.namaEntitas)
+        if (activeFilters.jenisEntitas)
+          params.set('jenisEntitas', activeFilters.jenisEntitas)
         if (activeFilters.sales) params.set('sales', activeFilters.sales)
         if (activeFilters.klpd) params.set('klpd', activeFilters.klpd)
         if (activeFilters.date) params.set('date', activeFilters.date)
@@ -635,7 +591,7 @@ export default function RekapitulasiVisitPage() {
   }
 
   // parse visit_date in multiple formats -> Date object
-  function parseVisitDateToDate(v?: string): Date | null {
+  const parseVisitDateToDate = useCallback((v?: string): Date | null => {
     if (!v) return null
 
     // Try "3-Dec-2025" or "3-Des-2025" format (d-Mon-YYYY)
@@ -683,7 +639,7 @@ export default function RekapitulasiVisitPage() {
     // Generic Date.parse fallback
     const d = new Date(v)
     return Number.isNaN(d.getTime()) ? null : d
-  }
+  }, [])
 
   // parse "2025-12-03 16:15:30" -> timestamp
   function parseCreatedAtToTs(v?: string) {
@@ -693,38 +649,38 @@ export default function RekapitulasiVisitPage() {
     return Number.isNaN(d.getTime()) ? 0 : d.getTime()
   }
 
-  function getViewDateRange(
-    view: CalendarView,
-    d: Date,
-  ): { start: string; end: string } {
-    if (view === 'day') {
-      const key = dateToKey(d)
-      return { start: key, end: key }
-    }
-    if (view === 'week') {
-      const weekDays = getWeekDays(d)
-      return { start: dateToKey(weekDays[0]), end: dateToKey(weekDays[6]) }
-    }
-    // month or reschedule: fetch the full month + padding
-    const first = new Date(d.getFullYear(), d.getMonth(), 1)
-    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0)
-    // Include padding days
-    const startDow = (first.getDay() + 6) % 7
-    const paddedStart = new Date(first)
-    paddedStart.setDate(first.getDate() - startDow)
-    const daysInMonth = last.getDate()
-    const totalCells = startDow + daysInMonth <= 35 ? 35 : 42
-    const paddedEnd = new Date(paddedStart)
-    paddedEnd.setDate(paddedStart.getDate() + totalCells - 1)
-
-    return { start: dateToKey(paddedStart), end: dateToKey(paddedEnd) }
-  }
-
   const fetchVisists = useCallback(async () => {
     if (!user) return
 
     try {
       setLoading(true)
+
+      function getViewDateRange(
+        view: CalendarView,
+        d: Date,
+      ): { start: string; end: string } {
+        if (view === 'day') {
+          const key = dateToKey(d)
+          return { start: key, end: key }
+        }
+        if (view === 'week') {
+          const weekDays = getWeekDays(d)
+          return { start: dateToKey(weekDays[0]), end: dateToKey(weekDays[6]) }
+        }
+        // month or reschedule: fetch the full month + padding
+        const first = new Date(d.getFullYear(), d.getMonth(), 1)
+        const last = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+        // Include padding days
+        const startDow = (first.getDay() + 6) % 7
+        const paddedStart = new Date(first)
+        paddedStart.setDate(first.getDate() - startDow)
+        const daysInMonth = last.getDate()
+        const totalCells = startDow + daysInMonth <= 35 ? 35 : 42
+        const paddedEnd = new Date(paddedStart)
+        paddedEnd.setDate(paddedStart.getDate() + totalCells - 1)
+
+        return { start: dateToKey(paddedStart), end: dateToKey(paddedEnd) }
+      }
 
       const range = getViewDateRange(calendarView, currentDate)
       const qs = new URLSearchParams({
@@ -800,19 +756,12 @@ export default function RekapitulasiVisitPage() {
     calendarView,
     currentDate,
     search,
-    getViewDateRange,
     parseVisitDateToDate,
   ])
 
-  function handleOpenEdit(_id: string) {
-    setEditId(_id)
-    setEditModalOpen(true)
-  }
-
-  function handleEditSuccess() {
-    setEditModalOpen(false)
-    fetchVisists()
-  }
+  useEffect(() => {
+    void fetchVisists()
+  }, [fetchVisists])
 
   const safePage = useMemo(
     () => Math.min(Math.max(1, page), Math.max(1, totalPages)),
@@ -895,7 +844,8 @@ export default function RekapitulasiVisitPage() {
           row['PIC Name'] = r.pic_name || '-'
         if (selectedCols.includes('picPhone'))
           row['PIC Phone'] = r.pic_phone || '-'
-        if (selectedCols.includes('ring')) row['Ring'] = r.status_ring || '-'
+        if (selectedCols.includes('ring'))
+          row['Ring'] = normalizeRing(r.status_ring) || '-'
         if (selectedCols.includes('createdAt'))
           row['Created At'] = formatDateWithTime(r.created_at)
         if (selectedCols.includes('marketStatus'))
@@ -1011,7 +961,7 @@ export default function RekapitulasiVisitPage() {
                       KLPD
                     </p>
                     <p className='text-sm font-medium text-gray-800'>
-                      {detailKunjungan.klpd || '-'}
+                      {detailKunjungan.klpd || detailKunjungan.jenisEntitas}
                     </p>
                   </div>
                   <div className='text-right'>
@@ -1033,12 +983,11 @@ export default function RekapitulasiVisitPage() {
                     Institusi Kerja
                   </p>
                   <p className='text-sm font-bold text-gray-800'>
-                    {detailKunjungan.city
-                      ? `Kota ${detailKunjungan.city}`
-                      : '-'}
+                    {detailKunjungan.city}
                   </p>
                   <p className='text-sm font-medium text-gray-800'>
-                    {detailKunjungan.institusi_kerja || '-'}
+                    {detailKunjungan.institusi_kerja ||
+                      detailKunjungan.namaEntitas}
                   </p>
                 </div>
 
@@ -1074,7 +1023,7 @@ export default function RekapitulasiVisitPage() {
               </div>
 
               {/* Tindak Lanjut Card */}
-              <div className='mx-5 mb-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100'>
+              <div className='mx-5 mb-3 p-4 bg-linear-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100'>
                 <p className='text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-1'>
                   Tindak Lanjut
                 </p>
@@ -1084,7 +1033,7 @@ export default function RekapitulasiVisitPage() {
               </div>
 
               {/* Kegiatan Status Card */}
-              <div className='mx-5 mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100'>
+              <div className='mx-5 mb-4 p-4 bg-linear-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100'>
                 <p className='text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-1'>
                   Kegiatan Status
                 </p>
@@ -1128,7 +1077,7 @@ export default function RekapitulasiVisitPage() {
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className='bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white'>
+          <div className='bg-linear-to-r from-blue-600 to-blue-700 px-5 py-4 text-white'>
             <div className='flex items-center justify-between'>
               <div>
                 <h3 className='font-bold text-lg'>
@@ -1570,7 +1519,7 @@ export default function RekapitulasiVisitPage() {
                                 />
                               </td>
                               <td className='px-6 py-6 font-extrabold text-[#0B6AA9]'>
-                                {r.status_ring}
+                                {normalizeRing(r.status_ring) || '-'}
                               </td>
                             </tr>
                             {/* {active && (
@@ -1691,7 +1640,7 @@ export default function RekapitulasiVisitPage() {
                                 Ring
                               </div>
                               <div className='font-extrabold text-[#0B6AA9]'>
-                                {r.status_ring}
+                                {normalizeRing(r.status_ring) || '-'}
                               </div>
                             </div>
                             <div>
@@ -1953,33 +1902,11 @@ function PageBtn({
   )
 }
 
-function DetailItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className='text-xs font-extrabold tracking-wider text-gray-500'>
-        {label}
-      </div>
-      <div className='mt-1 text-sm font-semibold text-gray-900'>
-        {value || '-'}
-      </div>
-    </div>
-  )
-}
-
 function StatCard({ title, value }: { title: string; value?: number }) {
   return (
     <div className='rounded-xl bg-white p-4 shadow'>
       <p className='text-xs text-gray-500'>{title}</p>
       <p className='mt-2 text-2xl font-semibold'>{value ?? '-'}</p>
-    </div>
-  )
-}
-
-function SingleCard({ title, value }: { title: string; value?: string }) {
-  return (
-    <div className='rounded-xl border-0 bg-gray-200 p-4 shadow'>
-      <p className='text-xs text-gray-500'>{title}</p>
-      <p className='mt-2 text-sm font-semibold'>{value ?? '-'}</p>
     </div>
   )
 }

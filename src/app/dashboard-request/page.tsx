@@ -7,6 +7,7 @@ import SalesMap, { SalesVisit } from "@/components/modals/SalesMap";
 import { Search, X, Filter, MapPin } from "lucide-react";
 import { useSession } from "@/components/session/SessionProvider";
 import { useRouter } from "next/navigation";
+import { normalizeRing } from "@/lib/ring";
 import {
   PieChart,
   Pie,
@@ -380,7 +381,7 @@ export default function DashboardRequestPage() {
       try {
         setMapLoading(true);
         const params = new URLSearchParams({ limit: "100000", page: "1" });
-        if (activeFilters.ring) params.set("ring", activeFilters.ring);
+        if (activeFilters.ring) params.set("ring", normalizeRing(activeFilters.ring));
         if (activeFilters.statusGroup) params.set("statusGroup", activeFilters.statusGroup);
         if (activeFilters.city) params.set("city", activeFilters.city);
         if (activeFilters.satker) params.set("satker", activeFilters.satker);
@@ -475,7 +476,7 @@ export default function DashboardRequestPage() {
       try {
         setLoadingStats(true);
         const params = new URLSearchParams();
-        if (activeFilters.ring) params.set("ring", activeFilters.ring);
+        if (activeFilters.ring) params.set("ring", normalizeRing(activeFilters.ring));
         if (activeFilters.statusGroup)
           params.set("statusGroup", activeFilters.statusGroup);
         if (activeFilters.city) params.set("city", activeFilters.city);
@@ -513,7 +514,7 @@ export default function DashboardRequestPage() {
       try {
         setLoadingTable(true);
         const params = new URLSearchParams({ limit: "5", page: "1" });
-        if (activeFilters.ring) params.set("ring", activeFilters.ring);
+        if (activeFilters.ring) params.set("ring", normalizeRing(activeFilters.ring));
         if (activeFilters.statusGroup)
           params.set("statusGroup", activeFilters.statusGroup);
         if (activeFilters.city) params.set("city", activeFilters.city);
@@ -600,7 +601,7 @@ export default function DashboardRequestPage() {
                     )}
                     {activeFilters.ring && (
                       <span className="inline-flex items-center gap-1 bg-orange-100 text-orange-700 px-2 py-1 rounded-full text-xs font-bold">
-                        {activeFilters.ring}
+                        {normalizeRing(activeFilters.ring)}
                         <button
                           onClick={() =>
                             setActiveFilters((p) => ({ ...p, ring: null }))
@@ -1451,7 +1452,7 @@ export default function DashboardRequestPage() {
                             </td>
                             <td className="flex justify-between items-center lg:table-cell px-1 py-1.5 sm:px-3 lg:py-3 font-bold text-[#0B6AA9] border-b border-dashed border-gray-100 lg:border-0">
                               <span className="lg:hidden font-bold text-[10px] text-gray-400">RING</span>
-                              <span className="text-right lg:text-left">{v.status_ring || "-"}</span>
+                              <span className="text-right lg:text-left">{normalizeRing(v.status_ring) || "-"}</span>
                             </td>
                             <td className="flex justify-between items-center lg:table-cell px-1 py-1.5 sm:px-3 lg:py-3 text-black border-b border-dashed border-gray-100 lg:border-0">
                               <span className="lg:hidden font-bold text-[10px] text-gray-400">VISIT DATE</span>
