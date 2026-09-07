@@ -1149,7 +1149,6 @@ export default function DashboardRequestPage() {
                             }));
                           }
                         }}
-                        style={{ cursor: "pointer" }}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -1352,7 +1351,6 @@ export default function DashboardRequestPage() {
                             }));
                           }
                         }}
-                        style={{ cursor: "pointer" }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
