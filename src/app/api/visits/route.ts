@@ -239,10 +239,11 @@ export async function GET(req: Request) {
   const postMatch: any = {}
   if (startStr || endStr) {
     postMatch.__visitDate = {}
-    if (startStr) postMatch.__visitDate.$gte = new Date(startStr)
+    if (startStr) {
+      postMatch.__visitDate.$gte = new Date(`${startStr}T00:00:00.000Z`)
+    }
     if (endStr) {
-      const endDt = new Date(endStr)
-      endDt.setHours(23, 59, 59, 999)
+      const endDt = new Date(`${endStr}T23:59:59.999Z`)
       postMatch.__visitDate.$lte = endDt
     }
   }
@@ -302,15 +303,15 @@ export async function GET(req: Request) {
         created_at: { $first: '$created_at' },
         status_market: { $first: '$status_market' },
         klpd: { $first: '$klpd' },
-        reschedule: { $first: '$reschedule' },
+        reschedule: { $first: { $ifNull: ['$reschedule', '$reschedule_date'] } },
         institusi_kerja: { $first: '$institusi_kerja' },
         pic_position: { $first: '$pic_position' },
         pic_role: { $first: '$pic_role' },
         tindak_lanjut: { $first: '$tindak_lanjut' },
         kegiatan_status: { $first: '$kegiatan_status' },
         descriptions: { $first: '$descriptions' },
-        namaEntitas: { $first: '$namaEntitas' },
-        jenisEntitas: { $first: '$jenisEntitas' },
+        namaEntitas: { $first: { $ifNull: ['$namaEntitas', '$nama_entitas'] } },
+        jenisEntitas: { $first: { $ifNull: ['$jenisEntitas', '$jenis_entitas'] } },
         status_visit: { $first: '$status_visit' },
         total_visit: { $sum: 1 },
         __latestVisitDate: { $max: '$__visitDate' },

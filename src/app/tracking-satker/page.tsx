@@ -40,6 +40,8 @@ type VisitRow = {
   created_at: string
   status_market: string
   klpd: string
+  namaEntitas: string
+  jenisEntitas: string
   reschedule: string // ISO or "-"
   institusi_kerja: string
   pic_position: string
@@ -65,6 +67,8 @@ type VisitDetail = {
   created_at: string
   status_market: string
   klpd: string
+  namaEntitas: string
+  jenisEntitas: string
   institusi_kerja: string
   tindak_lanjut: string
   kegiatan_status: string
@@ -111,12 +115,14 @@ export default function TrackingSatuanKerja() {
   const [fRing, setFRing] = useState<string>('ALL')
   const [fCity, setFCity] = useState<string>('ALL')
   const [fSatker, setFSatker] = useState<string>('ALL')
+  const [fNamaEntitas, setFNamaEntitas] = useState<string>('ALL')
 
   //   dropdown meta
   const [salesOptions, setSalesOptions] = useState<string[]>([])
   const [cityOptions, setCityOptions] = useState<string[]>([])
   const [satkerOptions, setSatkerOptions] = useState<string[]>([])
   const [phoneOptions, setPhoneOptions] = useState<string[]>([])
+  const [entitasOptions, setEntitasOptions] = useState<string[]>([])
 
   // pagination
   const [pageSize, setPageSize] = useState<number>(25)
@@ -170,6 +176,7 @@ export default function TrackingSatuanKerja() {
 
   // expand row: visit dates by satker
   const [expandedSatker, setExpandedSatker] = useState<string | null>(null)
+  const [expandedEntitas, setExpanderEntitas] = useState<string |null>(null)
   const [visitDates, setVisitDates] = useState<VisitDetail[]>([])
   const [loadingVisitDates, setLoadingVisitDates] = useState(false)
 
@@ -201,11 +208,18 @@ export default function TrackingSatuanKerja() {
         setSalesOptions(Array.isArray(json?.sales) ? json.sales : [])
         setCityOptions(Array.isArray(json?.cities) ? json.cities : [])
         setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
+        setEntitasOptions([
+          ...new Set([
+            ...(Array.isArray(json?.namaEntitas) ? json.namaEntitas : []),
+            ...(Array.isArray(json?.jenisEntitas) ? json.jenisEntitas : []),
+          ]),
+        ])
       } catch {
         if (!mounted) return
         setSalesOptions([])
         setCityOptions([])
         setSatkerOptions([])
+        setEntitasOptions([])
       }
     })()
 
@@ -321,7 +335,7 @@ export default function TrackingSatuanKerja() {
       try {
         const res = await fetch(
           `/api/visits/by-satker?satker=${encodeURIComponent(satkerName)}`,
-          { cache: 'no-store' },
+          { cache: 'no-store' },  
         )
         const json = await res.json().catch(() => ({}))
         setVisitDates(Array.isArray(json?.items) ? json.items : [])
@@ -477,10 +491,29 @@ export default function TrackingSatuanKerja() {
               <div>
                 <FilterSelect
                   label='SATUAN KERJA'
-                  value={fSatker}
-                  onChange={(v) => onChangeFilter(setFSatker, v)}
+                  value={
+                    fNamaEntitas !== 'ALL'
+                      ? fNamaEntitas
+                      : fSatker !== 'ALL'
+                        ? fSatker
+                        : 'ALL'
+                  }
+                  onChange={(v) => {
+                    if (v === 'ALL') {
+                      setFSatker('ALL')
+                      setFNamaEntitas('ALL')
+                      return
+                    }
+
+                    const matchesSatker = satkerOptions.includes(v)
+                    const matchesEntitas = entitasOptions.includes(v)
+
+                    setFSatker(matchesSatker ? v : 'ALL')
+                    setFNamaEntitas(matchesEntitas ? v : 'ALL')
+                  }}
                   options={[{ label: 'Semua Satker', value: 'ALL' }].concat(
                     satkerOptions.map((s) => ({ label: s, value: s })),
+                    entitasOptions.map((e) => ({ label: e, value: e })),
                   )}
                   full
                 />
@@ -769,12 +802,23 @@ export default function TrackingSatuanKerja() {
                         value={modalVisit.nama_sales}
                       />
                       <DetailItem label='City' value={modalVisit.city} />
-                      <DetailItem label='Ring' value={normalizeRing(modalVisit.status_ring) || '-'} />
+                      <DetailItem
+                        label='Ring'
+                        value={normalizeRing(modalVisit.status_ring) || '-'}
+                      />
                       <DetailItem
                         label='Satuan Kerja'
                         value={modalVisit.satuan_kerja}
                       />
                       <DetailItem label='KLPD' value={modalVisit.klpd} />
+                      <DetailItem
+                        label='Nama Entitas'
+                        value={modalVisit.namaEntitas}
+                      />
+                      <DetailItem
+                        label='Jenis Entitas'
+                        value={modalVisit.jenisEntitas}
+                      />
                       <DetailItem
                         label='Institusi Kerja'
                         value={modalVisit.institusi_kerja}

@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   const page = Math.max(Number(searchParams.get('page') || 1), 1)
   const skip = (page - 1) * limit
   // Build role-based filter
-  const { match: authMatch, error } = await getVisitAuthMatch(db, session)
+  const { match: authMatch, error } = await getVisitAuthMatch(db, session) 
   if (error) {
     return NextResponse.json({ error }, { status: 403 })
   }

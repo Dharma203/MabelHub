@@ -10,11 +10,7 @@ import ExportExcelModal, {
   ExportColumn,
   ExportScope,
 } from '@/components/modals/ExportExcelModal'
-import {
-  Calendar,
-  FolderCode,
-  X,
-} from 'lucide-react'
+import { Calendar, FolderCode, X } from 'lucide-react'
 import { normalizeRing } from '@/lib/ring'
 
 type DashboardStats = {
@@ -54,6 +50,7 @@ type VisitRow = {
   status_market: string
   klpd: string
   reschedule: string // ISO or "-"
+  reschedule_date?: string
   institusi_kerja: string
   pic_position: string
   pic_role: string
@@ -727,7 +724,7 @@ export default function RekapitulasiVisitPage() {
               : v.visit_image === '__base64_image__'
                 ? '__base64_image__'
                 : '',
-          reschedule: v.reschedule || '',
+          reschedule: v.reschedule || v.reschedule_date || '',
           status_ring: v.status_ring || '',
           pic_name: v.pic_name || '',
           pic_phone: v.pic_phone || '',
@@ -751,13 +748,7 @@ export default function RekapitulasiVisitPage() {
     } finally {
       setLoading(false)
     }
-  }, [
-    user,
-    calendarView,
-    currentDate,
-    search,
-    parseVisitDateToDate,
-  ])
+  }, [user, calendarView, currentDate, search, parseVisitDateToDate])
 
   useEffect(() => {
     void fetchVisists()
@@ -957,9 +948,15 @@ export default function RekapitulasiVisitPage() {
                 {/* Row 2: KLPD | Reschedule */}
                 <div className='grid grid-cols-2 gap-4 py-3 border-b border-gray-100'>
                   <div>
-                    <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
-                      KLPD
-                    </p>
+                    {(() => {
+                      const institusiLabel =
+                        detailKunjungan.klpd ? "KLPD" : "Jenis Entitas"
+                      return (
+                        <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
+                          {institusiLabel || '-'}
+                        </p>
+                      )
+                    })()}
                     <p className='text-sm font-medium text-gray-800'>
                       {detailKunjungan.klpd || detailKunjungan.jenisEntitas}
                     </p>
@@ -979,9 +976,16 @@ export default function RekapitulasiVisitPage() {
 
                 {/* Row 3: Institusi Kerja (full width) */}
                 <div className='py-3 border-b border-gray-100'>
-                  <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
-                    Institusi Kerja
-                  </p>
+                  {(() => {
+                    const institusiLabel = detailKunjungan.institusi_kerja
+                      ? 'Institusi Kerja'
+                      : 'Nama Entitas'
+                    return (
+                      <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
+                        {institusiLabel}
+                      </p>
+                    )
+                  })()}
                   <p className='text-sm font-bold text-gray-800'>
                     {detailKunjungan.city}
                   </p>

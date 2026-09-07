@@ -1,10 +1,17 @@
 // "2025-12-03" -> "3-Dec-2025"
 export function toVisitDateStr(yyyyMmDd: string) {
-  const d = new Date(yyyyMmDd)
-  if (Number.isNaN(d.getTime())) return ''
-  const day = d.getDate()
-  const mon = d.toLocaleString('en-US', { month: 'short' }) // Dec
-  const year = d.getFullYear()
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(yyyyMmDd)
+  if (!match) return ''
+  const [, year, month, day] = match
+  const d = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
+  if (
+    d.getUTCFullYear() !== Number(year) ||
+    d.getUTCMonth() !== Number(month) - 1 ||
+    d.getUTCDate() !== Number(day)
+  ) {
+    return ''
+  }
+  const mon = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }) // Dec
   return `${day}-${mon}-${year}`
 }
 

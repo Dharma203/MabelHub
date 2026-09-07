@@ -20,6 +20,8 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const satker = searchParams.get('satker')
+  const namaEntitas = searchParams.get('namaEntitas')
+  const jenisEntitas = searchParams.get('jenisEntitas')
 
   if (!satker) {
     return NextResponse.json(
@@ -41,6 +43,8 @@ export async function GET(req: Request) {
   // Combine auth filter with satker filter
   const matchFilter = {
     satuan_kerja: satker,
+    namaEntitas : namaEntitas,
+    jenisEntitas : jenisEntitas,
     ...authMatch,
   }
 
@@ -73,6 +77,8 @@ export async function GET(req: Request) {
     status_market: d.status_market || '-',
     klpd: d.klpd || '-',
     institusi_kerja: d.institusi_kerja || '-',
+    namaEntitas: d.namaEntitas || d.nama_entitas || '-',
+    jenisEntitas: d.jenisEntitas || d.jenis_entitas || '-',
     tindak_lanjut: d.tindak_lanjut || '-',
     kegiatan_status: d.kegiatan_status || '-',
     descriptions: d.descriptions || '-',
