@@ -265,6 +265,11 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
       ],
     },
     {
+      title: 'PRODUCT HUB',
+      icon: 'Package',
+      items: [{ label: 'Data Produk', href: '/produk', icon: 'CheckSquare' }],
+    },
+    {
       title: 'E-PROCUREMENT',
       icon: 'ShoppingCart',
       items: [
@@ -314,6 +319,11 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           icon: 'Building',
         },
       ],
+    },
+    {
+      title: 'PRODUCT HUB',
+      icon: 'Package',
+      items: [{ label: 'Data Produk', href: '/produk', icon: 'CheckSquare' }],
     },
     {
       title: 'E-PROCUREMENT',

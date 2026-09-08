@@ -81,7 +81,7 @@ export default function Sidebar() {
       }
       return section;
     });
-  }, [rawSections, companies]);
+  }, [rawSections, companies, role]);
 
   const toggleSection = (e: React.MouseEvent, title: string) => {
     e.stopPropagation();

@@ -16,6 +16,7 @@ import {
   Unlock,
   Trash2,
   Plus,
+  X,
 } from "lucide-react";
 
 // ─── Static category meta ─────────────────────────────────────────────────────
@@ -45,15 +46,16 @@ type DocFile = {
   size: string;
   updatedAt: string;
   url: string;
+  file?: File;
   isLocked?: boolean;
 };
 
 function getMockDocs(categoryId: string): DocFile[] {
   const templates: DocFile[] = [
-    { id: "1", name: `${categoryId}_v1.pdf`, type: "PDF", size: "2.4 MB", updatedAt: "15 Apr 2026", url: "#", isLocked: false },
-    { id: "2", name: `${categoryId}_presentation.pptx`, type: "PPTX", size: "8.1 MB", updatedAt: "10 Apr 2026", url: "#", isLocked: true },
-    { id: "3", name: `${categoryId}_datasheet.xlsx`, type: "XLSX", size: "1.2 MB", updatedAt: "3 Apr 2026", url: "#", isLocked: false },
-    { id: "4", name: `${categoryId}_2026.pdf`, type: "PDF", size: "5.6 MB", updatedAt: "1 Mar 2026", url: "#", isLocked: false },
+    { id: "1", name: `${categoryId}_v1.pdf`, type: "PDF", size: "2.4 MB", updatedAt: "15 Apr 2026", url: "", isLocked: false },
+    { id: "2", name: `${categoryId}_presentation.pptx`, type: "PPTX", size: "8.1 MB", updatedAt: "10 Apr 2026", url: "", isLocked: true },
+    { id: "3", name: `${categoryId}_datasheet.xlsx`, type: "XLSX", size: "1.2 MB", updatedAt: "3 Apr 2026", url: "", isLocked: false },
+    { id: "4", name: `${categoryId}_2026.pdf`, type: "PDF", size: "5.6 MB", updatedAt: "1 Mar 2026", url: "", isLocked: false },
   ];
   return templates;
 }
@@ -66,6 +68,9 @@ function FileBadge({ type }: { type: string }) {
     PPTX: "bg-orange-100 text-orange-700",
     XLSX: "bg-green-100 text-green-700",
     DOCX: "bg-blue-100 text-blue-700",
+    PNG: "bg-teal-100 text-teal-700",
+    JPG: "bg-teal-100 text-teal-700",
+    JPEG: "bg-teal-100 text-teal-700",
   };
   return (
     <span
@@ -74,6 +79,19 @@ function FileBadge({ type }: { type: string }) {
       {type}
     </span>
   );
+}
+
+// ─── Preview-able types ───────────────────────────────────────────────────────
+
+const PREVIEWABLE_TYPES = ["PDF", "PNG", "JPG", "JPEG", "GIF", "SVG", "WEBP"];
+
+function isPreviewable(doc: DocFile): boolean {
+  if (!doc.url) return false;
+  return PREVIEWABLE_TYPES.includes(doc.type.toUpperCase());
+}
+
+function isImageType(type: string): boolean {
+  return ["PNG", "JPG", "JPEG", "GIF", "SVG", "WEBP"].includes(type.toUpperCase());
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -89,8 +107,11 @@ export default function ProdukDetailPage({
 
   const [search, setSearch] = useState("");
   const [docs, setDocs] = useState<DocFile[]>([]);
-  const [meta, setMeta] = useState<{name: string, description: string, superAdminOnly: boolean} | undefined>(CATEGORY_META[kategori]);
+  const [meta, setMeta] = useState<{ name: string, description: string, superAdminOnly: boolean } | undefined>(CATEGORY_META[kategori]);
   const [isClient, setIsClient] = useState(false);
+
+  // Preview modal state
+  const [previewDoc, setPreviewDoc] = useState<DocFile | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isSuperAdmin = user?.role === "SUPERADMIN";
@@ -126,10 +147,10 @@ export default function ProdukDetailPage({
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
-    
+
     // Create local object URL for preview/download
     const fileUrl = URL.createObjectURL(file);
-    
+
     const newDoc: DocFile = {
       id: Date.now().toString(),
       name: file.name,
@@ -137,10 +158,11 @@ export default function ProdukDetailPage({
       size: (file.size / 1024 / 1024).toFixed(2) + " MB",
       updatedAt: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
       url: fileUrl,
+      file: file,
       isLocked: false,
     };
     setDocs([newDoc, ...docs]);
-    
+
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -153,6 +175,19 @@ export default function ProdukDetailPage({
 
   const handleToggleLock = (id: string) => {
     setDocs(docs.map(d => d.id === id ? { ...d, isLocked: !d.isLocked } : d));
+  };
+
+  const handlePreview = (doc: DocFile) => {
+    if (isPreviewable(doc)) {
+      // Has a real URL and is a previewable type → show modal
+      setPreviewDoc(doc);
+    } else if (doc.url) {
+      // Has a URL but not previewable in browser → open in new tab
+      window.open(doc.url, "_blank");
+    } else {
+      // No real URL (mock data) → show alert
+      alert("Preview tidak tersedia untuk dokumen ini. Dokumen ini adalah data contoh dan belum memiliki file yang dapat ditampilkan.");
+    }
   };
 
   const filtered = docs.filter((d) =>
@@ -214,11 +249,11 @@ export default function ProdukDetailPage({
             <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
               {isSuperAdmin && (
                 <>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    onChange={handleFileUpload} 
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileUpload}
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -293,39 +328,35 @@ export default function ProdukDetailPage({
                     {/* Actions */}
                     <div className="flex flex-col gap-2 pt-3 border-t border-gray-100">
                       <div className="flex items-center gap-2">
-                        <a
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => handlePreview(doc)}
                           className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors ring-1 ring-blue-200"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           Preview
-                        </a>
+                        </button>
                         <a
-                          href={doc.url}
-                          download
-                          className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-bold transition-colors ring-1 ${
-                            doc.isLocked 
-                              ? "bg-gray-50 text-gray-400 ring-gray-200 cursor-not-allowed pointer-events-none" 
-                              : "bg-green-50 text-green-700 hover:bg-green-100 ring-green-200"
-                          }`}
-                          onClick={(e) => doc.isLocked && e.preventDefault()}
+                          href={doc.url || undefined}
+                          download={doc.url ? true : undefined}
+                          className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-bold transition-colors ring-1 ${doc.isLocked || !doc.url
+                            ? "bg-gray-50 text-gray-400 ring-gray-200 cursor-not-allowed pointer-events-none"
+                            : "bg-green-50 text-green-700 hover:bg-green-100 ring-green-200"
+                            }`}
+                          onClick={(e) => (doc.isLocked || !doc.url) && e.preventDefault()}
                         >
                           <Download className="w-3.5 h-3.5" />
                           Unduh
                         </a>
                       </div>
-                      
+
                       {isSuperAdmin && (
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleToggleLock(doc.id)}
-                            className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-bold transition-colors ring-1 ${
-                              doc.isLocked 
-                                ? "bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100" 
-                                : "bg-gray-50 text-gray-600 ring-gray-200 hover:bg-gray-100"
-                            }`}
+                            className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-bold transition-colors ring-1 ${doc.isLocked
+                              ? "bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100"
+                              : "bg-gray-50 text-gray-600 ring-gray-200 hover:bg-gray-100"
+                              }`}
                           >
                             {doc.isLocked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                             {doc.isLocked ? "Buka" : "Kunci"}
@@ -343,6 +374,75 @@ export default function ProdukDetailPage({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ── Preview Modal ── */}
+          {previewDoc && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="w-full max-w-4xl h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <Eye className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-extrabold text-gray-900 text-base truncate">{previewDoc.name}</h3>
+                      <p className="text-xs text-gray-500 flex items-center gap-2">
+                        <FileBadge type={previewDoc.type} />
+                        <span>{previewDoc.size}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setPreviewDoc(null)}
+                    className="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors flex-shrink-0"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="flex-1 overflow-hidden bg-gray-50">
+                  {isImageType(previewDoc.type) ? (
+                    <div className="w-full h-full flex items-center justify-center p-6">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={previewDoc.url}
+                        alt={previewDoc.name}
+                        className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                      />
+                    </div>
+                  ) : previewDoc.type.toUpperCase() === "PDF" ? (
+                    <iframe
+                      src={previewDoc.url}
+                      className="w-full h-full border-0"
+                      title={`Preview ${previewDoc.name}`}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-4 p-8">
+                      <FileText className="w-20 h-20 opacity-30" />
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-gray-600">Preview tidak tersedia</p>
+                        <p className="text-sm text-gray-400 mt-1">
+                          Format <span className="font-bold">{previewDoc.type}</span> tidak dapat ditampilkan secara langsung di browser.
+                        </p>
+                        {previewDoc.url && (
+                          <a
+                            href={previewDoc.url}
+                            download
+                            className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-full bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
+                          >
+                            <Download className="w-4 h-4" />
+                            Unduh untuk melihat
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </main>

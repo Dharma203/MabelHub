@@ -205,22 +205,22 @@ export default function RekapitulasiVisitPage() {
   useEffect(() => {
     let mounted = true
 
-    ;(async () => {
-      try {
-        const res = await fetch('/api/visits/meta', { cache: 'no-store' })
-        const json = await res.json().catch(() => ({}))
-        if (!mounted) return
+      ; (async () => {
+        try {
+          const res = await fetch('/api/visits/meta', { cache: 'no-store' })
+          const json = await res.json().catch(() => ({}))
+          if (!mounted) return
 
-        setSalesOptions(Array.isArray(json?.sales) ? json.sales : [])
-        setCityOptions(Array.isArray(json?.cities) ? json.cities : [])
-        setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
-      } catch {
-        if (!mounted) return
-        setSalesOptions([])
-        setCityOptions([])
-        setSatkerOptions([])
-      }
-    })()
+          setSalesOptions(Array.isArray(json?.sales) ? json.sales : [])
+          setCityOptions(Array.isArray(json?.cities) ? json.cities : [])
+          setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
+        } catch {
+          if (!mounted) return
+          setSalesOptions([])
+          setCityOptions([])
+          setSatkerOptions([])
+        }
+      })()
 
     return () => {
       mounted = false
@@ -239,55 +239,55 @@ export default function RekapitulasiVisitPage() {
           setParamRing(d.ring || [])
         }
       })
-      .catch(() => {})
+      .catch(() => { })
   }, [])
 
   // fetch rows dari DB setiap filter/pagination berubah
   useEffect(() => {
     let mounted = true
 
-    ;(async () => {
-      setLoadingRows(true)
+      ; (async () => {
+        setLoadingRows(true)
 
-      const qs = new URLSearchParams()
-      qs.set('limit', String(pageSize))
-      qs.set('page', String(page))
+        const qs = new URLSearchParams()
+        qs.set('limit', String(pageSize))
+        qs.set('page', String(page))
 
-      if (fSales !== 'ALL') qs.set('sales', fSales)
-      if (fStatus !== 'ALL') qs.set('status', fStatus)
-      if (fRing !== 'ALL') qs.set('ring', fRing)
-      if (fCity !== 'ALL') qs.set('city', fCity)
-      if (fSatker !== 'ALL') qs.set('satker', fSatker)
-      if (fStart) qs.set('start', fStart)
-      if (fEnd) qs.set('end', fEnd)
+        if (fSales !== 'ALL') qs.set('sales', fSales)
+        if (fStatus !== 'ALL') qs.set('status', fStatus)
+        if (fRing !== 'ALL') qs.set('ring', fRing)
+        if (fCity !== 'ALL') qs.set('city', fCity)
+        if (fSatker !== 'ALL') qs.set('satker', fSatker)
+        if (fStart) qs.set('start', fStart)
+        if (fEnd) qs.set('end', fEnd)
 
-      try {
-        const res = await fetch(`/api/visits?${qs.toString()}`, {
-          cache: 'no-store',
-        })
-        const json = await res.json().catch(() => ({}))
+        try {
+          const res = await fetch(`/api/visits?${qs.toString()}`, {
+            cache: 'no-store',
+          })
+          const json = await res.json().catch(() => ({}))
 
-        if (!mounted) return
+          if (!mounted) return
 
-        const items = Array.isArray(json?.items) ? json.items : []
-        setRows(items)
+          const items = Array.isArray(json?.items) ? json.items : []
+          setRows(items)
 
-        const pg = json?.pagination ?? {}
-        setTotal(Number(pg?.total ?? 0))
-        setTotalPages(Number(pg?.totalPages ?? 1))
+          const pg = json?.pagination ?? {}
+          setTotal(Number(pg?.total ?? 0))
+          setTotalPages(Number(pg?.totalPages ?? 1))
 
-        // reset detail kalau data berubah
-        setSelected(null)
-      } catch {
-        if (!mounted) return
-        setRows([])
-        setTotal(0)
-        setTotalPages(1)
-        setSelected(null)
-      } finally {
-        if (mounted) setLoadingRows(false)
-      }
-    })()
+          // reset detail kalau data berubah
+          setSelected(null)
+        } catch {
+          if (!mounted) return
+          setRows([])
+          setTotal(0)
+          setTotalPages(1)
+          setSelected(null)
+        } finally {
+          if (mounted) setLoadingRows(false)
+        }
+      })()
 
     return () => {
       mounted = false
@@ -296,37 +296,37 @@ export default function RekapitulasiVisitPage() {
 
   useEffect(() => {
     let mounted = true
-    ;(async () => {
-      if (sessionLoading) return
-      if (!user) return // middleware seharusnya redirect
+      ; (async () => {
+        if (sessionLoading) return
+        if (!user) return // middleware seharusnya redirect
 
-      try {
-        setLoadingStats(true)
-        const params = new URLSearchParams()
-        if (activeFilters.ring) params.set('ring', activeFilters.ring)
-        if (activeFilters.statusGroup)
-          params.set('statusGroup', activeFilters.statusGroup)
-        if (activeFilters.city) params.set('city', activeFilters.city)
-        if (activeFilters.satker) params.set('satker', activeFilters.satker)
-        if (activeFilters.sales) params.set('sales', activeFilters.sales)
-        if (activeFilters.klpd) params.set('klpd', activeFilters.klpd)
-        if (activeFilters.date) params.set('date', activeFilters.date)
-        if (startDate) params.set('startDate', startDate)
-        if (endDate) params.set('endDate', endDate)
+        try {
+          setLoadingStats(true)
+          const params = new URLSearchParams()
+          if (activeFilters.ring) params.set('ring', activeFilters.ring)
+          if (activeFilters.statusGroup)
+            params.set('statusGroup', activeFilters.statusGroup)
+          if (activeFilters.city) params.set('city', activeFilters.city)
+          if (activeFilters.satker) params.set('satker', activeFilters.satker)
+          if (activeFilters.sales) params.set('sales', activeFilters.sales)
+          if (activeFilters.klpd) params.set('klpd', activeFilters.klpd)
+          if (activeFilters.date) params.set('date', activeFilters.date)
+          if (startDate) params.set('startDate', startDate)
+          if (endDate) params.set('endDate', endDate)
 
-        const res = await fetch(`/api/dashboard-request?${params.toString()}`, {
-          cache: 'no-store',
-        })
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json?.error ?? 'Failed to fetch stats')
-        if (mounted) setStats(json as DashboardStats)
-      } catch (e) {
-        console.error(e)
-        if (mounted) setStats(null)
-      } finally {
-        if (mounted) setLoadingStats(false)
-      }
-    })()
+          const res = await fetch(`/api/dashboard-request?${params.toString()}`, {
+            cache: 'no-store',
+          })
+          const json = await res.json().catch(() => ({}))
+          if (!res.ok) throw new Error(json?.error ?? 'Failed to fetch stats')
+          if (mounted) setStats(json as DashboardStats)
+        } catch (e) {
+          console.error(e)
+          if (mounted) setStats(null)
+        } finally {
+          if (mounted) setLoadingStats(false)
+        }
+      })()
     return () => {
       mounted = false
     }
@@ -462,7 +462,7 @@ export default function RekapitulasiVisitPage() {
             <div className='mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 pt-2 pb-4'>
               <div>
                 <h1 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
-                  VISIT DASHBOARD
+                  REKAPITULASI VISIT
                 </h1>
               </div>
               <div className='px-4'>
@@ -534,7 +534,7 @@ export default function RekapitulasiVisitPage() {
             </div>
 
             <div className='mb-6 flex flex-col  gap-4 md:flex-row md:items-center justify-between px-4'>
-                  Analisa Kegiatan Status
+              Analisa Kegiatan Status
             </div>
 
             {/* FILTER CARD */}

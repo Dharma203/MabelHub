@@ -425,9 +425,9 @@ export default function DashboardRequestPage() {
             return;
           }
           if (!coords && category === "City") {
-             // For City, we still pass it because GeoJSON will match the name!
-             // We put it in unmatched list just for info, but don't return.
-             unmatched.push({ name, count: data.count });
+            // For City, we still pass it because GeoJSON will match the name!
+            // We put it in unmatched list just for info, but don't return.
+            unmatched.push({ name, count: data.count });
           }
 
           mapVisits.push({
@@ -863,7 +863,7 @@ export default function DashboardRequestPage() {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: "Visits", value: stats?.visited || 0 }, // Changed from totalVisits
+                          { name: "Visits", value: stats?.visited || 0 },
                           {
                             name: "Stay Office",
                             value: stats?.stayOffice || 0,
