@@ -256,7 +256,7 @@ export default function TrackingB2GPage() {
         if (fCity !== 'ALL') params.set('city', fCity)
         if (fSatker !== 'ALL') params.set('satker', fSatker)
         if (fKlpd !== 'ALL') params.set('klpd', fKlpd)
-        if (fVisit !== 'ALL') params.set('satus_visit', fVisit)
+        if (fVisit !== 'ALL') params.set('status_visit', fVisit)
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')

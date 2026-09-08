@@ -59,7 +59,26 @@ export function flexParseDateExpr(field: string) {
           case: { $regexMatch: { input: safeField, regex: /^\d{1,2}-[A-Za-z]+-\d{4}$/ } },
           then: {
             $dateFromString: {
-              dateString: normalizedField,
+              dateString: {
+                $let: {
+                  vars: { parts: { $split: [normalizedField, '-'] } },
+                  in: {
+                    $concat: [
+                      {
+                        $cond: [
+                          { $eq: [{ $strLenCP: { $arrayElemAt: ['$$parts', 0] } }, 1] },
+                          { $concat: ['0', { $arrayElemAt: ['$$parts', 0] }] },
+                          { $arrayElemAt: ['$$parts', 0] },
+                        ],
+                      },
+                      '-',
+                      { $arrayElemAt: ['$$parts', 1] },
+                      '-',
+                      { $arrayElemAt: ['$$parts', 2] },
+                    ],
+                  },
+                },
+              },
               format: '%d-%b-%Y',
               onError: null,
             },

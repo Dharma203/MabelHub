@@ -449,7 +449,7 @@ export default function RekapitulasiVisitPage() {
       qs.set('page', String(page))
 
       if (fSales !== 'ALL') qs.set('sales', fSales)
-      if (fStatus !== 'ALL') qs.set('status', fStatus)
+      if (fStatus !== 'ALL') qs.set('status_visit', fStatus)
       if (fRing !== 'ALL') qs.set('ring', fRing)
       if (fCity !== 'ALL') qs.set('city', fCity)
       if (fSatker !== 'ALL') qs.set('satker', fSatker)
@@ -803,7 +803,7 @@ export default function RekapitulasiVisitPage() {
         qs.set('page', '1')
 
         if (fSales !== 'ALL') qs.set('sales', fSales)
-        if (fStatus !== 'ALL') qs.set('status', fStatus)
+        if (fStatus !== 'ALL') qs.set('status_visit', fStatus)
         if (fRing !== 'ALL') qs.set('ring', fRing)
         if (fCity !== 'ALL') qs.set('city', fCity)
         if (fSatker !== 'ALL') qs.set('satker', fSatker)

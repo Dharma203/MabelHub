@@ -41,12 +41,19 @@ export async function GET(req: Request) {
   }
 
   // Combine auth filter with satker filter
-  const matchFilter = {
-    satuan_kerja: satker,
-    namaEntitas : namaEntitas,
-    jenisEntitas : jenisEntitas,
-    ...authMatch,
+  const entityMatch = {
+    $or: [
+      { satuan_kerja: satker },
+      { namaEntitas: satker },
+      { nama_entitas: satker },
+      { institusi_kerja: satker },
+    ],
   }
+  const matchFilter: Record<string, unknown> = {
+    $and: [authMatch || {}, entityMatch],
+  }
+  if (namaEntitas) (matchFilter.$and as unknown[]).push({ namaEntitas })
+  if (jenisEntitas) (matchFilter.$and as unknown[]).push({ jenisEntitas })
 
   const docs = await col
     .aggregate([

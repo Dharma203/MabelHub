@@ -33,8 +33,8 @@ export async function GET(req: Request) {
 
   // filterStatsB2G = gabungan excludeOffice + excludeRing4 + excludeKlpd
   if (filterStatsB2G) {
-    extraMatch.satuan_kerja = { $exists: true, $not: /office/i }
-    extraMatch.status_ring = { $exists: true, $not: /ring[\s_]*4/i }
+    extraMatch.satuan_kerja = { $not: /office/i }
+    extraMatch.status_ring = { $not: /ring[\s_]*4/i }
     extraMatch.klpd = {
       $exists: true,
       $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
@@ -43,8 +43,8 @@ export async function GET(req: Request) {
 
   // filterStatsB2B = excludeOffice + includeRing4 + includeKlpd(B2B)
   if (filterStatsB2B) {
-    extraMatch.satuan_kerja = { $exists: true, $not: /office/i }
-    extraMatch.status_ring = { $exists: true, $regex: /ring[\s_]*4/i }
+    extraMatch.satuan_kerja = { $not: /office/i }
+    extraMatch.status_ring = { $regex: /ring[\s_]*4/i }
     extraMatch.klpd = {
       $exists: true,
       $regex: /kabupaten|swasta|lainnya|b2b/i,

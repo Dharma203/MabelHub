@@ -176,7 +176,7 @@ export default function TrackingSatuanKerja() {
 
   // expand row: visit dates by satker
   const [expandedSatker, setExpandedSatker] = useState<string | null>(null)
-  const [expandedEntitas, setExpanderEntitas] = useState<string |null>(null)
+  const [expandedEntitas, setExpanderEntitas] = useState<string | null>(null)
   const [visitDates, setVisitDates] = useState<VisitDetail[]>([])
   const [loadingVisitDates, setLoadingVisitDates] = useState(false)
 
@@ -238,6 +238,8 @@ export default function TrackingSatuanKerja() {
         setLoadingRows(true)
 
         const params = new URLSearchParams()
+        params.set('page', String(page))
+        params.set('limit', String(pageSize))
         if (fSales !== 'ALL') params.set('sales', fSales)
         if (fStart) params.set('start', fStart)
         if (fEnd) params.set('end', fEnd)
@@ -248,8 +250,6 @@ export default function TrackingSatuanKerja() {
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
         params.set('excludeOffice', 'true')
-        params.set('page', String(page))
-        params.set('limit', String(pageSize))
 
         const res = await fetch(`/api/visits?${params.toString()}`, {
           cache: 'no-store',
@@ -335,7 +335,7 @@ export default function TrackingSatuanKerja() {
       try {
         const res = await fetch(
           `/api/visits/by-satker?satker=${encodeURIComponent(satkerName)}`,
-          { cache: 'no-store' },  
+          { cache: 'no-store' },
         )
         const json = await res.json().catch(() => ({}))
         setVisitDates(Array.isArray(json?.items) ? json.items : [])

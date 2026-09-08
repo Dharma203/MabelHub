@@ -344,7 +344,7 @@ export default function DatabaseTrackingPage() {
               </Field>
 
               {mode === 'b2g' && (
-                <Field label='KLPD'>
+                <Field label='Filter KLPD'>
                   <SearchableSelect
                     value={klpd}
                     onChange={(val: string) => {
