@@ -54,13 +54,17 @@ export async function GET(req: Request) {
 
   const extraMatch: any = {}
 
+  // Newer RING 4 docs may have klpd=null or "PT"/"CV" (entity info in jenisEntitas instead)
   if (filterStatsB2B) {
     extraMatch.satuan_kerja = { $not: /office/i }
     extraMatch.status_ring = { $regex: /ring[\s_]*4/i }
-    extraMatch.klpd = {
-      $exists: true,
-      $regex: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
-    }
+    extraMatch.$or = [
+      { klpd: { $regex: /kabupaten|swasta|lainnya|b2b|pt|cv/i } },
+      { klpd: { $in: [null, ''] } },
+      { klpd: { $exists: false } },
+      { jenisEntitas: { $exists: true, $nin: [null, ''] } },
+      { namaEntitas: { $exists: true, $nin: [null, ''] } },
+    ]
   }
 
   const combinedMatch = { ...extraMatch, ...(authMatch || {}) }

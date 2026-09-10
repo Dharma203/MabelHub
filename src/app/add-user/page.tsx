@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import ConfirmModal from "@/components/modals/ConfirmModal";
 
-type UserRole = "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES" | "TELEMARKETING";
+type UserRole = "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES" | "TELEMARKETING" | "ADMIN SALES";
 
 type UserRow = {
   _id: string;
@@ -359,6 +359,7 @@ export default function AddUserPage() {
                       { value: "LEADER", label: "Leader" },
                       { value: "SALES", label: "Sales" },
                       { value: "TELEMARKETING", label: "Telemarketing" },
+                      { value: "ADMIN SALES", label: "Admin Sales"}
                     ]}
                     className="h-10 border-0"
                     placeholder="Pilih Role..."
@@ -441,6 +442,8 @@ export default function AddUserPage() {
                                   ? "Telemarketing"
                                   : u.role === "SALES"
                                     ? "Sales"
+                                  : u.role === "ADMIN SALES"
+                                  ? "Admin Sales"
                                     : "Unknown"
                                 }
                           </td>
@@ -527,6 +530,7 @@ export default function AddUserPage() {
                   { value: "LEADER", label: "Leader" },
                   { value: "SALES", label: "Sales" },
                   { value: "TELEMARKETING", label: "Telemarketing" },
+                  { value: "ADMIN SALES", label: "Admin Sales"},
                 ]}
                 className="h-10 border-0"
                 placeholder="Pilih Role..."

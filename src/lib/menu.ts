@@ -1,4 +1,4 @@
-export type Role = 'SUPERADMIN' | 'ADMIN' | 'LEADER' | 'SALES' | 'TELEMARKETING'
+export type Role = 'SUPERADMIN' | 'ADMIN' | 'LEADER' | 'SALES' | 'TELEMARKETING' | 'ADMIN SALES'
 
 export type MenuItem = {
   label: string
@@ -361,6 +361,47 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           label: 'Database Prospek',
           href: '/database-prospek',
           icon: 'DatabaseZap',
+        },
+      ],
+    },
+    {
+      title: 'E-PROCUREMENT',
+      icon: 'ShoppingCart',
+      items: [
+        {
+          label: 'Form E-Procurement',
+          href: '/e-procurement',
+          icon: 'FilePlus',
+        },
+        {
+          label: 'Tracking E-Procurement',
+          href: '/rekapitulasi-Eproc',
+          icon: 'PieChart',
+        },
+      ],
+    },
+  ],
+
+  'ADMIN SALES': [
+    {
+      title: 'VISIT',
+      icon: 'CalendarCheck',
+      items: [
+        {
+          label: 'Dashboard Visit',
+          href: '/dashboard-request',
+          icon: 'LayoutDashboard',
+        },
+        { label: 'Plan Activity', href: '/plan-activity', icon: 'MapPin' },
+        {
+          label: 'Visit Dashboard',
+          href: '/rekapitulasi-visit',
+          icon: 'BarChart3',
+        },
+        {
+          label: 'Sales Report System',
+          href: '/sales-report-system',
+          icon: 'FileText',
         },
       ],
     },

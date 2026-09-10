@@ -1171,7 +1171,7 @@ function Field({
 }) {
   return (
     <div className='space-y-2'>
-      <label className='text-sm font-bold tracking-wide text-blue-500 uppercase'>
+      <label className='text-sm font-bold tracking-wide text-slate-500 uppercase'>
         {label}
       </label>
       {children}

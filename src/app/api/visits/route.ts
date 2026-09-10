@@ -246,25 +246,32 @@ export async function GET(req: Request) {
     }
   }
 
-  // filterStatsB2G = gabungan excludeOffice + excludeRing4 + excludeKlpd
+  // filterStatsB2G = excludeOffice + excludeRing4 + excludeB2B-klpd
   if (filterStatsB2G) {
     if (!match.$and) match.$and = []
     match.$and.push({ satuan_kerja: { $not: /office/i } })
     match.$and.push({ status_ring: { $not: /ring[\s_]*4/i } })
     match.$and.push({
       klpd: {
-        $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
+        $not: /kabupaten|swasta|lainnya|b2b/i,
       },
     })
   }
 
   // filterStatsB2B = excludeOffice + includeRing4 + includeKlpd(B2B)
+  // Newer RING 4 docs may have klpd=null or "PT"/"CV" (entity info in jenisEntitas instead)
   if (filterStatsB2B) {
     if (!match.$and) match.$and = []
     match.$and.push({ satuan_kerja: { $not: /office/i } })
     match.$and.push({ status_ring: { $regex: /ring[\s_]*4/i } })
     match.$and.push({
-      klpd: /kementrian|bumd|provinsi|kota/i,
+      $or: [
+        { klpd: { $regex: /kabupaten|swasta|lainnya|b2b|pt|cv/i } },
+        { klpd: { $in: [null, ''] } },
+        { klpd: { $exists: false } },
+        { jenisEntitas: { $exists: true, $nin: [null, ''] } },
+        { namaEntitas: { $exists: true, $nin: [null, ''] } },
+      ],
     })
   }
 
@@ -453,19 +460,28 @@ export async function GET(req: Request) {
     globalRankingMatch.satuan_kerja.$not = /office/i
     globalRankingMatch.status_ring.$not = /ring[\s_]*4/i
     globalRankingMatch.klpd.$not =
-      /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i
+      /kabupaten|swasta|lainnya|b2b/i
   }
 
   if (filterStatsB2B) {
-    globalRankingMatch.satuan_kerja.$not = /office/i
+    delete globalRankingMatch.satuan_kerja
+    delete globalRankingMatch.klpd
+    delete globalRankingMatch.kegiatan_status
+    delete globalRankingMatch.namaEntitas
     globalRankingMatch.status_ring = {
-      ...globalRankingMatch.status_ring,
-      $regex: /ring[\s_]*1/i,
+      $regex: /ring[\s_]*4/i,
     }
-    globalRankingMatch.klpd = {
-      ...globalRankingMatch.klpd,
-      $regex: /kementrian|kota|provinsi|bumd/i,
-    }
+    if (!globalRankingMatch.$and) globalRankingMatch.$and = []
+    globalRankingMatch.$and.push({ satuan_kerja: { $not: /office/i } })
+    globalRankingMatch.$and.push({
+      $or: [
+        { klpd: { $regex: /kabupaten|swasta|lainnya|b2b|pt|cv/i } },
+        { klpd: { $in: [null, ''] } },
+        { klpd: { $exists: false } },
+        { jenisEntitas: { $exists: true, $nin: [null, ''] } },
+        { namaEntitas: { $exists: true, $nin: [null, ''] } },
+      ],
+    })
   }
 
   const globalRanking = await col

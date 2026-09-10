@@ -120,6 +120,7 @@ export default function TrackingB2GPage() {
   const [fSatker, setFSatker] = useState<string>('ALL')
   const [fKlpd, setFKlpd] = useState<string>('ALL')
   const [fVisit, setFVisit] = useState<string>('ALL')
+  const [fNamaEntitas, setFNamaEntitas] = useState<string>('ALL')
 
   //   dropdown meta
   const [salesOptions, setSalesOptions] = useState<string[]>([])
@@ -128,6 +129,7 @@ export default function TrackingB2GPage() {
   const [phoneOptions, setPhoneOptions] = useState<string[]>([])
   const [klpdOptions, setKlpdOptions] = useState<string[]>([])
   const [visitOptions, setVisitOptions] = useState<string[]>([])
+  const [entitasOptions, setEntitasOptions] = useState<string[]>([])
 
   // pagination
   const [pageSize, setPageSize] = useState<number>(25)
@@ -223,6 +225,12 @@ export default function TrackingB2GPage() {
         setVisitOptions(
           Array.isArray(json?.status_visit) ? json.status_visit : [],
         )
+        setEntitasOptions([
+          ...new Set([
+            ...(Array.isArray(json?.namaEntitas) ? json.namaEntitas : []),
+            ...(Array.isArray(json?.jenisEntitas) ? json.jenisEntitas: []),
+          ]),
+        ])
         setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
       } catch {
         if (!mounted) return
@@ -231,6 +239,7 @@ export default function TrackingB2GPage() {
         setKlpdOptions([])
         setVisitOptions([])
         setSatkerOptions([])
+        setEntitasOptions([])
       }
     })()
 
@@ -249,6 +258,8 @@ export default function TrackingB2GPage() {
         setLoadingRows(true)
 
         const params = new URLSearchParams()
+        params.set('page', String(page))
+        params.set('limit', String(pageSize))
         if (fSales !== 'ALL') params.set('sales', fSales)
         if (fStart) params.set('start', fStart)
         if (fEnd) params.set('end', fEnd)
@@ -261,9 +272,8 @@ export default function TrackingB2GPage() {
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
+        params.set('excludeOffice', 'true')
         params.set('filterStatsB2G', 'true')
-        params.set('page', String(page))
-        params.set('limit', String(pageSize))
 
         const res = await fetch(`/api/visits?${params.toString()}`, {
           cache: 'no-store',
@@ -546,7 +556,7 @@ export default function TrackingB2GPage() {
                 label='STATUS VISIT'
                 value={fVisit}
                 onChange={(v) => onChangeFilter(setFVisit, v)}
-                options={[{ label: 'Semua Status', value: 'VISITED' }].concat(
+                options={[{ label: 'Semua Status', value: 'ALL' }].concat(
                   visitOptions.map((c) => ({ label: c, value: c })),
                 )}
               />
@@ -554,10 +564,29 @@ export default function TrackingB2GPage() {
               <div>
                 <FilterSelect
                   label='SATUAN KERJA'
-                  value={fSatker}
-                  onChange={(v) => onChangeFilter(setFSatker, v)}
+                  value={
+                    fNamaEntitas !== 'ALL'
+                      ? fNamaEntitas
+                      : fSatker !== 'ALL'
+                        ? fSatker
+                        : 'ALL'
+                  }
+                  onChange={(v) => {
+                    if (v === 'ALL') {
+                      setFSatker('ALL')
+                      setFNamaEntitas('ALL')
+                      return
+                    }
+
+                    const matchesSatker = satkerOptions.includes(v)
+                    const matchesEntitas = entitasOptions.includes(v)
+
+                    setFSatker(matchesSatker ? v : 'ALL')
+                    setFNamaEntitas(matchesEntitas ? v : 'ALL')
+                  }}
                   options={[{ label: 'Semua Satker', value: 'ALL' }].concat(
                     satkerOptions.map((s) => ({ label: s, value: s })),
+                    entitasOptions.map((e) => ({ label: e, value: e })),
                   )}
                   full
                 />

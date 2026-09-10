@@ -734,7 +734,7 @@ export default function TrackingB2BPage() {
                 label='STATUS VISIT'
                 value={fVisit}
                 onChange={(v) => onChangeFilter(setFVisit, v)}
-                options={[{ label: 'Semua Status', value: 'VISITED' }].concat(
+                options={[{ label: 'Semua Status', value: 'ALL' }].concat(
                   visitOptions.map((c) => ({ label: c, value: c })),
                 )}
               />
@@ -753,8 +753,8 @@ export default function TrackingB2BPage() {
             </div>
           </section>
           <section className='mt-8 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-blue-100'>
-            {/* Desktop View */}
-            <div className='hidden md:block overflow-x-auto'>
+            {/* Table View */}
+            <div className='overflow-x-auto'>
               <table className='w-full text-sm'>
                 <thead className='bg-blue-200'>
                   <tr className='text-left'>
