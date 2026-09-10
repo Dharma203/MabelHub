@@ -114,7 +114,7 @@ export default function TrackingB2GPage() {
   const [fSales, setFSales] = useState<string>('ALL')
   const [fStart, setFStart] = useState<string>('')
   const [fEnd, setFEnd] = useState<string>('')
-  const [fPhone, setFPhone] = useState<string>('')
+  const [fPhone, setFPhone] = useState<string>('ALL')
   const [fRing, setFRing] = useState<string>('ALL')
   const [fCity, setFCity] = useState<string>('ALL')
   const [fSatker, setFSatker] = useState<string>('ALL')
@@ -257,6 +257,7 @@ export default function TrackingB2GPage() {
         if (fSatker !== 'ALL') params.set('satker', fSatker)
         if (fKlpd !== 'ALL') params.set('klpd', fKlpd)
         if (fVisit !== 'ALL') params.set('status_visit', fVisit)
+        if (fPhone !== 'ALL') params.set('pic_phone', fPhone)
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
@@ -305,6 +306,7 @@ export default function TrackingB2GPage() {
     pageSize,
     sessionLoading,
     user,
+    fPhone,
   ])
 
   const [paramStatus, setParamStatus] = useState<string[]>([])
@@ -528,14 +530,17 @@ export default function TrackingB2GPage() {
                 )}
               />
 
-              <FilterSelect
-                label='PIC PHONE'
-                value={fPhone}
-                onChange={(v) => onChangeFilter(setFPhone, v)}
-                options={[{ label: 'Semua Kontak', value: 'ALL' }].concat(
-                  phoneOptions.map((c) => ({ label: c, value: c })),
-                )}
-              />
+              <Field label='PIC PHONE'>
+                <SearchableSelect
+                  value={fPhone}
+                  onChange={(v) => onChangeFilter(setFPhone, v)}
+                  options={[
+                    { label: 'Semua Kontak', value: 'ALL' },
+                    { label: 'Ada Kontak', value: 'HAS_CONTACT' },
+                    { label: 'Belum Ada Kontak', value: 'NO_CONTACT' },
+                  ]}
+                />
+              </Field>
 
               <FilterSelect
                 label='STATUS VISIT'
@@ -841,7 +846,10 @@ export default function TrackingB2GPage() {
                         value={modalVisit.nama_sales}
                       />
                       <DetailItem label='City' value={modalVisit.city} />
-                      <DetailItem label='Ring' value={normalizeRing(modalVisit.status_ring) || '-'} />
+                      <DetailItem
+                        label='Ring'
+                        value={normalizeRing(modalVisit.status_ring) || '-'}
+                      />
                       <DetailItem
                         label='Satuan Kerja'
                         value={modalVisit.satuan_kerja}
@@ -948,15 +956,18 @@ export default function TrackingB2GPage() {
                         <div
                           className='relative w-full max-w-xs mx-auto cursor-pointer group'
                           onClick={() =>
-                            openImageFullscreen(modalVisit.visit_image!)
+                            openImageFullscreen(
+                              `/api/visits/${modalVisit._id}/image`,
+                            )
                           }
                         >
                           <Image
-                            src={modalVisit.visit_image}
+                            src={`/api/visits/${modalVisit._id}/image`}
                             alt='Bukti Kunjungan'
                             width={500}
                             height={500}
                             quality={80}
+                            unoptimized
                             className='w-full rounded-xl shadow-sm ring-1 ring-gray-200 group-hover:ring-blue-400 group-hover:shadow-lg transition-all'
                           />
                           <div className='absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center'>
@@ -1007,6 +1018,7 @@ export default function TrackingB2GPage() {
                 height={500}
                 width={500}
                 quality={80}
+                unoptimized
                 alt='Full size'
                 className='max-w-full max-h-full rounded-xl shadow-2xl object-contain'
                 onClick={(e) => e.stopPropagation()}
@@ -1150,6 +1162,23 @@ function FilterDate({
           className='h-12 w-full rounded-xl border border-blue-200 bg-white px-4 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-200'
         />
       </div>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className='space-y-2'>
+      <label className='text-sm font-bold tracking-wide text-slate-500 uppercase'>
+        {label}
+      </label>
+      {children}
     </div>
   )
 }

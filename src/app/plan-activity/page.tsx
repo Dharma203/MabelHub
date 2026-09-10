@@ -327,7 +327,8 @@ export default function PlanActivityPage() {
 
   function getImageUrl(img?: string, planId?: string, base = typeof window !== "undefined" ? window.location.origin : "https://hub.mabel.co.id") {
     if (!img || img === '__base64_image__') return planId ? `${base}/api/visits/${planId}/image` : "Tidak tersedia";
-    return img.startsWith("http") ? img : `${base}${img.startsWith("/") ? "" : "/uploads/"}${img}`;
+    if (img.startsWith("data:")) return img;
+    return planId ? `${base}/api/visits/${planId}/image` : img.startsWith("http") ? img : `${base}${img.startsWith("/") ? "" : "/uploads/"}${img}`;
   }
 
   // Copy plan data to clipboard

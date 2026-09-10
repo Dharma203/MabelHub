@@ -1,9 +1,23 @@
 import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
+import { readFile } from 'fs/promises'
+import path from 'path'
 import clientPromise from '@/lib/mongodb'
 
+const unavailableImage = () =>
+  new NextResponse(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480"><rect width="640" height="480" fill="#f3f4f6"/><path d="M160 360l96-112 72 80 56-64 96 96H160z" fill="#d1d5db"/><circle cx="400" cy="176" r="32" fill="#d1d5db"/><text x="320" y="424" fill="#6b7280" font-family="Arial,sans-serif" font-size="20" text-anchor="middle">Gambar tidak tersedia</text></svg>`,
+    {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/svg+xml',
+        'Cache-Control': 'no-store',
+      },
+    },
+  )
+
 export async function GET(
-  req: Request,
+  _request: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctx.params
@@ -21,10 +35,10 @@ export async function GET(
   )
 
   if (!doc || !doc.visit_image) {
-    return new NextResponse('Image not found', { status: 404 })
+    return unavailableImage()
   }
 
-  const visitImage = doc.visit_image as string
+  let visitImage = doc.visit_image as string
 
   if (visitImage.includes('data:image')) {
     // format: data:image/png;base64,iORw0... or https://.../data:image/png;base64,...
@@ -43,16 +57,69 @@ export async function GET(
     }
   }
 
-  // If it's a relative URL like /uploads/... or external URL, just redirect to it
+  try {
+    const imageUrl = new URL(visitImage)
+    if (
+      imageUrl.hostname === 'hub.mabel.co.id' &&
+      imageUrl.pathname.startsWith('/uploads/')
+    ) {
+      visitImage = imageUrl.pathname
+    }
+  } catch {
+    // Relative paths are handled below.
+  }
+
+  // Do not redirect image requests to an HTML page returned by the upload host.
   if (visitImage.startsWith('http')) {
-    return NextResponse.redirect(visitImage)
+    try {
+      const response = await fetch(visitImage)
+      const contentType = response.headers.get('content-type') || ''
+      if (!response.ok || !contentType.startsWith('image/')) {
+        return unavailableImage()
+      }
+
+      return new NextResponse(await response.arrayBuffer(), {
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        },
+      })
+    } catch {
+      return unavailableImage()
+    }
   }
   
   if (visitImage.startsWith('/')) {
-    const url = new URL(req.url)
-    return NextResponse.redirect(`${url.origin}${visitImage}`)
+    if (visitImage.startsWith('/uploads/')) {
+      const filePath = path.join(process.cwd(), 'public', visitImage)
+      try {
+        const buffer = await readFile(filePath)
+        const extension = path.extname(filePath).toLowerCase()
+        const contentType =
+          extension === '.png'
+            ? 'image/png'
+            : extension === '.webp'
+              ? 'image/webp'
+              : extension === '.gif'
+                ? 'image/gif'
+                : 'image/jpeg'
+
+        return new NextResponse(buffer, {
+          headers: {
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=31536000, immutable',
+          },
+        })
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          throw error
+        }
+        return unavailableImage()
+      }
+    }
+
+    return unavailableImage()
   }
 
-  // Fallback
-  return new NextResponse('Invalid image format', { status: 400 })
+  return unavailableImage()
 }

@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation'
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import Image from 'next/image'
 import { normalizeRing } from '@/lib/ring'
+import { div, label } from 'motion/react-client'
 
 interface StatCardProps {
   title: string
@@ -111,7 +112,7 @@ export default function TrackingSatuanKerja() {
   const [fSales, setFSales] = useState<string>('ALL')
   const [fStart, setFStart] = useState<string>('')
   const [fEnd, setFEnd] = useState<string>('')
-  const [fPhone, setFPhone] = useState<string>('')
+  const [fPhone, setFPhone] = useState<string>('ALL')
   const [fRing, setFRing] = useState<string>('ALL')
   const [fCity, setFCity] = useState<string>('ALL')
   const [fSatker, setFSatker] = useState<string>('ALL')
@@ -121,7 +122,6 @@ export default function TrackingSatuanKerja() {
   const [salesOptions, setSalesOptions] = useState<string[]>([])
   const [cityOptions, setCityOptions] = useState<string[]>([])
   const [satkerOptions, setSatkerOptions] = useState<string[]>([])
-  const [phoneOptions, setPhoneOptions] = useState<string[]>([])
   const [entitasOptions, setEntitasOptions] = useState<string[]>([])
 
   // pagination
@@ -246,6 +246,7 @@ export default function TrackingSatuanKerja() {
         if (fRing !== 'ALL') params.set('ring', normalizeRing(fRing))
         if (fCity !== 'ALL') params.set('city', fCity)
         if (fSatker !== 'ALL') params.set('satker', fSatker)
+        if (fPhone !== 'ALL') params.set('pic_phone', fPhone)
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
@@ -290,6 +291,7 @@ export default function TrackingSatuanKerja() {
     pageSize,
     sessionLoading,
     user,
+    fPhone,
   ])
 
   const [paramStatus, setParamStatus] = useState<string[]>([])
@@ -479,14 +481,17 @@ export default function TrackingSatuanKerja() {
                 )}
               />
 
-              <FilterSelect
-                label='PIC PHONE'
-                value={fPhone}
-                onChange={(v) => onChangeFilter(setFPhone, v)}
-                options={[{ label: 'Semua Kontak', value: 'ALL' }].concat(
-                  phoneOptions.map((c) => ({ label: c, value: c })),
-                )}
-              />
+              <Field label='PIC PHONE'>
+                <SearchableSelect
+                  value={fPhone}
+                  onChange={(v) => onChangeFilter(setFPhone, v)}
+                  options={[
+                    { label: 'Semua Kontak', value: 'ALL' },
+                    { label: 'Ada Kontak', value: 'HAS_CONTACT' },
+                    { label: 'Belum Ada Kontak', value: 'NO_CONTACT' },
+                  ]}
+                />
+              </Field>
 
               <div>
                 <FilterSelect
@@ -806,23 +811,36 @@ export default function TrackingSatuanKerja() {
                         label='Ring'
                         value={normalizeRing(modalVisit.status_ring) || '-'}
                       />
-                      <DetailItem
-                        label='Satuan Kerja'
-                        value={modalVisit.satuan_kerja}
-                      />
                       <DetailItem label='KLPD' value={modalVisit.klpd} />
-                      <DetailItem
-                        label='Nama Entitas'
-                        value={modalVisit.namaEntitas}
-                      />
-                      <DetailItem
-                        label='Jenis Entitas'
-                        value={modalVisit.jenisEntitas}
-                      />
-                      <DetailItem
-                        label='Institusi Kerja'
-                        value={modalVisit.institusi_kerja}
-                      />
+                      {normalizeRing(modalVisit.status_ring) === 'RING 4' ? (
+                        <>
+                          <DetailItem
+                            label='Nama Entitas'
+                            value={
+                              modalVisit.namaEntitas ||
+                              modalVisit.satuan_kerja
+                            }
+                          />
+                          <DetailItem
+                            label='Jenis Entitas'
+                            value={
+                              modalVisit.jenisEntitas ||
+                              modalVisit.institusi_kerja
+                            }
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <DetailItem
+                            label='Institusi Kerja'
+                            value={modalVisit.institusi_kerja}
+                          />
+                          <DetailItem
+                            label='Satuan Kerja'
+                            value={modalVisit.satuan_kerja}
+                          />
+                        </>
+                      )}
                       <DetailItem
                         label='PIC Name'
                         value={modalVisit.pic_name}
@@ -920,15 +938,18 @@ export default function TrackingSatuanKerja() {
                         <div
                           className='relative w-full max-w-xs mx-auto cursor-pointer group'
                           onClick={() =>
-                            openImageFullscreen(modalVisit.visit_image!)
+                            openImageFullscreen(
+                              `/api/visits/${modalVisit._id}/image`,
+                            )
                           }
                         >
                           <Image
-                            src={modalVisit.visit_image}
+                            src={`/api/visits/${modalVisit._id}/image`}
                             alt='Bukti Kunjungan'
                             width={500}
                             height={500}
                             quality={80}
+                            unoptimized
                             className='w-full rounded-xl shadow-sm ring-1 ring-gray-200 group-hover:ring-blue-400 group-hover:shadow-lg transition-all'
                           />
                           <div className='absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center'>
@@ -979,6 +1000,7 @@ export default function TrackingSatuanKerja() {
                 height={500}
                 width={500}
                 quality={80}
+                unoptimized
                 alt='Full size'
                 className='max-w-full max-h-full rounded-xl shadow-2xl object-contain'
                 onClick={(e) => e.stopPropagation()}
@@ -1136,6 +1158,23 @@ function DetailItem({ label, value }: { label: string; value: string }) {
       <div className='mt-1 text-sm font-semibold text-gray-900'>
         {value || '-'}
       </div>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className='space-y-2'>
+      <label className='text-sm font-bold tracking-wide text-blue-500 uppercase'>
+        {label}
+      </label>
+      {children}
     </div>
   )
 }

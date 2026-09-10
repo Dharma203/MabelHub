@@ -84,8 +84,10 @@ export async function GET(req: Request) {
     status_market: d.status_market || '-',
     klpd: d.klpd || '-',
     institusi_kerja: d.institusi_kerja || '-',
-    namaEntitas: d.namaEntitas || d.nama_entitas || '-',
-    jenisEntitas: d.jenisEntitas || d.jenis_entitas || '-',
+    namaEntitas:
+      d.namaEntitas || d.nama_entitas || d.satuan_kerja || '-',
+    jenisEntitas:
+      d.jenisEntitas || d.jenis_entitas || d.institusi_kerja || '-',
     tindak_lanjut: d.tindak_lanjut || '-',
     kegiatan_status: d.kegiatan_status || '-',
     descriptions: d.descriptions || '-',

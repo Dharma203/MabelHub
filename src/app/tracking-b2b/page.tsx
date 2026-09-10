@@ -1141,15 +1141,18 @@ export default function TrackingB2BPage() {
                         <div
                           className='relative w-full max-w-xs mx-auto cursor-pointer group'
                           onClick={() =>
-                            openImageFullscreen(modalVisit.visit_image!)
+                            openImageFullscreen(
+                              `/api/visits/${modalVisit._id}/image`,
+                            )
                           }
                         >
                           <Image
-                            src={modalVisit.visit_image}
+                            src={`/api/visits/${modalVisit._id}/image`}
                             alt='Bukti Kunjungan'
                             width={500}
                             height={500}
                             quality={80}
+                            unoptimized
                             className='w-full rounded-xl shadow-sm ring-1 ring-gray-200 group-hover:ring-blue-400 group-hover:shadow-lg transition-all'
                           />
                           <div className='absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center'>
@@ -1200,6 +1203,7 @@ export default function TrackingB2BPage() {
                 height={500}
                 width={500}
                 quality={80}
+                unoptimized
                 alt='Full size'
                 className='max-w-full max-h-full rounded-xl shadow-2xl object-contain'
                 onClick={(e) => e.stopPropagation()}

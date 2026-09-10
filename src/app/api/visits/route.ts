@@ -42,6 +42,7 @@ export async function GET(req: Request) {
   const status_visit = searchParams.get('status_visit')
   const ring = searchParams.get('ring')
   const city = searchParams.get('city')
+  const phone = searchParams.get('pic_phone')
   const satker = searchParams.get('satker')
   const namaEntitas = searchParams.get('namaEntitas')
   const jenisEntitas = searchParams.get('jenisEntitas')
@@ -205,6 +206,26 @@ export async function GET(req: Request) {
       const regexStr = `${parts[0]}-${parts[1]}`
       match.visit_date = { $regex: new RegExp(regexStr, 'i') }
     }
+  }
+  if (phone === 'HAS_CONTACT') {
+    if (!match.$and) match.$and = []
+    match.$and.push({
+      $or: [
+        { pic_phone: { $type: 'number' } },
+        { pic_phone: { $type: 'string', $regex: /\S/ } },
+      ],
+    })
+  } else if (phone === 'NO_CONTACT') {
+    if (!match.$and) match.$and = []
+    match.$and.push({
+      $or: [
+        { pic_phone: { $exists: false } },
+        { pic_phone: null },
+        { pic_phone: { $type: 'string', $regex: /^\s*$/ } },
+      ],
+    })
+  } else if (phone) {
+    match.pic_phone = Number(phone)
   }
 
   // =========================
