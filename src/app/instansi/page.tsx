@@ -11,6 +11,7 @@ import { Search, Clock, Building2, Pen, Trash2,
 ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight} from "lucide-react";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import ConfirmModal from "@/components/modals/ConfirmModal";
+import { normalizeRing } from "@/lib/ring";
 
 type Company = {
   _id: string;
@@ -199,7 +200,7 @@ function SolidButton({
 }
 
 function StatusPill({ value }: { value?: string }) {
-  const v = (value || "-").toUpperCase();
+  const v = normalizeRing(value) || "-";
   const isB2G =
     v.includes("RING 1") || v.includes("RING 2") || v.includes("RING 3");
   const isB2B = v.includes("RING 4");
@@ -577,7 +578,7 @@ export default function InstansiPage() {
                     }}
                     options={[
                       { value: "ALL", label: "Semua Ring" },
-                      ...segmenOptions.map((x) => ({ value: x, label: x })),
+                      ...segmenOptions.map((x) => ({ value: normalizeRing(x), label: normalizeRing(x) })).filter((x) => x.value),
                     ]}
                     className="h-11 border-0"
                   />

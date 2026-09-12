@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import clientPromise, { getDbName } from "@/lib/mongodb";
 
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -21,53 +23,90 @@ export async function GET(req: Request) {
     }
 
     const ring = rawRing.toUpperCase().replace(/\s+/g, " ").trim();
+    const escapedInstitusi = escapeRegex(institusi);
 
     const client = await clientPromise;
     const db = client.db(getDbName());
 
-    const filter: any = {
+    const b2gFilter: Record<string, unknown> = {
       ring,
-      institusiKerja: { $regex: `^${institusi.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" },
+      institusiKerja: { $regex: `^${escapedInstitusi}$`, $options: "i" },
       satuanKerja: { $exists: true, $ne: "" },
     };
 
+    const b2bFilter: Record<string, unknown> = {
+      ring,
+      namaEntitas: { $exists: true, $ne: "" },
+    };
+
     if (q) {
-      filter.satuanKerja = {
-        $exists: true, $ne: "",
-        $regex: q, $options: "i",
+      const qRegex = { $regex: escapeRegex(q), $options: "i" };
+      b2gFilter.satuanKerja = qRegex;
+      b2bFilter.namaEntitas = qRegex;
+    } else {
+      b2bFilter.namaEntitas = {
+        $exists: true,
+        $ne: "",
+        $regex: `^${escapedInstitusi}$`,
+        $options: "i",
       };
     }
 
-    const items = await db
-      .collection("database_b2g")
-      .find(filter)
-      .sort({ satuanKerja: 1 })
-      .limit(limit)
-      .project({ satuanKerja: 1, kota: 1, klpd: 1, ring: 1, pic_default: 1 })
-      .toArray();
+    const [b2gItems, b2bItems] = await Promise.all([
+      db
+        .collection("database_b2g")
+        .find(b2gFilter)
+        .sort({ satuanKerja: 1 })
+        .limit(limit)
+        .project({ satuanKerja: 1, kota: 1, klpd: 1, ring: 1, pic_default: 1, institusiKerja: 1 })
+        .toArray(),
+      db
+        .collection("database_b2b")
+        .find(b2bFilter)
+        .sort({ namaEntitas: 1 })
+        .limit(limit)
+        .project({ namaEntitas: 1, kota: 1, ring: 1, pic_default: 1 })
+        .toArray(),
+    ]);
 
-    const result = items.map((x: any) => ({
-      _id: String(x._id),
-      satuanKerja: x.satuanKerja || "",
-      kota: x.kota || "",
-      klpd: x.klpd || "",
-      ring: x.ring || "",
-      pic_default: x.pic_default || null,
-    }));
+    const merged = [
+      ...b2gItems.map((x: Record<string, unknown>) => {
+        const row = x as Record<string, unknown>;
+        return {
+          _id: String(row._id ?? ""),
+          satuanKerja: typeof row.satuanKerja === "string" ? row.satuanKerja : "",
+          kota: typeof row.kota === "string" ? row.kota : "",
+          klpd: typeof row.klpd === "string" ? row.klpd : "",
+          ring: typeof row.ring === "string" ? row.ring : "",
+          pic_default: row.pic_default ?? null,
+        };
+      }),
+      ...b2bItems.map((x: Record<string, unknown>) => {
+        const row = x as Record<string, unknown>;
+        return {
+          _id: String(row._id ?? ""),
+          satuanKerja: typeof row.namaEntitas === "string" ? row.namaEntitas : "",
+          kota: typeof row.kota === "string" ? row.kota : "",
+          klpd: "",
+          ring: typeof row.ring === "string" ? row.ring : "",
+          pic_default: row.pic_default ?? null,
+        };
+      }),
+    ];
 
-    // Dedupe by satuanKerja
     const seen = new Set<string>();
-    const unique = result.filter((item) => {
+    const unique = merged.filter((item) => {
       const key = item.satuanKerja.toLowerCase();
-      if (seen.has(key)) return false;
+      if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
     }).slice(0, limit);
 
     return NextResponse.json({ items: unique });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Gagal mengambil satuan kerja";
     return NextResponse.json(
-      { error: e?.message ?? "Gagal mengambil satuan kerja" },
+      { error: message },
       { status: 500 }
     );
   }

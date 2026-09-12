@@ -298,6 +298,42 @@ describe('PlanActivityPage — Render dasar', () => {
         expect(screen.getByText('ADD PLANS')).toBeInTheDocument()
     })
 
+    it('menampilkan label yang sesuai saat institusi atau entitas dipilih', async () => {
+        const customFetch = createFetchMock({
+            visits: {
+                items: [{
+                    _id: 'v-alt',
+                    visit_date: '15-Jun-2026',
+                    created_at: '2026-06-15 08:00:00',
+                    city: 'Jakarta',
+                    klpd: 'Kemen',
+                    nama_sales: 'Budi',
+                    institusi_kerja: '',
+                    namaEntitas: 'PT Maju Jaya',
+                    jenisEntitas: 'CV',
+                    satuan_kerja: '',
+                    status_visit: 'Planned',
+                    visit_image: '',
+                }],
+                pagination: { total: 1, totalPages: 1 },
+            },
+        })
+        global.fetch = customFetch
+
+        render(<PlanActivityPage />)
+        await flushPromises()
+
+        const dateCell = screen.getAllByText('15').find((node) => node.closest('[class*="cursor-pointer"]'))
+        fireEvent.click(dateCell!)
+
+        fireEvent.click(await screen.findByTitle('Lihat Detail'))
+
+        expect(await screen.findByText('Nama Entitas')).toBeInTheDocument()
+        expect(screen.getAllByText('PT Maju Jaya').length).toBeGreaterThan(0)
+        expect(screen.getByText('Jenis Entitas')).toBeInTheDocument()
+        expect(screen.getAllByText('CV').length).toBeGreaterThan(0)
+    })
+
     it('menampilkan seluruh tab kalender', () => {
         render(<PlanActivityPage />)
         expect(screen.getByText('Day')).toBeInTheDocument()

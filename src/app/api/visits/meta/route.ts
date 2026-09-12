@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getVisitAuthMatch } from '@/lib/visit-auth'
+import { normalizeRing } from '@/lib/ring'
 
 export async function GET(req: Request) {
   const auth = assertLoggedIn(req)
@@ -20,22 +21,26 @@ export async function GET(req: Request) {
 
   const extraMatch: any = {}
 
-  // filterStatsB2G = gabungan excludeOffice + excludeRing4 + excludeKlpd
+  // filterStatsB2G = excludeOffice + excludeRing4 + excludeB2B-klpd
   if (filterStatsB2G) {
     extraMatch.satuan_kerja = { $exists: true, $not: /office/i }
     extraMatch.status_ring = { $exists: true, $not: /ring[\s_]*4/i }
     extraMatch.klpd = {
       $exists: true,
-      $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
+      $not: /kabupaten|swasta|lainnya|b2b/i,
     }
   }
 
   if (filterStatsB2B) {
-    extraMatch.satuan_kerja = { $exists: true, $not: /office/i }
-    extraMatch.status_ring = { $exists: true, $not: /ring[\s_]*4/i }
-    extraMatch.klpd = {
-      $exists: true, 
-      $regex: /kabupaten|swasta|lainnya|b2b/i}
+    extraMatch.satuan_kerja = { $not: /office/i }
+    extraMatch.status_ring = { $regex: /ring[\s_]*4/i }
+    extraMatch.$or = [
+      { klpd: { $regex: /kabupaten|swasta|lainnya|b2b|pt|cv/i } },
+      { klpd: { $in: [null, ''] } },
+      { klpd: { $exists: false } },
+      { jenisEntitas: { $exists: true, $nin: [null, ''] } },
+      { namaEntitas: { $exists: true, $nin: [null, ''] } },
+    ]
   }
 
   // Build role-based filter
@@ -53,6 +58,8 @@ export async function GET(req: Request) {
     ringResult,
     klpdResult,
     statusVisitResult,
+    namaEntitasResult,
+    jenisEntitasResult
   ] = await Promise.all([
     col
       .aggregate([
@@ -71,7 +78,24 @@ export async function GET(req: Request) {
     col
       .aggregate([
         { $match: combinedMatch },
-        { $group: { _id: '$satuan_kerja' } },
+        {
+          $project: {
+            __satkerDisplay: {
+              $ifNull: [
+                {
+                  $cond: [{ $ne: ['$satuan_kerja', ''] }, '$satuan_kerja', null],
+                },
+                {
+                  $ifNull: [
+                    '$namaEntitas',
+                    { $ifNull: ['$nama_entitas', '$institusi_kerja'] },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        { $group: { _id: '$__satkerDisplay' } },
         { $sort: { _id: 1 } },
       ])
       .toArray(),
@@ -96,14 +120,30 @@ export async function GET(req: Request) {
         { $sort: { _id: 1 } },
       ])
       .toArray(),
+    col
+      .aggregate([
+        { $match: combinedMatch },
+        { $group: { _id: '$namaEntitas' } },
+        { $sort: { _id: 1 } },
+      ])
+      .toArray(),
+    col
+      .aggregate([
+        { $match: combinedMatch },
+        { $group: { _id: '$jenisEntitas' } },
+        { $sort: { _id: 1 } },
+      ])
+      .toArray(),
   ])
 
   return NextResponse.json({
     sales: salesResult.map((r: any) => r._id).filter(Boolean),
     cities: citiesResult.map((r: any) => r._id).filter(Boolean),
     satkers: satkersResult.map((r: any) => r._id).filter(Boolean),
-    rings: ringResult.map((r: any) => r._id).filter(Boolean),
+    rings: [...new Set(ringResult.map((r: any) => normalizeRing(r._id)).filter(Boolean))].sort(),
     klpd: klpdResult.map((r: any) => r._id).filter(Boolean),
     status_visit: statusVisitResult.map((r: any) => r._id).filter(Boolean),
+    namaEntitas: namaEntitasResult.map((r: any) => r._id).filter(Boolean),
+    jenisEntitas: jenisEntitasResult.map((r: any) => r._id).filter(Boolean),
   })
 }

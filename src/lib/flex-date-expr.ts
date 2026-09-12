@@ -13,6 +13,8 @@ export function flexParseDateExpr(field: string) {
   const safeField = { $ifNull: [field, ''] }
 
   // Normalize Indonesian month abbreviations → English via $reduce + $replaceAll
+  // IMPORTANT: $toLower then replace, but %b needs title-case (e.g. "Sep" not "sep")
+  // So after normalization we title-case the month part.
   const normalizedField = {
     $let: {
       vars: { low: { $toLower: safeField } },
@@ -34,6 +36,15 @@ export function flexParseDateExpr(field: string) {
       },
     },
   }
+
+  // Title-case the month part: "jan" → "Jan"
+  // Given parts = ["dd", "mon", "yyyy"], capitalize first char of month
+  const titleCaseMonth = (monthExpr: any) => ({
+    $concat: [
+      { $toUpper: { $substrCP: [monthExpr, 0, 1] } },
+      { $substrCP: [monthExpr, 1, { $subtract: [{ $strLenCP: monthExpr }, 1] }] },
+    ],
+  })
 
   return {
     $switch: {
@@ -59,7 +70,26 @@ export function flexParseDateExpr(field: string) {
           case: { $regexMatch: { input: safeField, regex: /^\d{1,2}-[A-Za-z]+-\d{4}$/ } },
           then: {
             $dateFromString: {
-              dateString: normalizedField,
+              dateString: {
+                $let: {
+                  vars: { parts: { $split: [normalizedField, '-'] } },
+                  in: {
+                    $concat: [
+                      {
+                        $cond: [
+                          { $eq: [{ $strLenCP: { $arrayElemAt: ['$$parts', 0] } }, 1] },
+                          { $concat: ['0', { $arrayElemAt: ['$$parts', 0] }] },
+                          { $arrayElemAt: ['$$parts', 0] },
+                        ],
+                      },
+                      '-',
+                      titleCaseMonth({ $arrayElemAt: ['$$parts', 1] }),
+                      '-',
+                      { $arrayElemAt: ['$$parts', 2] },
+                    ],
+                  },
+                },
+              },
               format: '%d-%b-%Y',
               onError: null,
             },
@@ -77,7 +107,7 @@ export function flexParseDateExpr(field: string) {
                     $concat: [
                       { $arrayElemAt: ['$$parts', 0] },
                       '-',
-                      { $arrayElemAt: ['$$parts', 1] },
+                      titleCaseMonth({ $arrayElemAt: ['$$parts', 1] }),
                       '-20',
                       { $arrayElemAt: ['$$parts', 2] }
                     ]

@@ -7,6 +7,7 @@ import { useSession } from "@/components/session/SessionProvider";
 import EditVisitModal from "@/components/modals/EditVisitModal";
 import { Pen, ChevronLeft, ChevronRight, X, Eye, Calendar, Clock, MapPin, Building2, Briefcase, ImageIcon, User, Copy, Check } from "lucide-react";
 import Image from "next/image";
+import { normalizeRing } from "@/lib/ring";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -18,7 +19,12 @@ type VisitRow = {
   klpd?: string;
   nama_sales?: string;
   institusi_kerja?: string;
+  jenisEntitas: string
+  jenis_entitas?: string
+  namaEntitas: string
   satuan_kerja?: string;
+  satuanKerja?: string;
+  institusiKerja?: string;
   status_visit?: string; // "Visited"
   visit_image?: string;
   has_visit_image?: boolean;
@@ -42,6 +48,8 @@ type PlanRow = {
   institusi_kerja: string;
   satuan_kerja: string;
   status: string;
+  jenisEntitas: string;
+  namaEntitas: string;
   visit_image: string;
   reschedule_date: string;
   status_ring: string;
@@ -317,13 +325,28 @@ export default function PlanActivityPage() {
 
 
 
-  function getImageUrl(img?: string, planId?: string, base = typeof window !== "undefined" ? window.location.origin : "https://hub.mabel.co.id") {
+  // Relative path for <Image> src — avoids remotePatterns mismatch
+  function getImageUrl(img?: string, planId?: string) {
+    if (!img || img === '__base64_image__') return planId ? `/api/visits/${planId}/image` : "/placeholder.svg";
+    if (img.startsWith("data:")) return img;
+    return planId ? `/api/visits/${planId}/image` : img.startsWith("http") ? img : `${img.startsWith("/") ? "" : "/uploads/"}${img}`;
+  }
+
+  // Full absolute URL for clipboard / sharing
+  function getImageFullUrl(img?: string, planId?: string) {
+    const base = typeof window !== "undefined" ? window.location.origin : "https://hub.mabel.co.id";
     if (!img || img === '__base64_image__') return planId ? `${base}/api/visits/${planId}/image` : "Tidak tersedia";
-    return img.startsWith("http") ? img : `${base}${img.startsWith("/") ? "" : "/uploads/"}${img}`;
+    if (img.startsWith("data:")) return img;
+    return planId ? `${base}/api/visits/${planId}/image` : img.startsWith("http") ? img : `${base}${img.startsWith("/") ? "" : "/uploads/"}${img}`;
   }
 
   // Copy plan data to clipboard
   function copyPlanText(plan: PlanRow) {
+    const institusiValue = plan.institusi_kerja || plan.namaEntitas || "-";
+    const institusiLabel = plan.institusi_kerja ? "Institusi Kerja" : "Nama Entitas";
+    const satuanValue = plan.satuan_kerja || plan.jenisEntitas || "-";
+    const satuanLabel = plan.satuan_kerja ? "Satuan Kerja" : "Jenis Entitas";
+
     const lines = [
       `🗓️ Tanggal Kegiatan - ${formatTanggalForCopy(plan.tanggal)}`,
       `👥 Nama Sales: ${plan.nama_sales || "-"}`,
@@ -331,9 +354,9 @@ export default function PlanActivityPage() {
       `------------------------------`,
       `City: ${plan.kota || "-"}`,
       `K/L/PD: ${plan.klpd || "-"}`,
-      `Institusi Kerja: ${plan.institusi_kerja || "-"}`,
-      `Satuan Kerja: ${plan.satuan_kerja || "-"}`,
-      `Status Ring: ${plan.status_ring || "-"}`,
+      `${institusiLabel}: ${institusiValue}`,
+      `${satuanLabel}: ${satuanValue}`,
+      `Status Ring: ${normalizeRing(plan.status_ring) || "-"}`,
       `Nama PIC: ${plan.pic_name || "-"}`,
       `Nomor HP: ${plan.pic_phone || "-"}`,
       `Jabatan: ${plan.pic_role || "-"}`,
@@ -342,7 +365,7 @@ export default function PlanActivityPage() {
       `Keterangan: ${plan.descriptions || "-"}`,
       `Tindak Lanjut: ${plan.tindak_lanjut || "-"}`,
       `Status: ${plan.status || "-"}`,
-      `Gambar: ${getImageUrl(plan.visit_image, plan.id)}`,
+      `Gambar: ${getImageFullUrl(plan.visit_image, plan.id)}`,
     ];
     const text = lines.join("\n");
     const copyToClipboard = (str: string) => {
@@ -478,8 +501,10 @@ export default function PlanActivityPage() {
           kota: v.city || "",
           klpd: v.klpd || "",
           nama_sales: v.nama_sales || "",
-          institusi_kerja: v.institusi_kerja || "",
-          satuan_kerja: v.satuan_kerja || "",
+          institusi_kerja: v.institusi_kerja || v.institusiKerja || "",
+          jenisEntitas: v.jenisEntitas || v.jenis_entitas || "",
+          namaEntitas: v.namaEntitas || v.institusi_kerja || v.institusiKerja || "",
+          satuan_kerja: v.satuan_kerja || v.satuanKerja || "",
           status: v.status_visit || "",
           visit_image: v.visit_image && v.visit_image !== '__base64_image__' ? v.visit_image : (v.visit_image === '__base64_image__' ? '__base64_image__' : ""),
           reschedule_date: v.reschedule_date || "",
@@ -607,6 +632,16 @@ export default function PlanActivityPage() {
 
   // ─── RENDER HELPERS ───────────────────────────────────────────────────────
 
+  function getPlanDisplayName(plan: Partial<PlanRow>) {
+    return (
+      plan.satuan_kerja ||
+      plan.institusi_kerja ||
+      plan.namaEntitas ||
+      plan.jenisEntitas ||
+      "Plan"
+    );
+  }
+
   function renderPlanChip(plan: PlanRow) {
     const colors = getStatusColor(plan.status);
     return (
@@ -615,7 +650,7 @@ export default function PlanActivityPage() {
         className={`text-[10px] leading-tight px-1.5 py-0.5 rounded ${colors.bg} ${colors.text} font-medium truncate cursor-pointer hover:opacity-80 transition-opacity`}
         title={`${plan.institusi_kerja || plan.kota || "Plan"} — ${plan.status || "No Status"}`}
       >
-        {plan.satuan_kerja || plan.kota || "Plan"}
+        {getPlanDisplayName(plan)}
       </div>
     );
   }
@@ -639,7 +674,7 @@ export default function PlanActivityPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
+            <div className="bg-linear-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-lg">Detail Aktivitas</h3>
                 <button
@@ -655,7 +690,7 @@ export default function PlanActivityPage() {
             {/* Body */}
             <div className="p-5 space-y-4">
               <div className="flex items-start gap-3">
-                <User className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <User className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Sales</p>
                   <p className="text-sm font-medium text-gray-800">{detailPlan.nama_sales || "-"}</p>
@@ -663,7 +698,7 @@ export default function PlanActivityPage() {
               </div>
 
               <div className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Kota</p>
                   <p className="text-sm font-medium text-gray-800">{detailPlan.kota || "-"}</p>
@@ -671,31 +706,43 @@ export default function PlanActivityPage() {
               </div>
 
               <div className="flex items-start gap-3">
-                <Building2 className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <Building2 className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">K/L/PD</p>
                   <p className="text-sm font-medium text-gray-800">{detailPlan.klpd || "-"}</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Institusi Kerja</p>
-                  <p className="text-sm font-medium text-gray-800">{detailPlan.institusi_kerja || "-"}</p>
-                </div>
-              </div>
+              {(() => {
+                const institusiValue = detailPlan.institusi_kerja || detailPlan.namaEntitas || "";
+                const institusiLabel = detailPlan.institusi_kerja ? "Institusi Kerja" : "Nama Entitas";
+                return (
+                  <div className="flex items-start gap-3">
+                    <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{institusiLabel}</p>
+                      <p className="text-sm font-medium text-gray-800 wrap-break-words">{institusiValue || "-"}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {(() => {
+                const satuanValue = detailPlan.satuan_kerja || detailPlan.jenisEntitas || "";
+                const satuanLabel = detailPlan.satuan_kerja ? "Satuan Kerja" : "Jenis Entitas";
+                return (
+                  <div className="flex items-start gap-3">
+                    <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{satuanLabel}</p>
+                      <p className="text-sm font-medium text-gray-800 wrap-break-words">{satuanValue || "-"}</p>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex items-start gap-3">
-                <Briefcase className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Satuan Kerja</p>
-                  <p className="text-sm font-medium text-gray-800">{detailPlan.satuan_kerja || "-"}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <Clock className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <Clock className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Status</p>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -718,7 +765,7 @@ export default function PlanActivityPage() {
 
               {detailPlan.visit_image && (
                 <div className="flex items-start gap-3">
-                  <ImageIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <ImageIcon className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Bukti Kunjungan</p>
                     <Image
@@ -784,7 +831,7 @@ export default function PlanActivityPage() {
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
+          <div className="bg-linear-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-lg">{formatFullDate(selectedDate)}</h3>
@@ -816,7 +863,7 @@ export default function PlanActivityPage() {
                     key={plan.id}
                     className="flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-none hover:bg-gray-50 transition-colors"
                   >
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-800 truncate">
                         {plan.institusi_kerja || plan.kota || "-"}
@@ -1023,7 +1070,7 @@ export default function PlanActivityPage() {
     return (
       <div className="bg-white rounded-xl shadow-md ring-1 ring-black/5 overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 px-6 py-4 border-b border-gray-200">
+        <div className="bg-linear-to-r from-blue-50 to-blue-100/50 px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-gray-800">{formatFullDate(currentDate)}</h3>
@@ -1054,7 +1101,7 @@ export default function PlanActivityPage() {
                     key={plan.id}
                     className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all group"
                   >
-                    <div className={`w-1.5 h-14 rounded-full flex-shrink-0 ${colors.dot}`} />
+                    <div className={`w-1.5 h-14 rounded-full shrink-0 ${colors.dot}`} />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-800 truncate">{plan.satuan_kerja || "-"}</p>
                       <p className="text-sm text-gray-500 truncate">{plan.kota} {plan.klpd ? `• ${plan.klpd}` : ""}</p>
@@ -1072,7 +1119,9 @@ export default function PlanActivityPage() {
                       <Image
                         src={getImageUrl(plan.visit_image, plan.id)}
                         alt="Bukti kunjungan"
-                        className="w-12 h-12 rounded-lg flex-shrink-0 ring-1 ring-gray-200 cursor-pointer hover:ring-blue-400 transition-all object-cover"
+                        width={48}
+                        height={48}
+                        className="w-12 h-12 rounded-lg shrink-0 ring-1 ring-gray-200 cursor-pointer hover:ring-blue-400 transition-all object-cover"
                         onClick={() => openImageBase64(getImageUrl(plan.visit_image, plan.id))}
                         title="Lihat foto bukti"
                         unoptimized

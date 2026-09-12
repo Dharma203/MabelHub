@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
+import { normalizeRing } from '@/lib/ring'
 import { ObjectId } from 'mongodb'
 
 function flexParseDateExpr(field: string, onErrorVal: any = null) {
@@ -217,7 +218,10 @@ export async function GET(req: Request) {
   }
 
   if (ring) {
-    matchQuery.status_ring = ring.toUpperCase() // e.g., "RING 1"
+    const normalizedRing = normalizeRing(ring)
+    matchQuery.status_ring = normalizedRing
+      ? { $regex: normalizedRing.replace(' ', '[\\s_-]*'), $options: 'i' }
+      : ring
   }
 
   if (statusGroup) {

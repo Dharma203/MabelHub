@@ -24,40 +24,66 @@ export async function GET(req: Request) {
   const page = Math.max(Number(searchParams.get('page') || 1), 1)
   const skip = (page - 1) * limit
   // Build role-based filter
-  const { match: authMatch, error } = await getVisitAuthMatch(db, session)
+  const { match: authMatch, error } = await getVisitAuthMatch(db, session) 
   if (error) {
     return NextResponse.json({ error }, { status: 403 })
   }
 
   const extraMatch: any = {}
 
-  // filterStatsB2G = gabungan excludeOffice + excludeRing4 + excludeKlpd
+  // filterStatsB2G = excludeOffice + excludeRing4 + excludeB2B-klpd
   if (filterStatsB2G) {
-    extraMatch.satuan_kerja = { $exists: true, $not: /office/i }
-    extraMatch.status_ring = { $exists: true, $not: /ring[\s_]*4/i }
+    extraMatch.satuan_kerja = { $not: /office/i }
+    extraMatch.status_ring = { $not: /ring[\s_]*4/i }
     extraMatch.klpd = {
       $exists: true,
-      $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
+      $not: /kabupaten|swasta|lainnya|b2b/i,
     }
   }
 
   // filterStatsB2B = excludeOffice + includeRing4 + includeKlpd(B2B)
+  // Newer RING 4 docs may have klpd=null or "PT"/"CV" (entity info in jenisEntitas instead)
   if (filterStatsB2B) {
-    extraMatch.satuan_kerja = { $exists: true, $not: /office/i }
-    extraMatch.status_ring = { $exists: true, $regex: /ring[\s_]*4/i }
-    extraMatch.klpd = {
-      $exists: true,
-      $regex: /kabupaten|swasta|lainnya|b2b/i,
-    }
+    extraMatch.satuan_kerja = { $not: /office/i }
+    extraMatch.status_ring = { $regex: /ring[\s_]*4/i }
+    extraMatch.$or = [
+      { klpd: { $regex: /kabupaten|swasta|lainnya|b2b|pt|cv/i } },
+      { klpd: { $in: [null, ''] } },
+      { klpd: { $exists: false } },
+      { jenisEntitas: { $exists: true, $nin: [null, ''] } },
+      { namaEntitas: { $exists: true, $nin: [null, ''] } },
+    ]
   }
 
   const combinedMatch = { ...extraMatch, ...(authMatch || {}) }
 
-  const groupedPipeline = [
+  const groupedPipeline: any[] = [
     { $match: combinedMatch },
     {
+      $addFields: {
+        __satkerDisplay: {
+          $ifNull: [
+            {
+              $cond: [{ $ne: ['$satuan_kerja', ''] }, '$satuan_kerja', null],
+            },
+            {
+              $ifNull: [
+                '$namaEntitas',
+                { $ifNull: ['$nama_entitas', '$institusi_kerja'] },
+              ],
+            },
+          ],
+        },
+      },
+    },
+    {
+      $match: {
+        __satkerDisplay: { $exists: true, $nin: [null, ''] },
+      },
+    },
+    {
       $group: {
-        _id: '$satuan_kerja',
+        _id: '$__satkerDisplay',
         nama_sales: { $first: '$nama_sales' },
         city: { $first: '$city' },
         status_ring: { $first: '$status_ring' },

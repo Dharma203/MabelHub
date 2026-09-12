@@ -1,10 +1,38 @@
+export const DEFAULT_VISIT_START_DATE = '2026-01-01'
+
+export function getTodayDateString() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+export function getVisitDateRange(searchParams: URLSearchParams) {
+  const startValue = searchParams.get('start') || DEFAULT_VISIT_START_DATE
+  const endValue = searchParams.get('end') || getTodayDateString()
+  const validDate = /^\d{4}-\d{2}-\d{2}$/
+
+  const start = validDate.test(startValue)
+    ? new Date(`${startValue}T00:00:00.000Z`)
+    : new Date(`${DEFAULT_VISIT_START_DATE}T00:00:00.000Z`)
+  const end = validDate.test(endValue)
+    ? new Date(`${endValue}T23:59:59.999Z`)
+    : new Date(`${getTodayDateString()}T23:59:59.999Z`)
+
+  return { start, end }
+}
+
 // "2025-12-03" -> "3-Dec-2025"
 export function toVisitDateStr(yyyyMmDd: string) {
-  const d = new Date(yyyyMmDd)
-  if (Number.isNaN(d.getTime())) return ''
-  const day = d.getDate()
-  const mon = d.toLocaleString('en-US', { month: 'short' }) // Dec
-  const year = d.getFullYear()
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(yyyyMmDd)
+  if (!match) return ''
+  const [, year, month, day] = match
+  const d = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
+  if (
+    d.getUTCFullYear() !== Number(year) ||
+    d.getUTCMonth() !== Number(month) - 1 ||
+    d.getUTCDate() !== Number(day)
+  ) {
+    return ''
+  }
+  const mon = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }) // Dec
   return `${day}-${mon}-${year}`
 }
 

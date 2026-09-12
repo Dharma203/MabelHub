@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
+import { normalizeRing } from "@/lib/ring";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -11,7 +12,12 @@ export async function GET(req: Request) {
   const db = client.db("MabelHub");
 
   const filter: any = { approval_status: "APPROVED" };
-  if (ring) filter.status_ring = ring;
+  if (ring) {
+    const normalizedRing = normalizeRing(ring);
+    filter.status_ring = normalizedRing
+      ? { $regex: normalizedRing.replace(" ", "[\\s_-]*"), $options: "i" }
+      : ring;
+  }
 
   if (q) {
     filter.$or = [
@@ -39,7 +45,9 @@ export async function GET(req: Request) {
     .limit(limit)
     .toArray();
 
-  return NextResponse.json(rows);
+  return NextResponse.json(
+    rows.map((row) => ({ ...row, status_ring: normalizeRing(row.status_ring) || "" })),
+  );
 }
 
 export async function POST(req: Request) {

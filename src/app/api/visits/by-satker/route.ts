@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getVisitAuthMatch } from '@/lib/visit-auth'
+import { normalizeRing } from '@/lib/ring'
 import { flexParseDateExpr } from '@/lib/flex-date-expr'
 
 
@@ -19,6 +20,8 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const satker = searchParams.get('satker')
+  const namaEntitas = searchParams.get('namaEntitas')
+  const jenisEntitas = searchParams.get('jenisEntitas')
 
   if (!satker) {
     return NextResponse.json(
@@ -38,10 +41,19 @@ export async function GET(req: Request) {
   }
 
   // Combine auth filter with satker filter
-  const matchFilter = {
-    satuan_kerja: satker,
-    ...authMatch,
+  const entityMatch = {
+    $or: [
+      { satuan_kerja: satker },
+      { namaEntitas: satker },
+      { nama_entitas: satker },
+      { institusi_kerja: satker },
+    ],
   }
+  const matchFilter: Record<string, unknown> = {
+    $and: [authMatch || {}, entityMatch],
+  }
+  if (namaEntitas) (matchFilter.$and as unknown[]).push({ namaEntitas })
+  if (jenisEntitas) (matchFilter.$and as unknown[]).push({ jenisEntitas })
 
   const docs = await col
     .aggregate([
@@ -62,7 +74,7 @@ export async function GET(req: Request) {
     status_visit: d.status_visit || '-',
     nama_sales: d.nama_sales || '-',
     city: d.city || '-',
-    status_ring: d.status_ring || '-',
+    status_ring: normalizeRing(d.status_ring) || '-',
     satuan_kerja: d.satuan_kerja || '-',
     pic_name: d.pic_name || '-',
     pic_phone: d.pic_phone || '-',
@@ -72,6 +84,10 @@ export async function GET(req: Request) {
     status_market: d.status_market || '-',
     klpd: d.klpd || '-',
     institusi_kerja: d.institusi_kerja || '-',
+    namaEntitas:
+      d.namaEntitas || d.nama_entitas || d.satuan_kerja || '-',
+    jenisEntitas:
+      d.jenisEntitas || d.jenis_entitas || d.institusi_kerja || '-',
     tindak_lanjut: d.tindak_lanjut || '-',
     kegiatan_status: d.kegiatan_status || '-',
     descriptions: d.descriptions || '-',

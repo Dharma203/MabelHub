@@ -23,6 +23,7 @@ import {
   BarChart2,
 } from 'lucide-react'
 import Image from 'next/image'
+import { normalizeRing } from '@/lib/ring'
 import {
   BarChart,
   Bar,
@@ -379,11 +380,11 @@ export default function TrackingB2BPage() {
         if (fSales !== 'ALL') params.set('sales', fSales)
         if (fStart) params.set('start', fStart)
         if (fEnd) params.set('end', fEnd)
-        if (fRing !== 'ALL') params.set('ring', fRing)
+        if (fRing !== 'ALL') params.set('ring', normalizeRing(fRing))
         if (fCity !== 'ALL') params.set('city', fCity)
         if (fSatker !== 'ALL') params.set('satker', fSatker)
         if (fKlpd !== 'ALL') params.set('klpd', fKlpd)
-        if (fVisit !== 'ALL') params.set('status_vist', fVisit)
+        if (fVisit !== 'ALL') params.set('status_visit', fVisit)
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
@@ -733,7 +734,7 @@ export default function TrackingB2BPage() {
                 label='STATUS VISIT'
                 value={fVisit}
                 onChange={(v) => onChangeFilter(setFVisit, v)}
-                options={[{ label: 'Semua Status', value: 'VISITED' }].concat(
+                options={[{ label: 'Semua Status', value: 'ALL' }].concat(
                   visitOptions.map((c) => ({ label: c, value: c })),
                 )}
               />
@@ -752,8 +753,8 @@ export default function TrackingB2BPage() {
             </div>
           </section>
           <section className='mt-8 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-blue-100'>
-            {/* Desktop View */}
-            <div className='hidden md:block overflow-x-auto'>
+            {/* Table View */}
+            <div className='overflow-x-auto'>
               <table className='w-full text-sm'>
                 <thead className='bg-blue-200'>
                   <tr className='text-left'>
@@ -866,7 +867,7 @@ export default function TrackingB2BPage() {
                               {r.city}
                             </td>
                             <td className='px-6 py-6 font-extrabold text-[#0B6AA9]'>
-                              {r.status_ring}
+                              {normalizeRing(r.status_ring) || '-'}
                             </td>
                             <td className='px-6 py-6 text-gray-900'>
                               {r.satuan_kerja}
@@ -1033,7 +1034,10 @@ export default function TrackingB2BPage() {
                         value={modalVisit.nama_sales}
                       />
                       <DetailItem label='City' value={modalVisit.city} />
-                      <DetailItem label='Ring' value={modalVisit.status_ring} />
+                      <DetailItem
+                        label='Ring'
+                        value={normalizeRing(modalVisit.status_ring) || '-'}
+                      />
                       <DetailItem
                         label='Satuan Kerja'
                         value={modalVisit.satuan_kerja}
@@ -1140,15 +1144,18 @@ export default function TrackingB2BPage() {
                         <div
                           className='relative w-full max-w-xs mx-auto cursor-pointer group'
                           onClick={() =>
-                            openImageFullscreen(modalVisit.visit_image!)
+                            openImageFullscreen(
+                              `/api/visits/${modalVisit._id}/image`,
+                            )
                           }
                         >
                           <Image
-                            src={modalVisit.visit_image}
+                            src={`/api/visits/${modalVisit._id}/image`}
                             alt='Bukti Kunjungan'
                             width={500}
                             height={500}
                             quality={80}
+                            unoptimized
                             className='w-full rounded-xl shadow-sm ring-1 ring-gray-200 group-hover:ring-blue-400 group-hover:shadow-lg transition-all'
                           />
                           <div className='absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center'>
@@ -1199,6 +1206,7 @@ export default function TrackingB2BPage() {
                 height={500}
                 width={500}
                 quality={80}
+                unoptimized
                 alt='Full size'
                 className='max-w-full max-h-full rounded-xl shadow-2xl object-contain'
                 onClick={(e) => e.stopPropagation()}
@@ -1232,7 +1240,7 @@ export default function TrackingB2BPage() {
                 </PageBtn>
                 <PageBtn
                   onClick={() => gotoPage(safePage - 1)}
-                ariaLabel='Prev'
+                  ariaLabel='Prev'
                 >
                   ◀
                 </PageBtn>

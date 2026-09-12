@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server'
-import clientPromise from "@/lib/mongodb";
+import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getLeaderAllowedUserIds, getUserLiteById } from '@/lib/visit-auth'
 import { flexParseDateExpr } from '@/lib/flex-date-expr'
 import { toVisitDateStr, toCreatedAtStr } from '@/lib/visit-date'
+import { normalizeRing } from '@/lib/ring'
+import { exactText, statusText } from '@/lib/visit-filter-utils'
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(Math.max(n, min), max)
 }
 
-// escape regex search
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -41,7 +42,10 @@ export async function GET(req: Request) {
   const status_visit = searchParams.get('status_visit')
   const ring = searchParams.get('ring')
   const city = searchParams.get('city')
+  const phone = searchParams.get('pic_phone')
   const satker = searchParams.get('satker')
+  const namaEntitas = searchParams.get('namaEntitas')
+  const jenisEntitas = searchParams.get('jenisEntitas')
   const startStr = searchParams.get('start')
   const endStr = searchParams.get('end')
   const statusGroup = searchParams.get('statusGroup')
@@ -60,7 +64,7 @@ export async function GET(req: Request) {
   const sortDirNum = sortDirParam === 'asc' ? 1 : -1
 
   const client = await clientPromise
-  const db = client.db('MabelHub');
+  const db = client.db('MabelHub')
   const col = db.collection('VisitActivity')
 
   // =========================
@@ -155,6 +159,8 @@ export async function GET(req: Request) {
       { klpd: rx },
       { institusi_kerja: rx },
       { satuan_kerja: rx },
+      { namaEntitas: rx },
+      { jenisEntitas: rx },
       { status_visit: rx },
       { nama_sales: rx },
       { status_ring: rx },
@@ -164,12 +170,33 @@ export async function GET(req: Request) {
   // =========================
   // EXACT FILTERS
   // =========================
-  if (sales && sales.toUpperCase() !== 'ALL') match.nama_sales = sales
-  if (status_visit) match.status_visit = status_visit
-  if (ring) match.status_ring = ring.toUpperCase() // Ensure ring filter from dashboard is uppercase
-  if (city) match.city = city
-  if (satker) match.satuan_kerja = satker
-  if (klpd) match.klpd = klpd
+  if (sales && sales.toUpperCase() !== 'ALL') {
+    match.nama_sales = exactText(sales)
+  }
+  if (status_visit && status_visit.toUpperCase() !== 'ALL') {
+    match.status_visit = statusText(status_visit)
+  }
+  if (ring) {
+    const normalizedRing = normalizeRing(ring)
+    match.status_ring = normalizedRing
+      ? { $regex: normalizedRing.replace(' ', '[\\s_-]*'), $options: 'i' }
+      : ring
+  }
+  if (city) match.city = exactText(city)
+  if (satker) {
+    if (!match.$and) match.$and = []
+    match.$and.push({
+      $or: [
+        { satuan_kerja: exactText(satker) },
+        { namaEntitas: exactText(satker) },
+        { nama_entitas: exactText(satker) },
+        { institusi_kerja: exactText(satker) },
+      ],
+    })
+  }
+  if (namaEntitas) match.namaEntitas = exactText(namaEntitas)
+  if (jenisEntitas) match.jenisEntitas = exactText(jenisEntitas)
+  if (klpd) match.klpd = exactText(klpd)
   if (kegiatanStatus.length > 0) match.kegiatan_status = { $in: kegiatanStatus }
 
   // Partial date matching from clicked trend chart
@@ -179,6 +206,26 @@ export async function GET(req: Request) {
       const regexStr = `${parts[0]}-${parts[1]}`
       match.visit_date = { $regex: new RegExp(regexStr, 'i') }
     }
+  }
+  if (phone === 'HAS_CONTACT') {
+    if (!match.$and) match.$and = []
+    match.$and.push({
+      $or: [
+        { pic_phone: { $type: 'number' } },
+        { pic_phone: { $type: 'string', $regex: /\S/ } },
+      ],
+    })
+  } else if (phone === 'NO_CONTACT') {
+    if (!match.$and) match.$and = []
+    match.$and.push({
+      $or: [
+        { pic_phone: { $exists: false } },
+        { pic_phone: null },
+        { pic_phone: { $type: 'string', $regex: /^\s*$/ } },
+      ],
+    })
+  } else if (phone) {
+    match.pic_phone = Number(phone)
   }
 
   // =========================
@@ -199,25 +246,32 @@ export async function GET(req: Request) {
     }
   }
 
-  // filterStatsB2G = gabungan excludeOffice + excludeRing4 + excludeKlpd
+  // filterStatsB2G = excludeOffice + excludeRing4 + excludeB2B-klpd
   if (filterStatsB2G) {
     if (!match.$and) match.$and = []
-    match.$and.push({ satuan_kerja: { $not : /office/i  }})
+    match.$and.push({ satuan_kerja: { $not: /office/i } })
     match.$and.push({ status_ring: { $not: /ring[\s_]*4/i } })
     match.$and.push({
       klpd: {
-        $not: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
+        $not: /kabupaten|swasta|lainnya|b2b/i,
       },
     })
   }
 
   // filterStatsB2B = excludeOffice + includeRing4 + includeKlpd(B2B)
+  // Newer RING 4 docs may have klpd=null or "PT"/"CV" (entity info in jenisEntitas instead)
   if (filterStatsB2B) {
     if (!match.$and) match.$and = []
     match.$and.push({ satuan_kerja: { $not: /office/i } })
     match.$and.push({ status_ring: { $regex: /ring[\s_]*4/i } })
     match.$and.push({
-      klpd: /kementrian|bumd|provinsi|kota/i,
+      $or: [
+        { klpd: { $regex: /kabupaten|swasta|lainnya|b2b|pt|cv/i } },
+        { klpd: { $in: [null, ''] } },
+        { klpd: { $exists: false } },
+        { jenisEntitas: { $exists: true, $nin: [null, ''] } },
+        { namaEntitas: { $exists: true, $nin: [null, ''] } },
+      ],
     })
   }
 
@@ -227,10 +281,11 @@ export async function GET(req: Request) {
   const postMatch: any = {}
   if (startStr || endStr) {
     postMatch.__visitDate = {}
-    if (startStr) postMatch.__visitDate.$gte = new Date(startStr)
+    if (startStr) {
+      postMatch.__visitDate.$gte = new Date(`${startStr}T00:00:00.000Z`)
+    }
     if (endStr) {
-      const endDt = new Date(endStr)
-      endDt.setHours(23, 59, 59, 999)
+      const endDt = new Date(`${endStr}T23:59:59.999Z`)
       postMatch.__visitDate.$lte = endDt
     }
   }
@@ -246,7 +301,9 @@ export async function GET(req: Request) {
     pic_name: 'pic_name',
     pic_phone: 'pic_phone',
     klpd: 'klpd',
-    status_visit: 'status_visit'
+    status_visit: 'status_visit',
+    namaEntitas: 'namaEntitas',
+    jenisEntitas: 'jenisEntitas',
   }
 
   // =========================
@@ -259,6 +316,19 @@ export async function GET(req: Request) {
       {
         $addFields: {
           __visitDate: flexParseDateExpr('$visit_date'),
+          __satkerDisplay: {
+            $ifNull: [
+              {
+                $cond: [{ $ne: ['$satuan_kerja', ''] }, '$satuan_kerja', null],
+              },
+              {
+                $ifNull: [
+                  '$namaEntitas',
+                  { $ifNull: ['$nama_entitas', '$institusi_kerja'] },
+                ],
+              },
+            ],
+          },
         },
       },
     ]
@@ -269,7 +339,7 @@ export async function GET(req: Request) {
 
     // Filter out docs without satuan_kerja
     groupPipeline.push({
-      $match: { satuan_kerja: { $exists: true, $nin: [null, ''] } },
+      $match: { __satkerDisplay: { $exists: true, $nin: [null, ''] } },
     })
 
     groupPipeline.push({ $sort: { __visitDate: -1 } })
@@ -277,8 +347,8 @@ export async function GET(req: Request) {
     // Group by satuan_kerja, take $first for display fields, $sum for total_visit
     groupPipeline.push({
       $group: {
-        _id: '$satuan_kerja',
-        satuan_kerja: { $first: '$satuan_kerja' },
+        _id: '$__satkerDisplay',
+        satuan_kerja: { $first: '$__satkerDisplay' },
         nama_sales: { $first: '$nama_sales' },
         city: { $first: '$city' },
         status_ring: { $first: '$status_ring' },
@@ -288,13 +358,19 @@ export async function GET(req: Request) {
         created_at: { $first: '$created_at' },
         status_market: { $first: '$status_market' },
         klpd: { $first: '$klpd' },
-        reschedule: { $first: '$reschedule' },
+        reschedule: {
+          $first: { $ifNull: ['$reschedule', '$reschedule_date'] },
+        },
         institusi_kerja: { $first: '$institusi_kerja' },
         pic_position: { $first: '$pic_position' },
         pic_role: { $first: '$pic_role' },
         tindak_lanjut: { $first: '$tindak_lanjut' },
         kegiatan_status: { $first: '$kegiatan_status' },
         descriptions: { $first: '$descriptions' },
+        namaEntitas: { $first: { $ifNull: ['$namaEntitas', '$nama_entitas'] } },
+        jenisEntitas: {
+          $first: { $ifNull: ['$jenisEntitas', '$jenis_entitas'] },
+        },
         status_visit: { $first: '$status_visit' },
         total_visit: { $sum: 1 },
         __latestVisitDate: { $max: '$__visitDate' },
@@ -358,6 +434,7 @@ export async function GET(req: Request) {
     const items = itemsRaw.map((it: any) => ({
       ...it,
       _id: String(it._id),
+      status_ring: normalizeRing(it.status_ring) || '-',
     }))
 
     return NextResponse.json({
@@ -376,18 +453,35 @@ export async function GET(req: Request) {
     status_ring: { $exists: true, $nin: [null, ''] },
     klpd: { $exists: true, $nin: [null, ''] },
     kegiatan_status: { $exists: true, $nin: [null, ''] },
+    namaEntitas: { $exists: true, $nin: [null, ''] },
   }
 
   if (filterStatsB2G) {
     globalRankingMatch.satuan_kerja.$not = /office/i
     globalRankingMatch.status_ring.$not = /ring[\s_]*4/i
-    globalRankingMatch.klpd.$not = /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i
+    globalRankingMatch.klpd.$not =
+      /kabupaten|swasta|lainnya|b2b/i
   }
 
   if (filterStatsB2B) {
-    globalRankingMatch.satuan_kerja.$not = /office/i
-    globalRankingMatch.status_ring = { ...globalRankingMatch.status_ring, $regex: /ring[\s_]*1/i }
-    globalRankingMatch.klpd = { ...globalRankingMatch.klpd, $regex: /kementrian|kota|provinsi|bumd/i }
+    delete globalRankingMatch.satuan_kerja
+    delete globalRankingMatch.klpd
+    delete globalRankingMatch.kegiatan_status
+    delete globalRankingMatch.namaEntitas
+    globalRankingMatch.status_ring = {
+      $regex: /ring[\s_]*4/i,
+    }
+    if (!globalRankingMatch.$and) globalRankingMatch.$and = []
+    globalRankingMatch.$and.push({ satuan_kerja: { $not: /office/i } })
+    globalRankingMatch.$and.push({
+      $or: [
+        { klpd: { $regex: /kabupaten|swasta|lainnya|b2b|pt|cv/i } },
+        { klpd: { $in: [null, ''] } },
+        { klpd: { $exists: false } },
+        { jenisEntitas: { $exists: true, $nin: [null, ''] } },
+        { namaEntitas: { $exists: true, $nin: [null, ''] } },
+      ],
+    })
   }
 
   const globalRanking = await col
@@ -413,7 +507,10 @@ export async function GET(req: Request) {
         __createdAt: {
           $switch: {
             branches: [
-              { case: { $eq: [{ $type: '$created_at' }, 'date'] }, then: '$created_at' },
+              {
+                case: { $eq: [{ $type: '$created_at' }, 'date'] },
+                then: '$created_at',
+              },
             ],
             default: {
               $dateFromString: {
@@ -471,7 +568,6 @@ export async function GET(req: Request) {
   // SORT (baru) — dipilih dari header tabel
   // =========================
 
-
   let sortStage: Record<string, 1 | -1>
   if (sortByParams === 'total_visit') {
     // total_visit tinggi = __rankIndex kecil (rank 1 punya visit terbanyak)
@@ -513,7 +609,10 @@ export async function GET(req: Request) {
             then: {
               $cond: {
                 if: {
-                  $regexMatch: { input: { $ifNull: ['$visit_image', ''] }, regex: /data:image/ },
+                  $regexMatch: {
+                    input: { $ifNull: ['$visit_image', ''] },
+                    regex: /data:image/,
+                  },
                 },
                 then: '__base64_image__',
                 else: '$visit_image',
@@ -537,7 +636,11 @@ export async function GET(req: Request) {
   const total = Number(totalResult?.[0]?.count || 0)
   const totalPages = Math.max(1, Math.ceil(total / limit))
 
-  const items = itemsRaw.map((it: any) => ({ ...it, _id: String(it._id) }))
+  const items = itemsRaw.map((it: any) => ({
+    ...it,
+    _id: String(it._id),
+    status_ring: normalizeRing(it.status_ring) || '-',
+  }))
 
   return NextResponse.json({
     items,
@@ -664,17 +767,17 @@ export async function POST(req: Request) {
       // new field (biar stats/team bisa pakai assignedTo.userId)
       assignedTo: targetUser
         ? {
-          userId: targetUser.userId,
-          role: targetUser.role,
-          username: targetUser.username,
-          fullName: targetUser.fullName,
-        }
+            userId: targetUser.userId,
+            role: targetUser.role,
+            username: targetUser.username,
+            fullName: targetUser.fullName,
+          }
         : {
-          userId: targetUserId,
-          role: '',
-          username: '',
-          fullName: '',
-        },
+            userId: targetUserId,
+            role: '',
+            username: '',
+            fullName: '',
+          },
 
       visit_date: toVisitDateStr(tanggal),
       city: kota_kab,

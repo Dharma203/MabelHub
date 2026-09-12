@@ -13,6 +13,9 @@ import ConfirmModal from '@/components/modals/ConfirmModal'
 type Company = {
   _id: string
   institusiKerja: string
+  namaEntitas: string
+  jenis?: string
+  jenisEntitas?: string
   kota: string
   klpd: string
   satuanKerja: string
@@ -28,6 +31,7 @@ type Company = {
 type SatuanKerja = {
   _id: string
   satuanKerja: string
+  namaEntitas: string
   kota: string
   klpd: string
   ring?: string
@@ -43,6 +47,8 @@ type PlanItem = {
   id: string // local id for rendering
   ring: string
   institusiQuery: string
+  jenisEntitas: string
+  namaEntitas: string
   selectedCompany: Company | null
   kota: string
   klpd: string
@@ -92,6 +98,8 @@ function newItem(): PlanItem {
   return {
     id: crypto.randomUUID(),
     ring: '',
+    jenisEntitas: '',
+    namaEntitas: '',
     institusiQuery: '',
     selectedCompany: null,
     kota: '',
@@ -112,6 +120,8 @@ function newItem(): PlanItem {
 // --- Main Content Component ---
 
 function AddPlansContent() {
+  const [jenisEntitas, setJenisEntitas] = useState('')
+  const [namaEntitas, setNamaEntitas] = useState('')
   const router = useRouter()
   const sp = useSearchParams()
 
@@ -231,6 +241,8 @@ function AddPlansContent() {
     patchItem(id, {
       selectedCompany: null,
       institusiQuery: '',
+      jenisEntitas: '',
+      namaEntitas: '',
       sugs: [],
       showSug: false,
       kota: '',
@@ -243,10 +255,12 @@ function AddPlansContent() {
     })
   }
   function pickCompany(id: string, c: Company) {
-    console.log(c)
+    const ring = items.find((x) => x.id === id)?.ring || ''
     patchItem(id, {
       selectedCompany: c,
       institusiQuery: c.institusiKerja || '',
+      namaEntitas: c.namaEntitas || c.institusiKerja || '',
+      jenisEntitas: ring === 'RING 4' ? (c.jenisEntitas || c.jenis || '') : '',
       showSug: false,
       kota: c.kota || '',
       klpd: c.klpd || '',
@@ -261,6 +275,7 @@ function AddPlansContent() {
     patchItem(id, {
       selectedSatker: c,
       satuanKerja: c.satuanKerja || '',
+      namaEntitas: c.namaEntitas || '',
       showSatkerSug: false,
       pic_default: {
         nama: c.pic_default?.nama || '',
@@ -345,12 +360,19 @@ function AddPlansContent() {
   const canSubmit = useMemo(() => {
     if (!tanggal) return false
     if (!items.length) return false
-    return items.every((it) => it.ring && it.institusiQuery.trim())
+    return items.every((it) => {
+      if (!it.ring) return false
+      const requiredName =
+        it.ring === 'RING 4' ? it.namaEntitas : it.institusiQuery
+      return requiredName.trim().length > 0
+    })
   }, [tanggal, items])
 
   async function submitAll() {
     if (!canSubmit) {
-      alert('Tanggal wajib, dan setiap rencana wajib punya Ring + Institusi.')
+      alert(
+        'Tanggal wajib, dan setiap rencana wajib punya Ring + Institusi/Nama Entitas.',
+      )
       return
     }
 
@@ -363,10 +385,12 @@ function AddPlansContent() {
         nama_sales: user?.fullName || null,
         items: items.map((it) => ({
           status_ring: it.ring,
-          institusi_kerja: it.institusiQuery,
+          institusi_kerja: it.ring === 'RING 4' ? null : it.institusiQuery,
+          namaEntitas: it.ring === 'RING 4' ? it.namaEntitas : null,
+          jenisEntitas: it.ring === 'RING 4' ? it.jenisEntitas : null,
           kota_kab: it.kota,
-          klpd: it.klpd,
-          satuan_kerja: it.satuanKerja,
+          klpd: it.ring === 'RING 4' ? null : it.klpd,
+          satuan_kerja: it.ring === 'RING 4' ? null : it.satuanKerja,
           pic_default: it.pic_default,
           company_id: it.selectedCompany?._id || null,
           // If global assignee is set, use it; otherwise backend might default to creator
@@ -548,11 +572,26 @@ function AddPlansContent() {
                         onChange={(val: string) => {
                           patchItem(it.id, { ring: val })
                           resetCompanyFields(it.id)
+                          if (val === 'RING 4') {
+                            patchItem(it.id, { namaEntitas: it.namaEntitas })
+                          }
                         }}
-                        options={paramRing.map((opt) => ({
-                          value: opt,
-                          label: opt,
-                        }))}
+                        options={(() => {
+                          const base = paramRing.map((opt) => ({
+                            value: opt,
+                            label: opt,
+                          }))
+                          if (
+                            it.namaEntitas &&
+                            !base.some((x) => x.value === it.namaEntitas)
+                          ) {
+                            base.push({
+                              value: it.namaEntitas,
+                              label: it.namaEntitas,
+                            })
+                          }
+                          return base
+                        })()}
                         placeholder='Pilih Status Ring...'
                         className='mt-2'
                       />
@@ -560,10 +599,10 @@ function AddPlansContent() {
 
                     <div className='hidden md:block' />
 
-                    {/* INSTITUSI AUTOCOMPLETE */}
+                    {/* INSTITUSI / NAMA ENTITAS AUTOCOMPLETE */}
                     <div className='md:col-span-2'>
                       <label className='text-xs font-bold tracking-wide text-gray-500 uppercase'>
-                        Institusi{' '}
+                        {it.ring === 'RING 4' ? 'Nama Entitas' : 'Institusi'}{' '}
                         <span className='text-gray-400 lowercase font-normal'>
                           (Sesuai Ring)
                         </span>
@@ -571,9 +610,21 @@ function AddPlansContent() {
 
                       <div className='relative mt-2'>
                         <input
-                          value={it.institusiQuery}
+                          value={
+                            it.ring === 'RING 4'
+                              ? it.namaEntitas
+                              : it.institusiQuery
+                          }
                           onChange={(e) => {
                             const val = e.target.value
+                            if (it.ring === 'RING 4') {
+                              patchItem(it.id, {
+                                namaEntitas: val,
+                                showSug: true,
+                              })
+                              if (it.ring) fetchSuggestion(it.id, it.ring, val)
+                              return
+                            }
                             patchItem(it.id, {
                               institusiQuery: val,
                               showSug: true,
@@ -581,14 +632,21 @@ function AddPlansContent() {
                             if (it.ring) fetchSuggestion(it.id, it.ring, val)
                           }}
                           onFocus={() => {
-                            if (it.ring)
-                              fetchSuggestion(it.id, it.ring, it.institusiQuery)
+                            if (it.ring) {
+                              const q =
+                                it.ring === 'RING 4'
+                                  ? it.namaEntitas
+                                  : it.institusiQuery
+                              fetchSuggestion(it.id, it.ring, q)
+                            }
                           }}
                           disabled={!it.ring}
                           placeholder={
                             !it.ring
                               ? 'Pilih Ring dahulu'
-                              : 'Ketik untuk mencari institusi...'
+                              : it.ring === 'RING 4'
+                                ? 'Ketik untuk mencari nama entitas...'
+                                : 'Ketik untuk mencari institusi...'
                           }
                           className={`relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${
                             !it.ring
@@ -617,10 +675,13 @@ function AddPlansContent() {
                                     className='block w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-none'
                                   >
                                     <div className='font-bold text-sm text-gray-900'>
-                                      {c.institusiKerja}
+                                      {it.ring === 'RING 4'
+                                        ? c.namaEntitas || c.institusiKerja
+                                        : c.institusiKerja}
                                     </div>
                                     <div className='text-[11px] text-gray-500 truncate mt-0.5'>
-                                      {c.kota} • {c.klpd} • {c.satuanKerja}
+                                      {c.kota} • {c.klpd} •{' '}
+                                      {c.satuanKerja || c.namaEntitas || ''}
                                     </div>
                                   </button>
                                 ))
@@ -655,101 +716,113 @@ function AddPlansContent() {
                     </div>
                     <div>
                       <label className='text-xs font-bold tracking-wide text-gray-400 uppercase'>
-                        KLPD
+                        {it.ring === 'RING 4' ? 'Jenis Entitas' : 'KLPD'}
                       </label>
-                      <input
-                        value={it.klpd}
-                        readOnly
-                        className='mt-2 block w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm cursor-not-allowed'
-                        placeholder='Terisi otomatis'
-                      />
-                    </div>
-                    <div className='md:col-span-2'>
-                      <label className='text-xs font-bold tracking-wide text-gray-400 uppercase'>
-                        Satuan Kerja
-                      </label>
-                      <div className='relative mt-2'>
+                      {it.ring === 'RING 4' ? (
                         <input
-                          value={it.satuanKerja}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            patchItem(it.id, {
-                              satuanKerja: val,
-                              showSatkerSug: true,
-                            })
-                            if (it.ring && it.institusiQuery)
-                              fetchSatkerSuggestion(
-                                it.id,
-                                it.ring,
-                                it.institusiQuery,
-                                val,
-                              )
-                          }}
-                          onFocus={() => {
-                            if (it.ring && it.institusiQuery)
-                              fetchSatkerSuggestion(
-                                it.id,
-                                it.ring,
-                                it.institusiQuery,
-                                it.satuanKerja,
-                              )
-                          }}
-                          disabled={!it.institusiQuery}
-                          placeholder={
-                            !it.institusiQuery
-                              ? 'Pilih Institusi dahulu'
-                              : 'Ketik untuk mencari satuan kerja...'
-                          }
-                          className={`relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${
-                            !it.institusiQuery
-                              ? 'bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed'
-                              : 'bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600'
-                          }`}
+                          value={it.jenisEntitas}
+                          onChange={(e) => patchItem(it.id, { jenisEntitas: e.target.value })}
+                          className='mt-2 block w-full rounded-lg border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition-all'
+                          placeholder='Masukkan jenis entitas'
                         />
-
-                        {it.showSatkerSug && it.institusiQuery && (
-                          <div className='absolute z-20 mt-1 w-full overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 border border-gray-100'>
-                            <div className='max-h-60 overflow-y-auto'>
-                              {it.loadingSatkerSug ? (
-                                <div className='px-4 py-6 text-sm text-gray-500 text-center'>
-                                  Loading...
-                                </div>
-                              ) : it.satkerSugs.length === 0 ? (
-                                <div className='px-4 py-6 text-sm text-gray-500 text-center'>
-                                  Tidak ada data ditemukan.
-                                </div>
-                              ) : (
-                                it.satkerSugs.map((c) => (
-                                  <button
-                                    key={c._id}
-                                    type='button'
-                                    onClick={() => pickSatker(it.id, c)}
-                                    className='block w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-none'
-                                  >
-                                    <div className='font-bold text-sm text-gray-900'>
-                                      {c.satuanKerja}
-                                    </div>
-                                    <div className='text-[11px] text-gray-500 truncate mt-0.5'>
-                                      {c.kota} • {c.klpd} • {c.ring}
-                                    </div>
-                                  </button>
-                                ))
-                              )}
-                            </div>
-                            <div className='bg-gray-50 px-4 py-2 border-t border-gray-100 flex justify-end'>
-                              <button
-                                onClick={() =>
-                                  patchItem(it.id, { showSatkerSug: false })
-                                }
-                                className='text-xs font-semibold text-gray-500 hover:text-gray-800'
-                              >
-                                Tutup
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      ) : (
+                        <input
+                          value={it.klpd}
+                          readOnly
+                          className='mt-2 block w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm cursor-not-allowed'
+                          placeholder='Terisi otomatis'
+                        />
+                      )}
                     </div>
+
+                    {!it.ring || it.ring !== 'RING 4' ? (
+                      <div className='md:col-span-2'>
+                        <label className='text-xs font-bold tracking-wide text-gray-400 uppercase'>
+                          Satuan Kerja
+                        </label>
+                        <div className='relative mt-2'>
+                          <input
+                            value={it.satuanKerja}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              patchItem(it.id, {
+                                satuanKerja: val,
+                                showSatkerSug: true,
+                              })
+                              if (it.ring && it.institusiQuery)
+                                fetchSatkerSuggestion(
+                                  it.id,
+                                  it.ring,
+                                  it.institusiQuery,
+                                  val,
+                                )
+                            }}
+                            onFocus={() => {
+                              if (it.ring && it.institusiQuery)
+                                fetchSatkerSuggestion(
+                                  it.id,
+                                  it.ring,
+                                  it.institusiQuery,
+                                  it.satuanKerja,
+                                )
+                            }}
+                            disabled={!it.institusiQuery}
+                            placeholder={
+                              !it.institusiQuery
+                                ? 'Pilih Institusi dahulu'
+                                : 'Ketik untuk mencari satuan kerja...'
+                            }
+                            className={`relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${
+                              !it.institusiQuery
+                                ? 'bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed'
+                                : 'bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600'
+                            }`}
+                          />
+
+                          {it.showSatkerSug && it.institusiQuery && (
+                            <div className='absolute z-20 mt-1 w-full overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 border border-gray-100'>
+                              <div className='max-h-60 overflow-y-auto'>
+                                {it.loadingSatkerSug ? (
+                                  <div className='px-4 py-6 text-sm text-gray-500 text-center'>
+                                    Loading...
+                                  </div>
+                                ) : it.satkerSugs.length === 0 ? (
+                                  <div className='px-4 py-6 text-sm text-gray-500 text-center'>
+                                    Tidak ada data ditemukan.
+                                  </div>
+                                ) : (
+                                  it.satkerSugs.map((c) => (
+                                    <button
+                                      key={c._id}
+                                      type='button'
+                                      onClick={() => pickSatker(it.id, c)}
+                                      className='block w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-none'
+                                    >
+                                      <div className='font-bold text-sm text-gray-900'>
+                                        {c.satuanKerja}
+                                      </div>
+                                      <div className='text-[11px] text-gray-500 truncate mt-0.5'>
+                                        {c.kota} • {c.klpd} • {c.ring}
+                                      </div>
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                              <div className='bg-gray-50 px-4 py-2 border-t border-gray-100 flex justify-end'>
+                                <button
+                                  onClick={() =>
+                                    patchItem(it.id, { showSatkerSug: false })
+                                  }
+                                  className='text-xs font-semibold text-gray-500 hover:text-gray-800'
+                                >
+                                  Tutup
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ))}

@@ -4,7 +4,7 @@ import { hashPassword } from '@/lib/password'
 import { assertSuperadmin, assertAdminOrSuperadmin } from '@/lib/auth-server'
 import { getServerSession } from 'next-auth/next'
 
-type UserRole = 'SUPERADMIN' | 'ADMIN' | 'LEADER' | 'SALES' | 'TELEMARKETING'
+type UserRole = 'SUPERADMIN' | 'ADMIN' | 'LEADER' | 'SALES' | 'TELEMARKETING' | 'ADMIN SALES'
 
 type UserDoc = {
   fullName: string
@@ -43,6 +43,7 @@ function normalizeRole(role: string): UserRole | null {
   if (r === 'LEADER') return 'LEADER'
   if (r === 'SALES') return 'SALES'
   if (r === 'TELEMARKETING') return 'TELEMARKETING'
+  if (r === 'ADMIN SALES') return 'ADMIN SALES'
   return null
 }
 

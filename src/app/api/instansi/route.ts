@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { normalizeRing } from "@/lib/ring";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -21,7 +22,12 @@ export async function GET(req: Request) {
 
   if (kota !== "ALL") filter.kota_kab = kota;
   if (klpd !== "ALL") filter.klpd = klpd;
-  if (segmen !== "ALL") filter.status_ring = segmen;
+  if (segmen !== "ALL") {
+    const normalizedRing = normalizeRing(segmen);
+    filter.status_ring = normalizedRing
+      ? { $regex: normalizedRing.replace(" ", "[\\s_-]*"), $options: "i" }
+      : segmen;
+  }
 
   if (q) {
     filter.$or = [
@@ -60,7 +66,7 @@ export async function GET(req: Request) {
     options: {
       kota: kotaOptions.filter(Boolean).sort(),
       klpd: klpdOptions.filter(Boolean).sort(),
-      segmen: segmenOptions.filter(Boolean).sort(),
+      segmen: segmenOptions.map(normalizeRing).filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).sort(),
     },
   });
 }

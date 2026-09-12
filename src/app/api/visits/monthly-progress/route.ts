@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getVisitAuthMatch } from '@/lib/visit-auth'
+import { flexParseDateExpr } from '@/lib/flex-date-expr'
 
 const SALES_COLORS = [
   '#3b82f6', // blue
@@ -53,13 +54,17 @@ export async function GET(req: Request) {
 
   const extraMatch: any = {}
 
+  // Newer RING 4 docs may have klpd=null or "PT"/"CV" (entity info in jenisEntitas instead)
   if (filterStatsB2B) {
-    extraMatch.satuan_kerja = { $exists: true, $not: /office/i }
-    extraMatch.status_ring = { $exists: true, $regex: /ring[\s_]*4/i }
-    extraMatch.klpd = {
-      $exists: true,
-      $regex: /kabupaten|ptnbh|lembaga|swasta|kesehatan|lainnya|b2b|bumn/i,
-    }
+    extraMatch.satuan_kerja = { $not: /office/i }
+    extraMatch.status_ring = { $regex: /ring[\s_]*4/i }
+    extraMatch.$or = [
+      { klpd: { $regex: /kabupaten|swasta|lainnya|b2b|pt|cv/i } },
+      { klpd: { $in: [null, ''] } },
+      { klpd: { $exists: false } },
+      { jenisEntitas: { $exists: true, $nin: [null, ''] } },
+      { namaEntitas: { $exists: true, $nin: [null, ''] } },
+    ]
   }
 
   const combinedMatch = { ...extraMatch, ...(authMatch || {}) }
@@ -69,15 +74,7 @@ export async function GET(req: Request) {
     { $match: combinedMatch },
     {
       $addFields: {
-        _visitDate: {
-          $cond: {
-            if: { $eq: [{ $type: '$visit_date' }, 'string'] },
-            then: {
-              $dateFromString: { dateString: '$visit_date', onError: null },
-            },
-            else: '$visit_date',
-          },
-        },
+        _visitDate: flexParseDateExpr('$visit_date'),
       },
     },
     { $match: { _visitDate: { $ne: null } } },

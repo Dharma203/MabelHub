@@ -22,6 +22,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 import Image from 'next/image'
+import { normalizeRing } from '@/lib/ring'
 
 interface StatCardProps {
   title: string
@@ -113,12 +114,13 @@ export default function TrackingB2GPage() {
   const [fSales, setFSales] = useState<string>('ALL')
   const [fStart, setFStart] = useState<string>('')
   const [fEnd, setFEnd] = useState<string>('')
-  const [fPhone, setFPhone] = useState<string>('')
+  const [fPhone, setFPhone] = useState<string>('ALL')
   const [fRing, setFRing] = useState<string>('ALL')
   const [fCity, setFCity] = useState<string>('ALL')
   const [fSatker, setFSatker] = useState<string>('ALL')
   const [fKlpd, setFKlpd] = useState<string>('ALL')
   const [fVisit, setFVisit] = useState<string>('ALL')
+  const [fNamaEntitas, setFNamaEntitas] = useState<string>('ALL')
 
   //   dropdown meta
   const [salesOptions, setSalesOptions] = useState<string[]>([])
@@ -127,6 +129,7 @@ export default function TrackingB2GPage() {
   const [phoneOptions, setPhoneOptions] = useState<string[]>([])
   const [klpdOptions, setKlpdOptions] = useState<string[]>([])
   const [visitOptions, setVisitOptions] = useState<string[]>([])
+  const [entitasOptions, setEntitasOptions] = useState<string[]>([])
 
   // pagination
   const [pageSize, setPageSize] = useState<number>(25)
@@ -222,6 +225,12 @@ export default function TrackingB2GPage() {
         setVisitOptions(
           Array.isArray(json?.status_visit) ? json.status_visit : [],
         )
+        setEntitasOptions([
+          ...new Set([
+            ...(Array.isArray(json?.namaEntitas) ? json.namaEntitas : []),
+            ...(Array.isArray(json?.jenisEntitas) ? json.jenisEntitas: []),
+          ]),
+        ])
         setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
       } catch {
         if (!mounted) return
@@ -230,6 +239,7 @@ export default function TrackingB2GPage() {
         setKlpdOptions([])
         setVisitOptions([])
         setSatkerOptions([])
+        setEntitasOptions([])
       }
     })()
 
@@ -248,20 +258,22 @@ export default function TrackingB2GPage() {
         setLoadingRows(true)
 
         const params = new URLSearchParams()
+        params.set('page', String(page))
+        params.set('limit', String(pageSize))
         if (fSales !== 'ALL') params.set('sales', fSales)
         if (fStart) params.set('start', fStart)
         if (fEnd) params.set('end', fEnd)
-        if (fRing !== 'ALL') params.set('ring', fRing)
+        if (fRing !== 'ALL') params.set('ring', normalizeRing(fRing))
         if (fCity !== 'ALL') params.set('city', fCity)
         if (fSatker !== 'ALL') params.set('satker', fSatker)
         if (fKlpd !== 'ALL') params.set('klpd', fKlpd)
-        if (fVisit !== 'ALL') params.set('satus_visit', fVisit)
+        if (fVisit !== 'ALL') params.set('status_visit', fVisit)
+        if (fPhone !== 'ALL') params.set('pic_phone', fPhone)
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
+        params.set('excludeOffice', 'true')
         params.set('filterStatsB2G', 'true')
-        params.set('page', String(page))
-        params.set('limit', String(pageSize))
 
         const res = await fetch(`/api/visits?${params.toString()}`, {
           cache: 'no-store',
@@ -304,6 +316,7 @@ export default function TrackingB2GPage() {
     pageSize,
     sessionLoading,
     user,
+    fPhone,
   ])
 
   const [paramStatus, setParamStatus] = useState<string[]>([])
@@ -527,20 +540,23 @@ export default function TrackingB2GPage() {
                 )}
               />
 
-              <FilterSelect
-                label='PIC PHONE'
-                value={fPhone}
-                onChange={(v) => onChangeFilter(setFPhone, v)}
-                options={[{ label: 'Semua Kontak', value: 'ALL' }].concat(
-                  phoneOptions.map((c) => ({ label: c, value: c })),
-                )}
-              />
+              <Field label='PIC PHONE'>
+                <SearchableSelect
+                  value={fPhone}
+                  onChange={(v) => onChangeFilter(setFPhone, v)}
+                  options={[
+                    { label: 'Semua Kontak', value: 'ALL' },
+                    { label: 'Ada Kontak', value: 'HAS_CONTACT' },
+                    { label: 'Belum Ada Kontak', value: 'NO_CONTACT' },
+                  ]}
+                />
+              </Field>
 
               <FilterSelect
                 label='STATUS VISIT'
                 value={fVisit}
                 onChange={(v) => onChangeFilter(setFVisit, v)}
-                options={[{ label: 'Semua Status', value: 'VISITED' }].concat(
+                options={[{ label: 'Semua Status', value: 'ALL' }].concat(
                   visitOptions.map((c) => ({ label: c, value: c })),
                 )}
               />
@@ -548,10 +564,29 @@ export default function TrackingB2GPage() {
               <div>
                 <FilterSelect
                   label='SATUAN KERJA'
-                  value={fSatker}
-                  onChange={(v) => onChangeFilter(setFSatker, v)}
+                  value={
+                    fNamaEntitas !== 'ALL'
+                      ? fNamaEntitas
+                      : fSatker !== 'ALL'
+                        ? fSatker
+                        : 'ALL'
+                  }
+                  onChange={(v) => {
+                    if (v === 'ALL') {
+                      setFSatker('ALL')
+                      setFNamaEntitas('ALL')
+                      return
+                    }
+
+                    const matchesSatker = satkerOptions.includes(v)
+                    const matchesEntitas = entitasOptions.includes(v)
+
+                    setFSatker(matchesSatker ? v : 'ALL')
+                    setFNamaEntitas(matchesEntitas ? v : 'ALL')
+                  }}
                   options={[{ label: 'Semua Satker', value: 'ALL' }].concat(
                     satkerOptions.map((s) => ({ label: s, value: s })),
+                    entitasOptions.map((e) => ({ label: e, value: e })),
                   )}
                   full
                 />
@@ -673,7 +708,7 @@ export default function TrackingB2GPage() {
                               {r.city}
                             </td>
                             <td className='px-6 py-6 font-extrabold text-[#0B6AA9]'>
-                              {r.status_ring}
+                              {normalizeRing(r.status_ring) || '-'}
                             </td>
                             <td className='px-6 py-6 text-gray-900'>
                               {r.satuan_kerja}
@@ -840,7 +875,10 @@ export default function TrackingB2GPage() {
                         value={modalVisit.nama_sales}
                       />
                       <DetailItem label='City' value={modalVisit.city} />
-                      <DetailItem label='Ring' value={modalVisit.status_ring} />
+                      <DetailItem
+                        label='Ring'
+                        value={normalizeRing(modalVisit.status_ring) || '-'}
+                      />
                       <DetailItem
                         label='Satuan Kerja'
                         value={modalVisit.satuan_kerja}
@@ -947,15 +985,18 @@ export default function TrackingB2GPage() {
                         <div
                           className='relative w-full max-w-xs mx-auto cursor-pointer group'
                           onClick={() =>
-                            openImageFullscreen(modalVisit.visit_image!)
+                            openImageFullscreen(
+                              `/api/visits/${modalVisit._id}/image`,
+                            )
                           }
                         >
                           <Image
-                            src={modalVisit.visit_image}
+                            src={`/api/visits/${modalVisit._id}/image`}
                             alt='Bukti Kunjungan'
                             width={500}
                             height={500}
                             quality={80}
+                            unoptimized
                             className='w-full rounded-xl shadow-sm ring-1 ring-gray-200 group-hover:ring-blue-400 group-hover:shadow-lg transition-all'
                           />
                           <div className='absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center'>
@@ -1006,6 +1047,7 @@ export default function TrackingB2GPage() {
                 height={500}
                 width={500}
                 quality={80}
+                unoptimized
                 alt='Full size'
                 className='max-w-full max-h-full rounded-xl shadow-2xl object-contain'
                 onClick={(e) => e.stopPropagation()}
@@ -1149,6 +1191,23 @@ function FilterDate({
           className='h-12 w-full rounded-xl border border-blue-200 bg-white px-4 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-200'
         />
       </div>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className='space-y-2'>
+      <label className='text-sm font-bold tracking-wide text-slate-500 uppercase'>
+        {label}
+      </label>
+      {children}
     </div>
   )
 }
