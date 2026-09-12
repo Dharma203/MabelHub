@@ -1034,7 +1034,10 @@ export default function TrackingB2BPage() {
                         value={modalVisit.nama_sales}
                       />
                       <DetailItem label='City' value={modalVisit.city} />
-                      <DetailItem label='Ring' value={normalizeRing(modalVisit.status_ring) || '-'} />
+                      <DetailItem
+                        label='Ring'
+                        value={normalizeRing(modalVisit.status_ring) || '-'}
+                      />
                       <DetailItem
                         label='Satuan Kerja'
                         value={modalVisit.satuan_kerja}
@@ -1237,7 +1240,7 @@ export default function TrackingB2BPage() {
                 </PageBtn>
                 <PageBtn
                   onClick={() => gotoPage(safePage - 1)}
-                ariaLabel='Prev'
+                  ariaLabel='Prev'
                 >
                   ◀
                 </PageBtn>

@@ -325,7 +325,16 @@ export default function PlanActivityPage() {
 
 
 
-  function getImageUrl(img?: string, planId?: string, base = typeof window !== "undefined" ? window.location.origin : "https://hub.mabel.co.id") {
+  // Relative path for <Image> src — avoids remotePatterns mismatch
+  function getImageUrl(img?: string, planId?: string) {
+    if (!img || img === '__base64_image__') return planId ? `/api/visits/${planId}/image` : "/placeholder.svg";
+    if (img.startsWith("data:")) return img;
+    return planId ? `/api/visits/${planId}/image` : img.startsWith("http") ? img : `${img.startsWith("/") ? "" : "/uploads/"}${img}`;
+  }
+
+  // Full absolute URL for clipboard / sharing
+  function getImageFullUrl(img?: string, planId?: string) {
+    const base = typeof window !== "undefined" ? window.location.origin : "https://hub.mabel.co.id";
     if (!img || img === '__base64_image__') return planId ? `${base}/api/visits/${planId}/image` : "Tidak tersedia";
     if (img.startsWith("data:")) return img;
     return planId ? `${base}/api/visits/${planId}/image` : img.startsWith("http") ? img : `${base}${img.startsWith("/") ? "" : "/uploads/"}${img}`;
@@ -356,7 +365,7 @@ export default function PlanActivityPage() {
       `Keterangan: ${plan.descriptions || "-"}`,
       `Tindak Lanjut: ${plan.tindak_lanjut || "-"}`,
       `Status: ${plan.status || "-"}`,
-      `Gambar: ${getImageUrl(plan.visit_image, plan.id)}`,
+      `Gambar: ${getImageFullUrl(plan.visit_image, plan.id)}`,
     ];
     const text = lines.join("\n");
     const copyToClipboard = (str: string) => {
@@ -1110,6 +1119,8 @@ export default function PlanActivityPage() {
                       <Image
                         src={getImageUrl(plan.visit_image, plan.id)}
                         alt="Bukti kunjungan"
+                        width={48}
+                        height={48}
                         className="w-12 h-12 rounded-lg shrink-0 ring-1 ring-gray-200 cursor-pointer hover:ring-blue-400 transition-all object-cover"
                         onClick={() => openImageBase64(getImageUrl(plan.visit_image, plan.id))}
                         title="Lihat foto bukti"

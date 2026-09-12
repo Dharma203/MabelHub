@@ -88,6 +88,11 @@ export async function GET(
       return unavailableImage()
     }
   }
+
+  // Handle bare filenames (e.g. "visit_1767807306.jpg") by prepending /uploads/
+  if (!visitImage.startsWith('/') && !visitImage.startsWith('http') && !visitImage.startsWith('data:')) {
+    visitImage = `/uploads/${visitImage}`
+  }
   
   if (visitImage.startsWith('/')) {
     if (visitImage.startsWith('/uploads/')) {
@@ -102,7 +107,7 @@ export async function GET(
               ? 'image/webp'
               : extension === '.gif'
                 ? 'image/gif'
-                : 'image/jpeg'
+                : 'image/jpg'
 
         return new NextResponse(buffer, {
           headers: {
@@ -113,6 +118,22 @@ export async function GET(
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
           throw error
+        }
+        // File not found locally — try fetching from production
+        try {
+          const prodUrl = `https://hub.mabel.co.id${visitImage}`
+          const response = await fetch(prodUrl)
+          const contentType = response.headers.get('content-type') || ''
+          if (response.ok && contentType.startsWith('image/')) {
+            return new NextResponse(await response.arrayBuffer(), {
+              headers: {
+                'Content-Type': contentType,
+                'Cache-Control': 'public, max-age=31536000, immutable',
+              },
+            })
+          }
+        } catch {
+          // Production fetch also failed
         }
         return unavailableImage()
       }

@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'hub.mabel.co.id',
+        pathname: '/api/visits/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'api.mabel.co.id',
         pathname: '/uploads/**',
       },
