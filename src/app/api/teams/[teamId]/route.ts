@@ -23,13 +23,13 @@ type UserDoc = {
 
 export async function GET(
   req: Request,
-  ctx: { params: { teamId: string } | Promise<{ teamId: string }> },
+  { params } : { params : Promise<{ teamId : string}>}
 ) {
   const gate = assertSuperadmin(req);
   if (!gate.ok)
     return NextResponse.json({ error: gate.error }, { status: gate.status });
 
-  const { teamId } = await getParams(ctx);
+  const { teamId } = await params;
   const oid = toObjectId(teamId);
   if (!oid)
     return NextResponse.json({ error: "teamId tidak valid" }, { status: 400 });
@@ -51,13 +51,13 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  ctx: { params: { teamId: string } | Promise<{ teamId: string }> },
+  { params } : { params : Promise<{ teamId : string}>}
 ) {
   const gate = assertSuperadmin(req);
   if (!gate.ok)
     return NextResponse.json({ error: gate.error }, { status: gate.status });
 
-  const { teamId } = await getParams(ctx);
+  const { teamId } = await params;
   const teamOid = toObjectId(teamId);
   if (!teamOid)
     return NextResponse.json({ error: "teamId tidak valid" }, { status: 400 });
@@ -115,13 +115,13 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  ctx: { params: { teamId: string } | Promise<{ teamId: string }> },
+  { params } : { params : Promise<{ teamId : string}>}
 ) {
   const gate = assertSuperadmin(req);
   if (!gate.ok)
     return NextResponse.json({ error: gate.error }, { status: gate.status });
 
-  const { teamId } = await getParams(ctx);
+  const { teamId } = await params;
   const teamOid = toObjectId(teamId);
   if (!teamOid)
     return NextResponse.json({ error: "teamId tidak valid" }, { status: 400 });

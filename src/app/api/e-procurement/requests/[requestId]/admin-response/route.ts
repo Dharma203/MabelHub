@@ -8,7 +8,7 @@ async function getParams<T>(ctx: { params: T | Promise<T> }) {
 
 export async function PUT(
   req: Request,
-  ctx: { params: { requestId: string } | Promise<{ requestId: string }> },
+  { params } : { params: Promise<{ requestId : string}>}
 ) {
   const auth = assertLoggedIn(req);
   if (!auth.ok)
@@ -19,7 +19,7 @@ export async function PUT(
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
-  const { requestId } = await getParams(ctx);
+  const { requestId } = await params;
   const rid = decodeURIComponent(requestId);
 
   const body = await req.json().catch(() => ({}));

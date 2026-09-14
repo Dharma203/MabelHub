@@ -4,14 +4,14 @@ import { assertLoggedIn } from "@/lib/auth-server";
 
 export async function PUT(
   req: Request,
-  ctx: { params: { requestId: string } | Promise<{ requestId: string }> },
+  { params } : { params: Promise<{ requestId : string}>}
 ) {
   const auth = assertLoggedIn(req);
   if (!auth.ok)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   // Resolve params
-  const { requestId } = await Promise.resolve(ctx.params);
+  const { requestId } = await Promise.resolve(params);
   const rid = decodeURIComponent(requestId);
 
   const body = await req.json().catch(() => ({}));
