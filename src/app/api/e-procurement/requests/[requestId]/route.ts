@@ -102,13 +102,13 @@ async function getUserLite(db: any, userId: string) {
 
 export async function GET(
   req: Request,
-  ctx: { params: { requestId: string } | Promise<{ requestId: string }> },
+  { params } : { params: Promise<{ requestId : string}>}
 ) {
   const auth = assertLoggedIn(req);
   if (!auth.ok)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { requestId } = await getParams(ctx);
+  const { requestId } = await params;
   const rid = decodeURIComponent(requestId);
 
   const client = await clientPromise;
@@ -153,13 +153,13 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  ctx: { params: { requestId: string } | Promise<{ requestId: string }> },
+  { params } : { params: Promise<{ requestId : string}>}
 ) {
   const auth = assertLoggedIn(req);
   if (!auth.ok)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { requestId } = await getParams(ctx);
+  const { requestId } = await params;
   const rid = decodeURIComponent(requestId);
 
   const body = await req.json().catch(() => ({}));

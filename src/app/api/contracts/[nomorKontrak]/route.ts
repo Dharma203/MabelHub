@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
+import { param } from "motion/react-client";
 
 const DB_NAME = getDbName();
 const COL_NAME = "contracts";
@@ -11,13 +12,13 @@ async function getParams<T>(ctx: { params: T | Promise<T> }) {
 
 export async function GET(
   req: Request,
-  ctx: { params: { nomorKontrak: string } | Promise<{ nomorKontrak: string }> },
+  { params } : { params: Promise<{ nomorKontrak : string }>}
 ) {
   const gate = assertAdminOrSuperadmin(req);
   if (!gate.ok)
     return NextResponse.json({ error: gate.error }, { status: gate.status });
 
-  const { nomorKontrak } = await getParams(ctx);
+  const { nomorKontrak } = await params
   const nk = decodeURIComponent(nomorKontrak);
 
   const client = await clientPromise;
@@ -39,13 +40,13 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  ctx: { params: { nomorKontrak: string } | Promise<{ nomorKontrak: string }> },
+  { params } : { params: Promise<{ nomorKontrak : string }>}
 ) {
   const gate = assertAdminOrSuperadmin(req);
   if (!gate.ok)
     return NextResponse.json({ error: gate.error }, { status: gate.status });
 
-  const { nomorKontrak } = await getParams(ctx);
+  const { nomorKontrak } = await params
   const nk = decodeURIComponent(nomorKontrak);
 
   const body = await req.json().catch(() => ({}));
@@ -128,13 +129,13 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  ctx: { params: { nomorKontrak: string } | Promise<{ nomorKontrak: string }> },
+  { params } : { params: Promise<{ nomorKontrak : string }>}
 ) {
   const gate = assertAdminOrSuperadmin(req);
   if (!gate.ok)
     return NextResponse.json({ error: gate.error }, { status: gate.status });
 
-  const { nomorKontrak } = await getParams(ctx);
+  const { nomorKontrak } = await params
   const nk = decodeURIComponent(nomorKontrak);
 
   const client = await clientPromise;

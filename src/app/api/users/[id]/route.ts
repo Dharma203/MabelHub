@@ -50,15 +50,16 @@ async function ensureUserIndexes(db: any) {
   await global.__mabel_users_indexes_promise;
 }
 
-type Ctx = { params: { id: string } } | { params: Promise<{ id: string }> };
-
-export async function PUT(req: Request, context: Ctx) {
+export async function PUT(
+  req: Request,
+ { params } : { params : Promise<{ id: string }>}
+) {
   const gate = assertSuperadmin(req);
   if (!gate.ok) {
     return NextResponse.json({ error: gate.error }, { status: gate.status });
   }
 
-  const { id } = await getParams(context.params);
+  const { id } = await params;
 
   // validasi ObjectId
   if (!ObjectId.isValid(id)) {
