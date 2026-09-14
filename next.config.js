@@ -1,6 +1,6 @@
-import type { NextConfig } from 'next'
+/** @type {import('next').NextConfig} */
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   images: {
     qualities: [75, 80],
     dangerouslyAllowLocalIP: true,
@@ -39,4 +39,4 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+module.exports = nextConfig
