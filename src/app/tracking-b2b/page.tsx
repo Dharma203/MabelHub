@@ -178,7 +178,7 @@ function getPageWindow(current: number, totalPages: number, size: number) {
 }
 
 export default function TrackingB2BPage() {
-  const [isFilterOpen, setIsFilterOpen] = useState(true)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
   const router = useRouter()
   const { user, loading: sessionLoading } = useSession()
 
@@ -526,18 +526,18 @@ export default function TrackingB2BPage() {
 
   return (
     <div className='min-h-screen bg-blue-50'>
-      <div className='flex'>
+      <div className='flex min-w-0'>
         {/* {Content} */}
-        <div className='flex-1 p-3 sm:p-6'>
+        <div className='min-w-0 w-full flex-1 p-3 sm:p-6'>
           {/* {Top Bar} */}
           <div className='mb-4 px-4 pt-2 pb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
             <div>
-              <h2 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
+              <h2 className='text-xl sm:text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
                 Tracking Visit B2B
               </h2>
             </div>
           </div>
-          <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-4'>
+          <div className='mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'>
             <StatCard
               title='TOTAL SATUAN KERJA'
               value={statsLoading ? '...' : String(totalSatuanKerja)}
@@ -559,7 +559,7 @@ export default function TrackingB2BPage() {
               icon={<UserRound className='h-6 w-6 text-yellow-500' />}
             />
           </div>
-          <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-3'>
+          <div className='mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
             <TableCard
               icon={BarChart3}
               title='SATKER UNIK PER KLPD'
@@ -579,16 +579,16 @@ export default function TrackingB2BPage() {
               items={byRing}
             />
           </div>
-          <section className='bg-white mt-4 rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
+          <section className='bg-white mt-4 rounded-xl shadow-sm border border-gray-200 overflow-hidden overflow-x-auto'>
             {/* Header */}
             <div className='bg-white text-gray px-3 sm:px-6 h-10 flex items-center justify-between gap-2'>
-              <div className='flex items-center min-w-0'>
+              <div className='flex min-w-0 items-center'>
                 <BarChart2
                   size={12}
                   className='mr-1.5 sm:mr-2 shrink-0 text-gray-500'
                   strokeWidth={2.5}
                 />
-                <strong className='text-[9px] sm:text-[10px] text-gray-500 font-bold tracking-wide whitespace-nowrap'>
+                <strong className='truncate text-[9px] sm:text-[10px] text-gray-500 font-bold tracking-wide'>
                   PROGRES B2B — PENCAPAIAN SATUAN KERJA PER BULAN
                 </strong>
               </div>
@@ -596,10 +596,9 @@ export default function TrackingB2BPage() {
 
             <div
               className='p-3 sm:p-4 flex flex-col gap-3'
-              style={{ display: isFilterOpen ? 'flex' : 'none' }}
             >
               {/* Tabs */}
-              <div className='px-3 sm:px-6 pt-2 pb-1 flex gap-1'>
+              <div className='px-3 sm:px-6 pt-2 pb-1 flex flex-wrap gap-1'>
                 <button
                   onClick={() => setProgressTab('tabel')}
                   className={`px-3 py-1 text-[10px] font-semibold rounded-md border transition-colors cursor-pointer ${
@@ -644,7 +643,7 @@ export default function TrackingB2BPage() {
               </div>
             </div>
           </section>
-          <section className='rounded-2xl bg-white mt-5 p-7 shadow-sm'>
+          <section className='rounded-2xl bg-white mt-5 p-4 sm:p-7 shadow-sm'>
             {/* {Mobile filter toggle button} */}
             <div
               className='md:hidden flex items-center justify-between cursor-pointer mb-2 bg-blue-50 p-4 rounded-xl border border-blue-100'
@@ -661,7 +660,7 @@ export default function TrackingB2BPage() {
 
             <div
               className={cn(
-                'grid grid-cols-1 gap-6 md:grid-cols-9 mt-4 md:mt-0',
+                'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9 mt-4 md:mt-0',
                 !isFilterOpen ? 'hidden md:grid' : 'grid',
               )}
             >
@@ -753,8 +752,8 @@ export default function TrackingB2BPage() {
             </div>
           </section>
           <section className='mt-8 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-blue-100'>
-            {/* Table View */}
-            <div className='overflow-x-auto'>
+            {/* Desktop View */}
+            <div className='hidden md:block overflow-x-auto'>
               <table className='w-full text-sm'>
                 <thead className='bg-blue-200'>
                   <tr className='text-left'>
@@ -913,7 +912,7 @@ export default function TrackingB2BPage() {
                                       <Calendar className='w-4 h-4' />
                                     </span>
                                     Riwayat Kunjungan — {r.satuan_kerja}
-                                    <span className='ml-auto text-xs font-semibold text-gray-400'>
+                                    <span className='ml-auto shrink-0 text-xs font-semibold text-gray-400'>
                                       {visitDates.length} kunjungan
                                     </span>
                                   </div>
@@ -927,7 +926,7 @@ export default function TrackingB2BPage() {
                                       Tidak ada data kunjungan.
                                     </div>
                                   ) : (
-                                    <div className='grid grid-cols-6 gap-2 max-h-80 overflow-y-auto pr-1'>
+                                    <div className='grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-80 overflow-y-auto pr-1'>
                                       {visitDates.map((v) => {
                                         const sc = getStatusColor(
                                           v.status_visit,
@@ -978,6 +977,86 @@ export default function TrackingB2BPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile View */}
+            <div className='md:hidden space-y-3 p-3'>
+              {loadingRows ? (
+                <div className='py-12 text-center text-gray-500'>Loading...</div>
+              ) : rows.length === 0 ? (
+                <div className='py-12 text-center text-gray-500'>Tidak ada data.</div>
+              ) : (
+                rows.map((r) => {
+                  const isExpanded = expandedSatker === r.satuan_kerja
+                  return (
+                    <div key={r._id} className='min-w-0 rounded-xl bg-white border border-gray-100 shadow-sm'>
+                      <div className='p-4 space-y-2'>
+                        <div className='flex items-center justify-between'>
+                          <span className='inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
+                            {r.rank ?? '-'}
+                          </span>
+                          <button
+                            type='button'
+                            onClick={() => toggleExpandSatker(r.satuan_kerja)}
+                            className={cn(
+                              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all',
+                              isExpanded
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-blue-50 text-blue-700',
+                            )}
+                          >
+                            {r.total_visit ?? '-'} Visit
+                            {isExpanded ? <ChevronUp className='w-3.5 h-3.5' /> : <ChevronDown className='w-3.5 h-3.5' />}
+                          </button>
+                        </div>
+                        <div className='break-words text-sm font-extrabold text-[#0B6AA9]'>{r.nama_sales}</div>
+                        <div className='grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700'>
+                          <div className='min-w-0 break-words'><span className='text-gray-400'>City:</span> {r.city}</div>
+                          <div className='min-w-0 break-words'><span className='text-gray-400'>Ring:</span> {normalizeRing(r.status_ring) || '-'}</div>
+                          <div className='col-span-2 min-w-0 break-words'><span className='text-gray-400'>Satker:</span> {r.satuan_kerja}</div>
+                          <div className='min-w-0 break-words'><span className='text-gray-400'>PIC:</span> {r.pic_name}</div>
+                          <div className='min-w-0 break-words'><span className='text-gray-400'>Phone:</span> {r.pic_phone}</div>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className='border-t border-gray-100 p-4'>
+                          <div className='mb-2 text-xs font-extrabold text-gray-900'>
+                            Riwayat Kunjungan — {r.satuan_kerja}
+                          </div>
+                          {loadingVisitDates ? (
+                            <div className='py-4 text-center text-gray-400 text-xs'>Memuat...</div>
+                          ) : visitDates.length === 0 ? (
+                            <div className='py-4 text-center text-gray-400 text-xs'>Tidak ada data.</div>
+                          ) : (
+                            <div className='space-y-2 max-h-60 overflow-y-auto'>
+                              {visitDates.map((v) => {
+                                const sc = getStatusColor(v.status_visit)
+                                return (
+                                  <button
+                                    key={v._id}
+                                    type='button'
+                                    onClick={() => setModalVisit(v)}
+                                    className='flex items-center gap-3 w-full text-left px-3 py-2 rounded-lg border border-gray-100 hover:bg-blue-50/40 transition-all'
+                                  >
+                                    <Calendar className='w-4 h-4 text-blue-600 shrink-0' />
+                                    <div className='flex-1 min-w-0'>
+                                      <div className='text-xs font-bold text-gray-900'>{v.visit_date}</div>
+                                      <div className='text-[10px] text-gray-500 truncate'>{v.nama_sales} • {v.city}</div>
+                                    </div>
+                                    <span className={cn('px-2 py-0.5 rounded-full text-[9px] font-bold uppercase', sc.bg, sc.text)}>
+                                      {v.status_visit || '-'}
+                                    </span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </section>
 
           {/* ========== VISIT DETAIL MODAL ========== */}
@@ -991,16 +1070,16 @@ export default function TrackingB2BPage() {
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Modal Header */}
-                <div className='sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white/95 backdrop-blur-sm rounded-t-2xl'>
-                  <div className='flex items-center gap-3'>
+                <div className='sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-4 sm:px-6 border-b border-gray-100 bg-white/95 backdrop-blur-sm rounded-t-2xl'>
+                  <div className='flex min-w-0 items-center gap-3'>
                     <span className='grid h-10 w-10 place-items-center rounded-xl bg-blue-100 text-blue-600'>
                       <FileText className='w-5 h-5' />
                     </span>
-                    <div>
+                    <div className='min-w-0'>
                       <h3 className='text-lg font-extrabold text-gray-900'>
                         Detail Kunjungan
                       </h3>
-                      <p className='text-xs text-gray-500'>
+                      <p className='break-words text-xs text-gray-500'>
                         {modalVisit.visit_date} — {modalVisit.satuan_kerja}
                       </p>
                     </div>
@@ -1015,7 +1094,7 @@ export default function TrackingB2BPage() {
                 </div>
 
                 {/* Modal Body */}
-                <div className='px-6 py-5 space-y-6'>
+                <div className='px-4 py-5 sm:px-6 space-y-6'>
                   {/* Section: Detail Visit */}
                   <div>
                     <div className='flex items-center gap-2 mb-3'>
@@ -1024,7 +1103,7 @@ export default function TrackingB2BPage() {
                         Detail Visit
                       </h4>
                     </div>
-                    <div className='grid grid-cols-2 gap-4 md:grid-cols-3 p-4 rounded-xl bg-gray-50 border border-gray-100'>
+                    <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 p-4 rounded-xl bg-gray-50 border border-gray-100'>
                       <DetailItem
                         label='Tanggal Visit'
                         value={modalVisit.visit_date}
@@ -1176,7 +1255,7 @@ export default function TrackingB2BPage() {
                 </div>
 
                 {/* Modal Footer */}
-                <div className='sticky bottom-0 px-6 py-4 border-t border-gray-100 bg-white/95 backdrop-blur-sm rounded-b-2xl'>
+                <div className='sticky bottom-0 px-4 py-4 sm:px-6 border-t border-gray-100 bg-white/95 backdrop-blur-sm rounded-b-2xl'>
                   <button
                     type='button'
                     onClick={() => setModalVisit(null)}
@@ -1216,12 +1295,12 @@ export default function TrackingB2BPage() {
             </div>
           )}
           {/* Pagination */}
-          <section className='mt-6 flex flex-col gap-3 rounded-2xl bg-white px-6 py-4 shadow-sm ring-1 ring-blue-100 md:flex-row md:items-center md:justify-between'>
-            <div className='text-sm text-gray-600'>
+          <section className='mt-6 flex flex-col gap-3 rounded-2xl bg-white px-4 py-4 sm:px-6 shadow-sm ring-1 ring-blue-100 md:flex-row md:items-center md:justify-between'>
+            <div className='text-sm text-gray-600 break-words'>
               Menampilkan {showingFrom} - {showingTo} dari {total} data
             </div>
 
-            <div className='flex flex-wrap items-center gap-3'>
+            <div className='flex min-w-0 flex-wrap items-center gap-3'>
               <select
                 value={pageSize}
                 onChange={(e) => {
@@ -1307,7 +1386,7 @@ function DetailItem({ label, value }: { label: string; value: string }) {
       <div className='text-xs font-extrabold tracking-wider text-gray-500'>
         {label}
       </div>
-      <div className='mt-1 text-sm font-semibold text-gray-900'>
+      <div className='mt-1 break-words text-sm font-semibold text-gray-900'>
         {value || '-'}
       </div>
     </div>
@@ -1380,11 +1459,11 @@ function FilterDate({
 
 function StatCard({ title, value, icon }: StatCardProps) {
   return (
-    <div className='rounded-xl bg-white p-7 shadow flex items-center gap-4'>
+    <div className='rounded-xl bg-white p-4 sm:p-7 shadow flex items-center gap-4'>
       {icon && <div className='rounded-lg bg-blue-100 p-2'>{icon}</div>}
-      <div>
-        <p className='text-l text-gray-500'>{title}</p>
-        <p className='mt-2 text-3xl font-semibold'>{value ?? '-'}</p>
+      <div className='min-w-0'>
+        <p className='text-xs sm:text-sm text-gray-500'>{title}</p>
+        <p className='mt-1 sm:mt-2 text-lg sm:text-3xl font-semibold break-words'>{value ?? '-'}</p>
       </div>
     </div>
   )
@@ -1408,7 +1487,7 @@ function TableCard({
           >
             <Icon className={`w-4 h-4 ${theme.icon}`} strokeWidth={2} />
           </div>
-          <h3 className='text-xs font-semibold tracking-wider text-gray-500 uppercase'>
+          <h3 className='min-w-0 break-words text-xs font-semibold tracking-wider text-gray-500 uppercase'>
             {title}
           </h3>
         </div>
