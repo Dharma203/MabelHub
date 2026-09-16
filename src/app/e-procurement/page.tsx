@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect } from "react";
 
 import { useSession } from "@/components/session/SessionProvider";
 import { useRouter } from "next/navigation";
-import * as XLSX from "xlsx-js-style";
+import { loadXLSX } from "@/lib/xlsx-loader";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { Toast } from "@/components/Toast";
 
@@ -354,12 +354,12 @@ export default function EProcurementRequestPage() {
     setUploadFile(f)
   }
 
-  const handleSubmitUpload = () => {
+   async function handleSubmitUpload() {
+    const XLSX = await loadXLSX()
     if (!uploadFile) {
       alert("Pilih file Excel terlebih dahulu");
       return;
     }
-
     const reader = new FileReader();
     reader.onload = (e) => {
       try {

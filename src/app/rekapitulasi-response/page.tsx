@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "@/components/session/SessionProvider";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import * as XLSX from "xlsx-js-style";
+import { loadXLSX } from "@/lib/xlsx-loader";
 import ExportExcelModal, {
   ExportColumn,
   ExportScope,
@@ -225,7 +225,8 @@ export default function RekapitulasiResponsePage() {
     { id: "itemPerusahaan", label: "Item: Perusahaan Admin" },
   ];
 
-  const handleExport = async (selectedCols: string[], scope: ExportScope) => {
+  async function handleExport(selectedCols: string[], scope: ExportScope) {
+    const XLSX = await loadXLSX()
     setIsExporting(true);
     try {
       // For Response, 'filtered' contains all data since apiListTaken fetches taken mode data.

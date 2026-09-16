@@ -5,7 +5,7 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useSession } from '@/components/session/SessionProvider'
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useRouter } from 'next/navigation'
-import * as XLSX from 'xlsx-js-style'
+import { loadXLSX } from '@/lib/xlsx-loader'
 import ExportExcelModal, {
   ExportColumn,
   ExportScope,
@@ -792,7 +792,8 @@ export default function RekapitulasiVisitPage() {
     { id: 'deskripsi', label: 'Deskripsi Kegiatan' },
   ]
 
-  const handleExport = async (selectedCols: string[], scope: ExportScope) => {
+  async function handleExport(selectedCols: string[], scope: ExportScope) {
+    const XLSX = await loadXLSX()
     setIsExporting(true)
     try {
       let dataToProcess: VisitRow[] = []

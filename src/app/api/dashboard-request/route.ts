@@ -368,7 +368,19 @@ export async function GET(req: Request) {
       .toArray(),
   ])
 
-  // AGGREGATE utama untuk status + ring
+  // Taruh sebelum aggregate utama
+  function ringExpr(n: number) {
+    return {
+      $regexMatch: {
+        input: { $ifNull: ['$status_ring', ''] },
+        regex: `ring[\\s_\\-]*${n}$`, // ← hapus ^ , tambah $ di akhir
+        options: 'i',
+      },
+    }
+  }
+
+  // Lalu di dalam $group — ganti ring1 sampai ring4:
+  // Lalu di dalam $group — ganti ring1 sampai ring4:
   const agg = await col
     .aggregate([
       { $match: matchQuery },
@@ -383,7 +395,6 @@ export async function GET(req: Request) {
           _id: null,
           totalVisits: { $sum: 1 },
 
-          // visited: banyak data pakai "visited" / "visit" / "sudah_visit"
           visited: {
             $sum: {
               $cond: [
@@ -453,18 +464,11 @@ export async function GET(req: Request) {
             },
           },
 
-          ring1: {
-            $sum: { $cond: [{ $eq: ['$status_ring', 'RING 1'] }, 1, 0] },
-          },
-          ring2: {
-            $sum: { $cond: [{ $eq: ['$status_ring', 'RING 2'] }, 1, 0] },
-          },
-          ring3: {
-            $sum: { $cond: [{ $eq: ['$status_ring', 'RING 3'] }, 1, 0] },
-          },
-          ring4: {
-            $sum: { $cond: [{ $eq: ['$status_ring', 'RING 4'] }, 1, 0] },
-          },
+          // ✅ FIX: Ganti $eq dengan $regexMatch — case-insensitive & fleksibel
+          ring1: { $sum: { $cond: [ringExpr(1), 1, 0] } },
+          ring2: { $sum: { $cond: [ringExpr(2), 1, 0] } },
+          ring3: { $sum: { $cond: [ringExpr(3), 1, 0] } },
+          ring4: { $sum: { $cond: [ringExpr(4), 1, 0] } },
         },
       },
       {
@@ -507,7 +511,10 @@ export async function GET(req: Request) {
   const trend = trendAgg.map((x) => ({ date: x._id, count: x.count })).reverse()
   const topSales = topSalesAgg.map((x) => ({ name: x._id, count: x.count }))
   const klpdMapped = klpdAgg.map((x) => ({ name: x._id, count: x.count }))
-  const kegiatanStatusMapped = kegiatanStatusAgg.map((x) => ({ name: x._id, count: x.count}))
+  const kegiatanStatusMapped = kegiatanStatusAgg.map((x) => ({
+    name: x._id,
+    count: x.count,
+  }))
 
   return NextResponse.json({
     totalVisits: base.totalVisits,
@@ -530,6 +537,6 @@ export async function GET(req: Request) {
     topVisit: topSales,
     topSales,
     klpd: klpdMapped,
-    kegiatan_status: kegiatanStatusMapped
+    kegiatan_status: kegiatanStatusMapped,
   })
 }

@@ -23,7 +23,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import React from 'react'
 import { listStatusByUpdate, getDetailOptions } from '@/data/statusupdatecall'
-import * as XLSX from 'xlsx-js-style'
+import { loadXLSX } from '@/lib/xlsx-loader'
 import { useExportToSheets } from '@/hooks/useExportToSheets'
 import { BULAN_NAMES, formatBulan } from './utils'
 
@@ -795,7 +795,8 @@ export default function TrackingCallPage() {
     setPage(Math.min(Math.max(1, p), Math.max(1, totalPages)))
 
   // export handler
-  const handleExport = async () => {
+  async function handleExport() {
+    const XLSX = await loadXLSX()
     // validasi mode 'date' wajib isi tangggal
     if (exportMode === 'date' && !exportStartDate && !exportEndDate) {
       alert('Silakan pilih minimal salah satu tanggal (mulai atau akhir)')
