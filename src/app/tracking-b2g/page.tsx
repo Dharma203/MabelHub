@@ -819,6 +819,86 @@ export default function TrackingB2GPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile View */}
+            <div className='md:hidden space-y-3 p-3'>
+              {loadingRows ? (
+                <div className='py-12 text-center text-gray-500'>Loading...</div>
+              ) : rows.length === 0 ? (
+                <div className='py-12 text-center text-gray-500'>Tidak ada data.</div>
+              ) : (
+                rows.map((r) => {
+                  const isExpanded = expandedSatker === r.satuan_kerja
+                  return (
+                    <div key={r._id} className='rounded-xl bg-white border border-gray-100 shadow-sm'>
+                      <div className='p-4 space-y-2'>
+                        <div className='flex items-center justify-between'>
+                          <span className='inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
+                            {r.rank ?? '-'}
+                          </span>
+                          <button
+                            type='button'
+                            onClick={() => toggleExpandSatker(r.satuan_kerja)}
+                            className={cn(
+                              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all',
+                              isExpanded
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-blue-50 text-blue-700',
+                            )}
+                          >
+                            {r.total_visit ?? '-'} Visit
+                            {isExpanded ? <ChevronUp className='w-3.5 h-3.5' /> : <ChevronDown className='w-3.5 h-3.5' />}
+                          </button>
+                        </div>
+                        <div className='text-sm font-extrabold text-[#0B6AA9]'>{r.nama_sales}</div>
+                        <div className='grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700'>
+                          <div><span className='text-gray-400'>City:</span> {r.city}</div>
+                          <div><span className='text-gray-400'>Ring:</span> {normalizeRing(r.status_ring) || '-'}</div>
+                          <div className='col-span-2'><span className='text-gray-400'>Satker:</span> {r.satuan_kerja}</div>
+                          <div><span className='text-gray-400'>PIC:</span> {r.pic_name}</div>
+                          <div><span className='text-gray-400'>Phone:</span> {r.pic_phone}</div>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className='border-t border-gray-100 p-4'>
+                          <div className='mb-2 text-xs font-extrabold text-gray-900'>
+                            Riwayat Kunjungan — {r.satuan_kerja}
+                          </div>
+                          {loadingVisitDates ? (
+                            <div className='py-4 text-center text-gray-400 text-xs'>Memuat...</div>
+                          ) : visitDates.length === 0 ? (
+                            <div className='py-4 text-center text-gray-400 text-xs'>Tidak ada data.</div>
+                          ) : (
+                            <div className='space-y-2 max-h-60 overflow-y-auto'>
+                              {visitDates.map((v) => {
+                                const sc = getStatusColor(v.status_visit)
+                                return (
+                                  <button
+                                    key={v._id}
+                                    type='button'
+                                    onClick={() => setModalVisit(v)}
+                                    className='flex items-center gap-3 w-full text-left px-3 py-2 rounded-lg border border-gray-100 hover:bg-blue-50/40 transition-all'
+                                  >
+                                    <Calendar className='w-4 h-4 text-blue-600 shrink-0' />
+                                    <div className='flex-1 min-w-0'>
+                                      <div className='text-xs font-bold text-gray-900'>{v.visit_date}</div>
+                                      <div className='text-[10px] text-gray-500 truncate'>{v.nama_sales} • {v.city}</div>
+                                    </div>
+                                    <span className={cn('px-2 py-0.5 rounded-full text-[9px] font-bold uppercase', sc.bg, sc.text)}>
+                                      {v.status_visit || '-'}
+                                    </span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </section>
 
           {/* ========== VISIT DETAIL MODAL ========== */}
@@ -1123,11 +1203,11 @@ export default function TrackingB2GPage() {
 
 function StatCard({ title, value, icon }: StatCardProps) {
   return (
-    <div className='rounded-xl bg-white p-7 shadow flex items-center gap-4'>
+    <div className='rounded-xl bg-white p-4 sm:p-7 shadow flex items-center gap-4'>
       {icon && <div className='rounded-lg bg-blue-100 p-2'>{icon}</div>}
-      <div>
-        <p className='text-l text-gray-500'>{title}</p>
-        <p className='mt-2 text-3xl font-semibold'>{value ?? '-'}</p>
+      <div className='min-w-0'>
+        <p className='text-xs sm:text-sm text-gray-500'>{title}</p>
+        <p className='mt-1 sm:mt-2 text-lg sm:text-3xl font-semibold break-words'>{value ?? '-'}</p>
       </div>
     </div>
   )
