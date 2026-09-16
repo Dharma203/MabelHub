@@ -23,7 +23,7 @@ import {
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import React from 'react'
 import { useRouter } from 'next/navigation'
-import * as XLSX from 'xlsx-js-style'
+import { loadXLSX } from '@/lib/xlsx-loader'
 import { useExportToSheets } from '@/hooks/useExportToSheets'
 
 type ProvinsiKotaRow = {
@@ -555,7 +555,8 @@ export default function TrackingDatabasePage() {
     setPage(Math.min(Math.max(1, p), Math.max(1, totalPages)))
 
   // ---- Export handler ----
-  const handleExport = async () => {
+  async function handleExport () {
+    const XLSX = await loadXLSX()
     // Validasi mode 'date' wajib isi tanggal
     if (exportMode === 'date' && !exportStartDate && !exportEndDate) {
       alert('Silakan pilih minimal salah satu tanggal (mulai atau akhir)')

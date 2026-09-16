@@ -4,13 +4,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useSession } from "@/components/session/SessionProvider";
-import { FileUp, Upload } from "lucide-react";
+import { FileUp} from "lucide-react";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import ConfirmModal from "@/components/modals/ConfirmModal";
-
-// Get Contact
-import { Platform, PermissionsAndroid } from 'react-native';
-import Contacts from 'react-native-contacts';
+import { loadXLSX } from "@/lib/xlsx-loader";
 
 
 type Role = "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES";
@@ -368,7 +365,7 @@ export default function AddInstansiPage() {
   }
   async function handleUploadExcel(file: File) {
     try {
-      const XLSX = await import("xlsx-js-style");
+      const XLSX = await loadXLSX()
 
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: "array" });

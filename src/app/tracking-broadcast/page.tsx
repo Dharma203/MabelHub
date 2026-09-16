@@ -29,7 +29,7 @@ import {
   listStatusByUpdate,
   getDetailOptions,
 } from '@/data/statusupdatebroadcast'
-import * as XLSX from 'xlsx-js-style'
+import { loadXLSX } from '@/lib/xlsx-loader'
 import { useExportToSheets } from '@/hooks/useExportToSheets'
 
 type StatusWaSummary = {
@@ -930,7 +930,8 @@ export default function TrackingBroadcastPage() {
     setPage(Math.min(Math.max(1, p), Math.max(1, totalPages)))
 
   // export handler
-  const handleExport = async () => {
+  async function handleExport() {
+    const XLSX = await loadXLSX()
     // Validasi mode 'date' wajib isi tanggal
     if (exportMode === 'date' && !exportStartDate && !exportEndDate) {
       alert('Silakan pilih minimal salah satu tanggal (mulai atau akhir)')
@@ -1087,7 +1088,10 @@ export default function TrackingBroadcastPage() {
                 val = `${yyyy}-${mm}-${dd}`
               }
             } catch (err) {
-              // fallback
+              if (err) {
+                alert('gagal export')
+                return
+              }
             }
           }
           rowData.push(val)

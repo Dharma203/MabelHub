@@ -950,6 +950,7 @@ export default function TrackingSatuanKerja() {
                             height={500}
                             quality={80}
                             unoptimized
+                            priority
                             className='w-full rounded-xl shadow-sm ring-1 ring-gray-200 group-hover:ring-blue-400 group-hover:shadow-lg transition-all'
                           />
                           <div className='absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center'>
@@ -1001,6 +1002,7 @@ export default function TrackingSatuanKerja() {
                 width={500}
                 quality={80}
                 unoptimized
+                priority
                 alt='Full size'
                 className='max-w-full max-h-full rounded-xl shadow-2xl object-contain'
                 onClick={(e) => e.stopPropagation()}

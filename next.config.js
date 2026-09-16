@@ -1,11 +1,18 @@
 /** @type {import('next').NextConfig} */
 
+import withBundleAnalyzer from '@next/bundle-analyzer'
+
+const bundleAnalyzer = withBundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+})
+
 const nextConfig = {
-  typescript : {
+  typescript: {
     ignoreBuildErrors: true,
   },
   images: {
     qualities: [75, 80],
+    formats: ['image/avif', 'image/webp'], // ← tambah ini untuk konversi otomatis ke WebP
     dangerouslyAllowLocalIP: true,
     remotePatterns: [
       {
@@ -32,14 +39,19 @@ const nextConfig = {
     ],
   },
   allowedDevOrigins: ['192.168.1.21'],
-  productionBrowserSourceMaps: true,
-  turbopack: {},
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
+
+  // ✅ FIX #1: matikan source map di production
+  productionBrowserSourceMaps: false,
+
+  // ✅ FIX #2: tambah pengecekan `dev` agar eval-source-map hanya aktif saat development
+  webpack: (config, { isServer, dev }) => {
+    if (!isServer && dev) {
       config.devtool = 'eval-source-map'
     }
     return config
   },
+
+  // ❌ HAPUS: turbopack: {} tidak berguna kalau kosong
 }
 
-module.exports = nextConfig
+export default bundleAnalyzer(nextConfig)
