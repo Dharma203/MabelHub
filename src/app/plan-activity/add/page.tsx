@@ -475,7 +475,7 @@ function AddPlansContent() {
               {user?.role === 'SALES' && (
                 <button
                   type='button'
-                  onClick={() => router.push('/tambah-instansi')}
+                  onClick={() => router.push('/database-prospek')}
                   className='rounded-lg bg-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm ring-1 ring-blue-200 hover:bg-blue-600 hover:ring-blue-300 transition-all flex items-center gap-2'
                 >
                   <Building className='w-4 h-4' />
