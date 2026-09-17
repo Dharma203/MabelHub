@@ -415,8 +415,9 @@ export default function PlanActivityPage() {
   function openImageBase64(base64: string) {
     const w = window.open("");
     if (w) {
-      w.document.write(
-        `<!DOCTYPE html>
+      if (w.document && typeof w.document.write === "function") {
+        w.document.write(
+          `<!DOCTYPE html>
         <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -441,8 +442,11 @@ export default function PlanActivityPage() {
           <img src="${base64}" alt="Bukti Kunjungan" />
         </body>
         </html>`,
-      );
-      w.document.close();
+        );
+      }
+      if (w.document && typeof w.document.close === "function") {
+        w.document.close();
+      }
     }
   }
 
@@ -461,7 +465,7 @@ export default function PlanActivityPage() {
   // 
 
   // Fetch plans based on calendar view date range
-  const fetchPlans = useCallback(async () => {
+  const fetchPlans = useCallback(async (overrideSearch?: string) => {
     if (!user) return;
 
     try {
@@ -475,7 +479,8 @@ export default function PlanActivityPage() {
         end: range.end,
       });
 
-      if (search.trim()) qs.set("q", search.trim());
+      const query = typeof overrideSearch === "string" ? overrideSearch : search;
+      if (query.trim()) qs.set("q", query.trim());
 
       const res = await fetch(`/api/visits?${qs.toString()}`, {
         cache: "no-store",
@@ -526,22 +531,26 @@ export default function PlanActivityPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, calendarView, currentDate, search]);
+  }, [user, calendarView, currentDate]);
 
-  // Fetch on mount and when dependencies change
+  // Fetch on mount and when date/view changes
   useEffect(() => {
     if (sessionLoading) return;
     if (!user) return;
-    fetchPlans();
-  }, [sessionLoading, user, fetchPlans]);
+    fetchPlans(search);
+  }, [sessionLoading, user, calendarView, currentDate, fetchPlans]);
 
-  // Debounce search
+  // Debounce search changes without triggering an extra fetch on mount
+  const didMountSearchEffect = useRef(false);
   useEffect(() => {
     if (sessionLoading || !user) return;
-    const t = setTimeout(() => fetchPlans(), 350);
+    if (!didMountSearchEffect.current) {
+      didMountSearchEffect.current = true;
+      return;
+    }
+    const t = setTimeout(() => fetchPlans(search), 350);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, sessionLoading, user, fetchPlans]);
 
   // Group plans by date key
   const plansByDate = useMemo(() => {
@@ -617,7 +626,7 @@ export default function PlanActivityPage() {
   }
 
   function getHeaderLabel(): string {
-    if (calendarView === "day") return formatFullDate(currentDate);
+    if (calendarView === "day") return "";
     if (calendarView === "week") {
       const week = getWeekDays(currentDate);
       const start = week[0];
@@ -634,9 +643,9 @@ export default function PlanActivityPage() {
 
   function getPlanDisplayName(plan: Partial<PlanRow>) {
     return (
-      plan.satuan_kerja ||
       plan.institusi_kerja ||
       plan.namaEntitas ||
+      plan.satuan_kerja ||
       plan.jenisEntitas ||
       "Plan"
     );
@@ -835,9 +844,7 @@ export default function PlanActivityPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-lg">{formatFullDate(selectedDate)}</h3>
-                <p className="text-blue-100 text-sm">
-                  {dayPlans.length} Aktivitas
-                </p>
+                <p className="text-blue-100 text-sm">{dayPlans.length} Aktivitas</p>
               </div>
               <button
                 onClick={() => setSelectedDate(null)}
@@ -861,6 +868,7 @@ export default function PlanActivityPage() {
                 return (
                   <div
                     key={plan.id}
+                    onClick={() => setSelectedDate(null)}
                     className="flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-none hover:bg-gray-50 transition-colors"
                   >
                     <div className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
@@ -882,7 +890,7 @@ export default function PlanActivityPage() {
                     </div>
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => copyPlanText(plan)}
+                        onClick={(e) => { e.stopPropagation(); copyPlanText(plan); }}
                         className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${copiedPlanId === plan.id
                             ? "bg-emerald-50 text-emerald-600"
                             : "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
@@ -896,14 +904,14 @@ export default function PlanActivityPage() {
                         )}
                       </button>
                       <button
-                        onClick={() => setDetailPlan(plan)}
+                        onClick={(e) => { e.stopPropagation(); setDetailPlan(plan); }}
                         className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                         title="Lihat Detail"
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => { handleOpenEdit(plan.id); setSelectedDate(null); }}
+                        onClick={(e) => { e.stopPropagation(); handleOpenEdit(plan.id); setSelectedDate(null); }}
                         className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                         title="Edit Kunjungan"
                       >
@@ -944,8 +952,9 @@ export default function PlanActivityPage() {
             const isCurrentMonth = day.getMonth() === currentDate.getMonth();
             const isTodayDate = isToday(day);
             const isSelected = selectedDate && isSameDay(day, selectedDate);
+            const visiblePlans = isSelected ? [] : dayPlans;
             const maxVisible = 3;
-            const moreCount = dayPlans.length > maxVisible ? dayPlans.length - maxVisible : 0;
+            const moreCount = visiblePlans.length > maxVisible ? visiblePlans.length - maxVisible : 0;
 
             return (
               <div
@@ -975,7 +984,7 @@ export default function PlanActivityPage() {
                   )}
                 </div>
                 <div className="space-y-0.5">
-                  {dayPlans.slice(0, maxVisible).map((plan) => renderPlanChip(plan))}
+                  {visiblePlans.slice(0, maxVisible).map((plan) => renderPlanChip(plan))}
                   {moreCount > 0 && (
                     <div className="text-[9px] text-blue-600 font-semibold pl-1">
                       +{moreCount} lainnya
@@ -1044,7 +1053,7 @@ export default function PlanActivityPage() {
                         className={`text-[11px] px-2 py-1.5 rounded-lg ${colors.bg} ${colors.text} font-medium transition-opacity hover:opacity-80`}
                         style={{ borderLeft: `3px solid ${colors.border}` }}
                       >
-                        <div className="font-semibold truncate">{plan.satuan_kerja || plan.kota || "-"}</div>
+                        <div className="font-semibold truncate">{getPlanDisplayName(plan)}</div>
                         <div className="text-[9px] opacity-70 truncate mt-0.5">{plan.kota}</div>
                       </div>
                     );
@@ -1103,15 +1112,12 @@ export default function PlanActivityPage() {
                   >
                     <div className={`w-1.5 h-14 rounded-full shrink-0 ${colors.dot}`} />
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 truncate">{plan.satuan_kerja || "-"}</p>
+                      <p className="font-semibold text-gray-800 truncate">{getPlanDisplayName(plan) || "-"}</p>
                       <p className="text-sm text-gray-500 truncate">{plan.kota} {plan.klpd ? `• ${plan.klpd}` : ""}</p>
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${colors.bg} ${colors.text}`}>
                           {plan.status || "No Status"}
                         </span>
-                        {plan.satuan_kerja && (
-                          <span className="text-[10px] text-gray-400">{plan.institusi_kerja}</span>
-                        )}
                       </div>
                     </div>
 
@@ -1265,9 +1271,11 @@ export default function PlanActivityPage() {
                   <ChevronRight className="w-5 h-5" />
                 </button>
 
-                <h3 className="text-base font-bold text-gray-800 ml-2 whitespace-nowrap">
-                  {getHeaderLabel()}
-                </h3>
+                {getHeaderLabel() && (
+                  <h3 className="text-base font-bold text-gray-800 ml-2 whitespace-nowrap">
+                    {getHeaderLabel()}
+                  </h3>
+                )}
               </div>
 
               {/* Right: View tabs */}
@@ -1320,7 +1328,7 @@ export default function PlanActivityPage() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                Reschedule
+                Rescheduled
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
