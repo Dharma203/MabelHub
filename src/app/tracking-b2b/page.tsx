@@ -32,7 +32,6 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  Cell,
   LabelList,
   ResponsiveContainer,
 } from 'recharts'
@@ -532,7 +531,7 @@ export default function TrackingB2BPage() {
           {/* {Top Bar} */}
           <div className='mb-4 px-4 pt-2 pb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
             <div>
-              <h2 className='text-xl sm:text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
+              <h2 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
                 Tracking Visit B2B
               </h2>
             </div>

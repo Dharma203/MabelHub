@@ -19,7 +19,7 @@ import { useRouter } from 'next/navigation'
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import Image from 'next/image'
 import { normalizeRing } from '@/lib/ring'
-import { div, label } from 'motion/react-client'
+
 
 interface StatCardProps {
   title: string
@@ -390,7 +390,7 @@ export default function TrackingSatuanKerja() {
           {/* TOP Bar */}
           <div className='mb-4 px-4 pt-2 pb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
             <div>
-              <h2 className='tex-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
+              <h2 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
                 Tracking Satuan Kerja
               </h2>
             </div>

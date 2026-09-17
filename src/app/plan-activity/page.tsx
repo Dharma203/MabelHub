@@ -1191,7 +1191,7 @@ export default function PlanActivityPage() {
       `}</style>
 
       <div className="flex">
-        <div className="flex-1 p-6">
+        <div className="flex-1 min-w-0 p-6">
           <main className="w-full max-w-none">
             {/* HEADER */}
             <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

@@ -254,7 +254,10 @@ export default function DatabaseTrackingPage() {
     return filteredRows.slice(start, start + pageSize)
   }, [filteredRows, page, pageSize])
 
-  const clientTotalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize))
+  const clientTotalPages = Math.max(
+    1,
+    Math.ceil(filteredRows.length / pageSize),
+  )
 
   // reset page when search changes
   useEffect(() => {
@@ -263,12 +266,12 @@ export default function DatabaseTrackingPage() {
 
   return (
     <div className='min-h-screen bg-blue-50'>
-      <div className='flex'>
-        <div className='flex-1 p-6'>
+      <div className='flex min-w-0'>
+        <div className='min-w-0 w-full flex-1 p-6'>
           {/* ── Header ── */}
           <div className='flex items-center gap-3 pl-4'>
             <Database className='h-8 w-8 text-blue-600' />
-            <div>
+            <div className='min-w-0 w-full flex-1 p-3 sm:p-6'>
               <h1 className='text-3xl text-black font-extrabold'>
                 Database Tracking
               </h1>
@@ -384,7 +387,8 @@ export default function DatabaseTrackingPage() {
               data {mode.toUpperCase()}
               {search && (
                 <span>
-                  {' '}untuk pencarian &ldquo;
+                  {' '}
+                  untuk pencarian &ldquo;
                   <span className='font-semibold text-blue-600'>{search}</span>
                   &rdquo;
                 </span>
@@ -394,7 +398,7 @@ export default function DatabaseTrackingPage() {
 
           {/* ── Table ── */}
           <div className='mt-3 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200'>
-            <div className='overflow-x-auto'>
+            <div className='hidden md:block overflow-x-auto'>
               <table className='min-w-full text-sm text-left'>
                 <thead
                   className={clsx(
@@ -457,10 +461,14 @@ export default function DatabaseTrackingPage() {
                             className={clsx(
                               'transition-colors cursor-pointer',
                               isExpanded
-                                ? mode === 'b2g' ? 'bg-blue-50/60' : 'bg-emerald-50/60'
+                                ? mode === 'b2g'
+                                  ? 'bg-blue-50/60'
+                                  : 'bg-emerald-50/60'
                                 : 'hover:bg-gray-50/70',
                             )}
-                            onClick={() => setExpandedId(isExpanded ? null : row._id)}
+                            onClick={() =>
+                              setExpandedId(isExpanded ? null : row._id)
+                            }
                           >
                             <td className='whitespace-nowrap px-5 py-3.5 text-sm text-gray-400 font-medium'>
                               {(page - 1) * pageSize + idx + 1}
@@ -491,9 +499,13 @@ export default function DatabaseTrackingPage() {
                                 )}
                               >
                                 {isExpanded ? (
-                                  <><X className='h-3.5 w-3.5' /> Tutup</>
+                                  <>
+                                    <X className='h-3.5 w-3.5' /> Tutup
+                                  </>
                                 ) : (
-                                  <><Eye className='h-3.5 w-3.5' /> Detail</>
+                                  <>
+                                    <Eye className='h-3.5 w-3.5' /> Detail
+                                  </>
                                 )}
                               </button>
                             </td>
@@ -501,8 +513,14 @@ export default function DatabaseTrackingPage() {
 
                           {/* ── Expandable detail row ── */}
                           {isExpanded && (
-                            <tr key={`${row._id}-detail`} className='bg-gray-50/80'>
-                              <td colSpan={columns.length + 2} className='px-6 py-5'>
+                            <tr
+                              key={`${row._id}-detail`}
+                              className='bg-gray-50/80'
+                            >
+                              <td
+                                colSpan={columns.length + 2}
+                                className='px-6 py-5'
+                              >
                                 <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-3'>
                                   {detailFields.map((f) => (
                                     <div key={f.key}>
@@ -526,6 +544,113 @@ export default function DatabaseTrackingPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* {Mobile View} */}
+            <div className='md:hidden space-y-3 p-3'>
+              {loading ? (
+                <div className='flex flex-col items-center justify-center gap-3 py-16 text-sm text-gray-400'>
+                  <Loader2 className='h-8 w-8 animate-spin text-blue-500' />
+                  <span>Memuat data {mode.toUpperCase()}...</span>
+                </div>
+              ) : paginatedRows.length === 0 ? (
+                <div className='flex flex-col items-center justify-center gap-2 py-16 text-sm text-gray-400'>
+                  <Database className='h-10 w-10 text-gray-300' />
+                  <span>
+                    Tidak ada data {mode.toUpperCase()} yang ditemukan.
+                  </span>
+                </div>
+              ) : (
+                paginatedRows.map((row, idx) => {
+                  const isExpanded = expandedId === row._id
+
+                  return (
+                    <div
+                      key={row._id}
+                      className={clsx(
+                        'rounded-xl border p-4 shadow-sm transition-colors',
+                        isExpanded
+                          ? mode === 'b2g'
+                            ? 'border-blue-200 bg-blue-50/60'
+                            : 'border-emerald-200 bg-emerald-50/60'
+                          : 'border-gray-200 bg-white',
+                      )}
+                    >
+                      <div className='flex items-start justify-between gap-3'>
+                        <div className='min-w-0'>
+                          <div className='mb-1 text-xs font-medium text-gray-400'>
+                            No. {(page - 1) * pageSize + idx + 1}
+                          </div>
+                          <div className='break-words text-sm font-bold text-gray-800'>
+                            {String(row[columns[0].key] || '-')}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() =>
+                            setExpandedId(isExpanded ? null : row._id)
+                          }
+                          className={clsx(
+                            'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                            isExpanded
+                              ? 'bg-gray-200 text-gray-700'
+                              : mode === 'b2g'
+                                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
+                          )}
+                        >
+                          {isExpanded ? (
+                            <>
+                              <X className='h-3.5 w-3.5' /> Tutup
+                            </>
+                          ) : (
+                            <>
+                              <Eye className='h-3.5 w-3.5' /> Detail
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className='mt-4 grid gap-3 border-t border-gray-200/80 pt-3'>
+                        {columns.slice(1).map((col) => (
+                          <div
+                            key={col.key}
+                            className='flex items-start justify-between gap-4 text-sm'
+                          >
+                            <span className='shrink-0 text-xs font-bold uppercase tracking-wide text-gray-400'>
+                              {col.label}
+                            </span>
+                            <span className='break-words text-right text-gray-700'>
+                              {col.key === 'ring'
+                                ? normalizeRing(row[col.key]) || '-'
+                                : String(row[col.key] || '-')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {isExpanded && (
+                        <div className='mt-4 grid gap-3 border-t border-gray-200/80 pt-3'>
+                          {detailFields.map((field) => (
+                            <div
+                              key={field.key}
+                              className='flex items-start justify-between gap-4 text-sm'
+                            >
+                              <span className='shrink-0 text-xs font-bold uppercase tracking-wide text-gray-400'>
+                                {field.label}
+                              </span>
+                              <span className='break-words text-right text-gray-800'>
+                                {field.key === 'ring'
+                                  ? normalizeRing(row[field.key]) || '-'
+                                  : String(row[field.key] || '-')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
             </div>
 
             {/* ── Pagination ── */}
@@ -555,34 +680,37 @@ export default function DatabaseTrackingPage() {
                   </button>
 
                   {/* page numbers */}
-                  {Array.from({ length: Math.min(5, clientTotalPages) }, (_, i) => {
-                    let p: number
-                    if (clientTotalPages <= 5) {
-                      p = i + 1
-                    } else if (page <= 3) {
-                      p = i + 1
-                    } else if (page >= clientTotalPages - 2) {
-                      p = clientTotalPages - 4 + i
-                    } else {
-                      p = page - 2 + i
-                    }
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => setPage(p)}
-                        className={clsx(
-                          'min-w-[36px] h-9 rounded-lg text-sm font-medium transition-colors',
-                          p === page
-                            ? mode === 'b2g'
-                              ? 'bg-blue-600 text-white shadow'
-                              : 'bg-emerald-600 text-white shadow'
-                            : 'hover:bg-gray-100 text-gray-600',
-                        )}
-                      >
-                        {p}
-                      </button>
-                    )
-                  })}
+                  {Array.from(
+                    { length: Math.min(5, clientTotalPages) },
+                    (_, i) => {
+                      let p: number
+                      if (clientTotalPages <= 5) {
+                        p = i + 1
+                      } else if (page <= 3) {
+                        p = i + 1
+                      } else if (page >= clientTotalPages - 2) {
+                        p = clientTotalPages - 4 + i
+                      } else {
+                        p = page - 2 + i
+                      }
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => setPage(p)}
+                          className={clsx(
+                            'min-w-[36px] h-9 rounded-lg text-sm font-medium transition-colors',
+                            p === page
+                              ? mode === 'b2g'
+                                ? 'bg-blue-600 text-white shadow'
+                                : 'bg-emerald-600 text-white shadow'
+                              : 'hover:bg-gray-100 text-gray-600',
+                          )}
+                        >
+                          {p}
+                        </button>
+                      )
+                    },
+                  )}
 
                   <button
                     onClick={() =>
