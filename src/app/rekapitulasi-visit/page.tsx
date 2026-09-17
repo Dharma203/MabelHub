@@ -950,8 +950,9 @@ export default function RekapitulasiVisitPage() {
                 <div className='grid grid-cols-2 gap-4 py-3 border-b border-gray-100'>
                   <div>
                     {(() => {
-                      const institusiLabel =
-                        detailKunjungan.klpd ? "KLPD" : "Jenis Entitas"
+                      const institusiLabel = detailKunjungan.klpd
+                        ? 'KLPD'
+                        : 'Jenis Entitas'
                       return (
                         <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider'>
                           {institusiLabel || '-'}
@@ -1639,8 +1640,8 @@ export default function RekapitulasiVisitPage() {
                             </div>
                           </div>
 
-                          <div className='grid grid-cols-2 gap-3 text-sm'>
-                            <div>
+                          <div className='grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 text-sm'>
+                            <div className='min-w-0'>
                               <div className='text-xs font-medium text-gray-500 mb-0.5'>
                                 Ring
                               </div>
@@ -1648,7 +1649,7 @@ export default function RekapitulasiVisitPage() {
                                 {normalizeRing(r.status_ring) || '-'}
                               </div>
                             </div>
-                            <div>
+                            <div className='min-w-0'>
                               <div className='text-xs font-medium text-gray-500 mb-0.5'>
                                 City
                               </div>
@@ -1656,28 +1657,48 @@ export default function RekapitulasiVisitPage() {
                                 {r.city}
                               </div>
                             </div>
-                            <div className='col-span-2'>
+                            <div className='col-span-2 min-w-0'>
                               <div className='text-xs font-medium text-gray-500 mb-0.5'>
                                 Satuan Kerja
                               </div>
-                              <div className='font-semibold text-gray-900 leading-tight'>
+                              <div className='break-words font-semibold leading-tight text-gray-900'>
                                 {r.satuan_kerja}
                               </div>
                             </div>
-                            <div className='col-span-2'>
-                              <div className='text-xs font-medium text-gray-500 mb-0.5'>
-                                PIC Name
-                              </div>
-                              <div className='font-semibold text-gray-900'>
-                                {r.pic_name}
-                              </div>
-                            </div>
-                            <div className='col-span-2'>
+                            <div className='min-w-0'>
                               <div className='text-xs font-medium text-gray-500 mb-0.5'>
                                 Visit Date
                               </div>
                               <div className='font-semibold text-gray-800'>
                                 {formatDateID(r.visit_date)}
+                              </div>
+                            </div>
+                            <div className='min-w-0'>
+                              <div className='text-xs font-medium text-gray-500 mb-0.5'>
+                                PIC Name
+                              </div>
+                              <div className='break-words font-semibold text-gray-900'>
+                                {r.pic_name}
+                              </div>
+                            </div>
+                            <div className='min-w-0'>
+                              <div className='text-xs font-medium text-gray-500 mb-0.5'>
+                                Foto Visit
+                              </div>
+                              <div className='font-semibold text-gray-800'>
+                                <LinkItem
+                                  label=''
+                                  value={r.visit_image}
+                                  isLink
+                                />
+                              </div>
+                            </div>
+                            <div className='min-w-0'>
+                              <div className='text-xs font-medium text-gray-500 mb-0.5'>
+                                PIC Phone
+                              </div>
+                              <div className='break-words font-semibold text-gray-900'>
+                                {r.pic_phone}
                               </div>
                             </div>
                           </div>
