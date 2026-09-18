@@ -152,6 +152,8 @@ export default function Sidebar() {
           ? "Leader"
           : role === "TELEMARKETING"
             ? "Telemarketing"
+            : role === "ADMIN SALES"
+            ? "Admin Sales"
             : "Sales";
 
   const isActive = (href: string) => {

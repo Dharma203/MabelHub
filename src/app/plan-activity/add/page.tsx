@@ -152,7 +152,8 @@ function AddPlansContent() {
         user.role === 'SALES' ||
         user.role === 'LEADER' ||
         user.role === 'ADMIN' ||
-        user.role === 'SUPERADMIN'
+        user.role === 'SUPERADMIN' ||
+        user.role === 'ADMIN SALES'
       if (!ok) router.replace('/')
     }
   }, [sessionLoading, user, router])
@@ -162,7 +163,8 @@ function AddPlansContent() {
     return (
       user?.role === 'LEADER' ||
       user?.role === 'SUPERADMIN' ||
-      user?.role === 'ADMIN'
+      user?.role === 'ADMIN' ||
+      user?.role === 'ADMIN SALES'
     )
   }, [user?.role])
 
@@ -193,7 +195,11 @@ function AddPlansContent() {
             .filter((x: AssigneeOption) => x.userId)
 
           setAssigneeOptions(list)
-        } else if (user.role === 'SUPERADMIN' || user.role === 'ADMIN') {
+        } else if (
+          user.role === 'SUPERADMIN' ||
+          user.role === 'ADMIN' ||
+          user.role === 'ADMIN SALES'
+        ) {
           const res = await fetch('/api/users', { cache: 'no-store' })
           const json = await res.json().catch(() => ({}))
           const arr = pickArray(json)

@@ -204,7 +204,8 @@ export default function RekapitulasiVisitPage() {
         user.role === 'SUPERADMIN' ||
         user.role === 'ADMIN' ||
         user.role === 'LEADER' ||
-        user.role === 'SALES'
+        user.role === 'SALES' ||
+        user.role === 'ADMIN SALES'
       if (!ok) router.replace('/')
     }
   }, [sessionLoading, user, router])

@@ -180,7 +180,8 @@ export default function EProcurementRequestPage() {
   const canPickAssignee =
     user?.role === "LEADER" ||
     user?.role === "SUPERADMIN" ||
-    user?.role === "ADMIN";
+    user?.role === "ADMIN" ||
+    user?.role === "ADMIN SALES";
 
   // Prefill requestor untuk non-leader/superadmin (dan tetap bisa edit manual)
   useEffect(() => {
@@ -227,7 +228,11 @@ export default function EProcurementRequestPage() {
         }
 
         // SUPERADMIN/ADMIN: all sales + leader
-        if (user.role === "SUPERADMIN" || user.role === "ADMIN") {
+        if (
+          user.role === "SUPERADMIN" ||
+          user.role === "ADMIN" ||
+          user.role === "ADMIN SALES"
+        ) {
           const res = await fetch("/api/users", { cache: "no-store" });
           const j = await res.json().catch(() => ({}));
           const arr = pickArray(j);

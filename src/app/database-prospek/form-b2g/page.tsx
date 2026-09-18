@@ -25,6 +25,8 @@ type KontakItem = {
   email: string
 }
 
+type FirstCapital = Capitalize<string>;
+
 function FormB2GContent() {
   const [isOpenSatker, setIsOpenSatker] = useState(false)
   const [isOpenInstitusi, setIsOpenInstitusi] = useState(false)
@@ -539,11 +541,12 @@ function FormB2GContent() {
                   type='text'
                   value={satuanKerja}
                   onChange={(e) => {
-                    setSatuanKerja(e.target.value)
+                    setSatuanKerja(e.target.value.replace(/^./, (char) => char.toUpperCase()))
                     setIsOpenSatker(true)
                   }}
                   onFocus={() => setIsOpenSatker(true)}
                   autoComplete='off'
+                  autoCapitalize='sentences'
                   placeholder='Dinas/ Office / Unit Kerja'
                   className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 />
@@ -581,11 +584,12 @@ function FormB2GContent() {
                   type='text'
                   value={institusiKerja}
                   onChange={(e) => {
-                    setInstitusiKerja(e.target.value)
+                    setInstitusiKerja(e.target.value.replace(/^./, (char) => char.toUpperCase()))
                     setIsOpenInstitusi(true)
                   }}
                   onFocus={() => setIsOpenInstitusi(true)}
                   autoComplete='off'
+                  autoCapitalize='sentences'
                   placeholder='Ketik nama perusahaan'
                   className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 />

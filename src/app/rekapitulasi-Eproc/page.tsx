@@ -669,7 +669,7 @@ export default function RekapitulasiEProcurementPage() {
                     console.log("EXPORT BUTTON CLICKED");
                     setIsExportModalOpen(true);
                   }}
-                  className="z-50 relative rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm ring-1 ring-green-700 hover:bg-green-700 transition whitespace-nowrap"
+                  className="relative rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm ring-1 ring-green-700 hover:bg-green-700 transition whitespace-nowrap"
                 >
                   Export Excel
                 </button>

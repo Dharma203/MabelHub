@@ -200,7 +200,8 @@ export async function POST(req: Request) {
     session.role !== "SALES" &&
     session.role !== "LEADER" &&
     session.role !== "SUPERADMIN" &&
-    session.role !== "ADMIN"
+    session.role !== "ADMIN" &&
+    session.role !== "ADMIN SALES"
   ) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
@@ -283,7 +284,11 @@ export async function POST(req: Request) {
       }
     }
 
-    if (session.role === "SUPERADMIN" || session.role === "ADMIN") {
+    if (
+      session.role === "SUPERADMIN" ||
+      session.role === "ADMIN" ||
+      session.role === "ADMIN SALES"
+    ) {
       if (assignedToUserIdRaw !== session.userId) {
         const u = await getUserLite(db, assignedToUserIdRaw);
         if (!u)
