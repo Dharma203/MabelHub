@@ -9,7 +9,7 @@ type UserDoc = {
   email: string;
   username: string;
   passwordHash: string;
-  role: "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES";
+  role: "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES" | "ADMIN SALES";
   isActive?: boolean;
 };
 

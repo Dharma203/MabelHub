@@ -457,7 +457,8 @@ export default function PlanActivityPage() {
         user.role === "SALES" ||
         user.role === "LEADER" ||
         user.role === "ADMIN" ||
-        user.role === "SUPERADMIN";
+        user.role === "SUPERADMIN" ||
+        user.role === "ADMIN SALES";
       if (!ok) router.replace("/");
     }
   }, [sessionLoading, user, router]);
@@ -531,14 +532,14 @@ export default function PlanActivityPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, calendarView, currentDate]);
+  }, [user, calendarView, currentDate, search]);
 
   // Fetch on mount and when date/view changes
   useEffect(() => {
     if (sessionLoading) return;
     if (!user) return;
     fetchPlans(search);
-  }, [sessionLoading, user, calendarView, currentDate, fetchPlans]);
+  }, [sessionLoading, user, calendarView, currentDate, fetchPlans, search]);
 
   // Debounce search changes without triggering an extra fetch on mount
   const didMountSearchEffect = useRef(false);

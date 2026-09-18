@@ -1,4 +1,10 @@
-export type Role = 'SUPERADMIN' | 'ADMIN' | 'LEADER' | 'SALES' | 'TELEMARKETING' | 'ADMIN SALES'
+export type Role =
+  | 'SUPERADMIN'
+  | 'ADMIN'
+  | 'LEADER'
+  | 'SALES'
+  | 'TELEMARKETING'
+  | 'ADMIN SALES'
 
 export type MenuItem = {
   label: string
@@ -366,7 +372,7 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           label: 'Database Tracking',
           href: '/database-tracking',
           icon: 'Database',
-        }
+        },
       ],
     },
     {
@@ -407,6 +413,37 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           label: 'Sales Report System',
           href: '/sales-report-system',
           icon: 'FileText',
+        },
+        {
+          label: 'Tracking Satuan Kerja',
+          href: '/tracking-satker',
+          icon: 'Building2',
+        },
+        {
+          label: 'Tracking Visit B2G',
+          href: '/tracking-b2g',
+          icon: 'Building',
+        },
+        {
+          label: 'Tracking Visit B2B',
+          href: '/tracking-b2b',
+          icon: 'Building',
+        },
+      ],
+    },
+    {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
+        {
+          label: 'Database Tracking',
+          href: '/database-tracking',
+          icon: 'Database',
         },
       ],
     },

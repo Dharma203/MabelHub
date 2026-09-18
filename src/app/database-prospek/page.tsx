@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useSession } from '@/components/session/SessionProvider'
-import { DatabaseBackupIcon, DatabaseZap } from 'lucide-react'
 import Card from '@/components/ui/Card'
 interface CardItemProps {
   title: string
