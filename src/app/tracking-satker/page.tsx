@@ -373,10 +373,17 @@ export default function TrackingSatuanKerja() {
         if (fCity !== 'ALL') qs.set('city', fCity)
         if (fRing !== 'ALL') qs.set('ring', fRing)
         if (fSatker !== 'ALL') qs.set('satker', fSatker)
+        if (fPhone !== 'ALL') qs.set('pic_phone', fPhone)
         if (fStart) qs.set('start', fStart)
         if (fEnd) qs.set('end', fEnd)
+        qs.set('sortBy', sortBy)
+        qs.set('sortDir', sortDir)
+        qs.set('groupBySatker', 'true')
+        qs.set('excludeOffice', 'true')
 
-        const res = await fetch(`/api/visits/?${qs.toString()}`)
+        const res = await fetch(`/api/visits?${qs.toString()}`, {
+          cache: 'no-store',
+        })
         if (!res.ok) throw new Error('Gagal mengambil data')
         const json = await res.json()
         dataToProcess = Array.isArray(json?.items) ? json.items : []
@@ -386,9 +393,9 @@ export default function TrackingSatuanKerja() {
 
       const flattenedData = dataToProcess.map((r) => {
         const row: any = {}
+        if (selectedCols.includes('rank')) row['Rank'] = r.rank || '-'
         if (selectedCols.includes('nama_sales'))
           row['Nama Sales'] = r.nama_sales || '-'
-        if (selectedCols.includes('rank')) row['Rank'] = r.rank || '-'
         if (selectedCols.includes('city')) row['City'] = r.city || '-'
         if (selectedCols.includes('ring'))
           row['Ring'] = normalizeRing(r.status_ring) || '-'
