@@ -69,6 +69,46 @@ export async function GET(req: Request) {
         .toArray(),
     ]);
 
+    const visitItems =
+      b2gItems.length === 0 && b2bItems.length === 0
+        ? await db
+            .collection("VisitActivity")
+            .find({
+              $and: [
+                { $or: [{ ring }, { status_ring: ring }] },
+                {
+                  $or: [
+                    { institusi_kerja: { $regex: `^${escapedInstitusi}$`, $options: "i" } },
+                    { institusiKerja: { $regex: `^${escapedInstitusi}$`, $options: "i" } },
+                    { namaEntitas: { $regex: `^${escapedInstitusi}$`, $options: "i" } },
+                  ],
+                },
+                q
+                  ? {
+                      $or: [
+                        { satuan_kerja: { $regex: escapeRegex(q), $options: "i" } },
+                        { satuanKerja: { $regex: escapeRegex(q), $options: "i" } },
+                        { namaEntitas: { $regex: escapeRegex(q), $options: "i" } },
+                      ],
+                    }
+                  : {},
+              ],
+            })
+            .sort({ satuan_kerja: 1, satuanKerja: 1 })
+            .limit(limit)
+            .project({
+              satuanKerja: 1,
+              satuan_kerja: 1,
+              namaEntitas: 1,
+              kota: 1,
+              klpd: 1,
+              ring: 1,
+              status_ring: 1,
+              pic_default: 1,
+            })
+            .toArray()
+        : [];
+
     const merged = [
       ...b2gItems.map((x: Record<string, unknown>) => {
         const row = x as Record<string, unknown>;
@@ -89,6 +129,30 @@ export async function GET(req: Request) {
           kota: typeof row.kota === "string" ? row.kota : "",
           klpd: "",
           ring: typeof row.ring === "string" ? row.ring : "",
+          pic_default: row.pic_default ?? null,
+        };
+      }),
+      ...visitItems.map((x: Record<string, unknown>) => {
+        const row = x as Record<string, unknown>;
+        return {
+          _id: String(row._id ?? ""),
+          satuanKerja:
+            typeof row.satuanKerja === "string"
+              ? row.satuanKerja
+              : typeof row.satuan_kerja === "string"
+                ? row.satuan_kerja
+                : typeof row.namaEntitas === "string"
+                  ? row.namaEntitas
+                  : "",
+          namaEntitas: typeof row.namaEntitas === "string" ? row.namaEntitas : "",
+          kota: typeof row.kota === "string" ? row.kota : "",
+          klpd: typeof row.klpd === "string" ? row.klpd : "",
+          ring:
+            typeof row.ring === "string"
+              ? row.ring
+              : typeof row.status_ring === "string"
+                ? row.status_ring
+                : "",
           pic_default: row.pic_default ?? null,
         };
       }),
