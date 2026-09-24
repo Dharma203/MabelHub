@@ -58,6 +58,7 @@ type VisitRow = {
   kegiatan_status: string
   descriptions: string
   visit_image: string
+  no_visit_per_month: string
   _date: Date | null
   _sortTs: number
 }
@@ -739,6 +740,7 @@ export default function RekapitulasiVisitPage() {
           status_visit: v.status_visit || '',
           created_at: v.created_at || '',
           status_market: v.status_market || '',
+          no_visit_per_month: v.no_visit_per_month || '',
           _sortTs: sortTs,
           _date: parsedDate,
         }
@@ -791,6 +793,8 @@ export default function RekapitulasiVisitPage() {
     { id: 'tindakLanjut', label: 'Tindak Lanjut' },
     { id: 'kegiatanStatus', label: 'Kegiatan Status' },
     { id: 'deskripsi', label: 'Deskripsi Kegiatan' },
+    { id: 'visit_image', label: 'Foto Visit'},
+    { id: 'no_visit_per_month', label: 'No Visit/Bln'}
   ]
 
   async function handleExport(selectedCols: string[], scope: ExportScope) {
@@ -863,6 +867,8 @@ export default function RekapitulasiVisitPage() {
           row['Deskripsi Kegiatan'] = r.descriptions || '-'
         if (selectedCols.includes('visit_image'))
           row['Visit Image'] = r.visit_image || '-'
+        if (selectedCols.includes('no_visit_per_month'))
+          row['No Visit/Bln'] = r.no_visit_per_month || '-'
         return row
       })
 

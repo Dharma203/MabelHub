@@ -23,6 +23,11 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import { normalizeRing } from '@/lib/ring'
+import { loadXLSX } from '@/lib/xlsx-loader'
+import ExportExcelModal, {
+  ExportColumn,
+  ExportScope,
+} from '@/components/modals/ExportExcelModal'
 
 interface StatCardProps {
   title: string
@@ -149,6 +154,10 @@ export default function TrackingB2GPage() {
   const [sortBy, setSortBy] = useState<string>('total_visit')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
+  // export modal
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+
   useEffect(() => {
     let mounted = true
 
@@ -229,7 +238,7 @@ export default function TrackingB2GPage() {
         setEntitasOptions([
           ...new Set([
             ...(Array.isArray(json?.namaEntitas) ? json.namaEntitas : []),
-            ...(Array.isArray(json?.jenisEntitas) ? json.jenisEntitas: []),
+            ...(Array.isArray(json?.jenisEntitas) ? json.jenisEntitas : []),
           ]),
         ])
         setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
@@ -351,6 +360,91 @@ export default function TrackingB2GPage() {
     setExpandedSatker(null)
   }
 
+  const exportColumns: ExportColumn[] = [
+    { id: 'rank', label: 'Rank' },
+    { id: 'nama_sales', label: 'Sales Person' },
+    { id: 'city', label: 'City' },
+    { id: 'ring', label: 'Ring' },
+    { id: 'klpd', label: 'KLPD' },
+    { id: 'institusi_kerja', label: 'Institusi Kerja' },
+    { id: 'satuan_kerja', label: 'Satuan Kerja' },
+    { id: 'pic_name', label: 'Pic Name' },
+    { id: 'pic_phone', label: 'Pic Phone' },
+    { id: 'total_visit', label: 'Total Visit' },
+  ]
+
+  async function handleExport(selectedCols: string[], scope: ExportScope) {
+    const XLSX = await loadXLSX()
+    setIsExporting(true)
+    try {
+      let dataToProcess: VisitRow[] = []
+
+      if (scope === 'all') {
+        const qs = new URLSearchParams()
+        qs.set('limit', '999999')
+        qs.set('page', '1')
+
+        if (fSales !== 'ALL') qs.set('sales', fSales)
+        if (fCity !== 'ALL') qs.set('city', fCity)
+        if (fRing !== 'ALL') qs.set('ring', fRing)
+        if (fSatker !== 'ALL') qs.set('satker', fSatker)
+        if (fKlpd !== 'ALL') qs.set('klpd', fKlpd)
+        if (fStart) qs.set('start', fStart)
+        if (fEnd) qs.set('end', fStart)
+        qs.set('sortBy', sortBy)
+        qs.set('sortDir', sortDir)
+        qs.set('groupBySatker', 'true')
+        qs.set('excludeOffice', 'true')
+
+        const res = await fetch(`/api/visits?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        if (!res.ok) throw new Error('Gagal mengambil data')
+        const json = await res.json()
+        dataToProcess = Array.isArray(json?.items) ? json.items : []
+      } else {
+        dataToProcess = rows
+      }
+
+      const flattenedData = dataToProcess.map((r) => {
+        const row: any = {}
+        if (selectedCols.includes('rank')) row['Rank'] = r.rank || '-'
+        if (selectedCols.includes('nama_sales'))
+          row['Nama Sales'] = r.nama_sales || '-'
+        if (selectedCols.includes('city')) row['City'] = r.city || '-'
+        if (selectedCols.includes('ring'))
+          row['Ring'] = normalizeRing(r.status_ring) || '-'
+        if (selectedCols.includes('klpd')) row['KLPD'] = r.klpd || '-'
+        if (selectedCols.includes('institusi_kerja'))
+          row['Institusi Kerja'] = r.institusi_kerja || '-'
+        if (selectedCols.includes('satuan_kerja'))
+          row['Satuan Kerja'] = r.satuan_kerja || '-'
+        if (selectedCols.includes('pic_name'))
+          row['Pic Name'] = r.pic_name || '-'
+        if (selectedCols.includes('pic_phone'))
+          row['Pic Phone'] = r.pic_phone || '-'
+        if (selectedCols.includes('total_visit'))
+          row['Total Visit'] = r.total_visit
+        return row
+      })
+
+      const worksheet = XLSX.utils.json_to_sheet(flattenedData)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Tracking B2G')
+      XLSX.writeFile(
+        workbook,
+        `Tracking_B2G_${scope === 'all' ? 'ALL' : 'Page'}.xlsx`,
+      )
+
+      setIsExportModalOpen(false)
+    } catch (error) {
+      console.error('Failed to export to excel: ', error)
+      alert('gagal mengekspor data ke excel')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   // Fetch visit dates when expanding a satker
   const toggleExpandSatker = useCallback(
     async (satkerName: string) => {
@@ -420,6 +514,14 @@ export default function TrackingB2GPage() {
               <h2 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
                 Tracking Visit B2G
               </h2>
+            </div>
+            <div className='px-4'>
+              <button
+                onClick={() => setIsExportModalOpen(true)}
+                className='rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm ring-1 ring-green-700 hover:bg-green-700 transition'
+              >
+                Export Excel
+              </button>
             </div>
           </div>
           <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-4'>
@@ -824,14 +926,21 @@ export default function TrackingB2GPage() {
             {/* Mobile View */}
             <div className='md:hidden space-y-3 p-3'>
               {loadingRows ? (
-                <div className='py-12 text-center text-gray-500'>Loading...</div>
+                <div className='py-12 text-center text-gray-500'>
+                  Loading...
+                </div>
               ) : rows.length === 0 ? (
-                <div className='py-12 text-center text-gray-500'>Tidak ada data.</div>
+                <div className='py-12 text-center text-gray-500'>
+                  Tidak ada data.
+                </div>
               ) : (
                 rows.map((r) => {
                   const isExpanded = expandedSatker === r.satuan_kerja
                   return (
-                    <div key={r._id} className='rounded-xl bg-white border border-gray-100 shadow-sm'>
+                    <div
+                      key={r._id}
+                      className='rounded-xl bg-white border border-gray-100 shadow-sm'
+                    >
                       <div className='p-4 space-y-2'>
                         <div className='flex items-center justify-between'>
                           <span className='inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
@@ -848,16 +957,37 @@ export default function TrackingB2GPage() {
                             )}
                           >
                             {r.total_visit ?? '-'} Visit
-                            {isExpanded ? <ChevronUp className='w-3.5 h-3.5' /> : <ChevronDown className='w-3.5 h-3.5' />}
+                            {isExpanded ? (
+                              <ChevronUp className='w-3.5 h-3.5' />
+                            ) : (
+                              <ChevronDown className='w-3.5 h-3.5' />
+                            )}
                           </button>
                         </div>
-                        <div className='text-sm font-extrabold text-[#0B6AA9]'>{r.nama_sales}</div>
+                        <div className='text-sm font-extrabold text-[#0B6AA9]'>
+                          {r.nama_sales}
+                        </div>
                         <div className='grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700'>
-                          <div><span className='text-gray-400'>City:</span> {r.city}</div>
-                          <div><span className='text-gray-400'>Ring:</span> {normalizeRing(r.status_ring) || '-'}</div>
-                          <div className='col-span-2'><span className='text-gray-400'>Satker:</span> {r.satuan_kerja}</div>
-                          <div><span className='text-gray-400'>PIC:</span> {r.pic_name}</div>
-                          <div><span className='text-gray-400'>Phone:</span> {r.pic_phone}</div>
+                          <div>
+                            <span className='text-gray-400'>City:</span>{' '}
+                            {r.city}
+                          </div>
+                          <div>
+                            <span className='text-gray-400'>Ring:</span>{' '}
+                            {normalizeRing(r.status_ring) || '-'}
+                          </div>
+                          <div className='col-span-2'>
+                            <span className='text-gray-400'>Satker:</span>{' '}
+                            {r.satuan_kerja}
+                          </div>
+                          <div>
+                            <span className='text-gray-400'>PIC:</span>{' '}
+                            {r.pic_name}
+                          </div>
+                          <div>
+                            <span className='text-gray-400'>Phone:</span>{' '}
+                            {r.pic_phone}
+                          </div>
                         </div>
                       </div>
                       {isExpanded && (
@@ -866,9 +996,13 @@ export default function TrackingB2GPage() {
                             Riwayat Kunjungan — {r.satuan_kerja}
                           </div>
                           {loadingVisitDates ? (
-                            <div className='py-4 text-center text-gray-400 text-xs'>Memuat...</div>
+                            <div className='py-4 text-center text-gray-400 text-xs'>
+                              Memuat...
+                            </div>
                           ) : visitDates.length === 0 ? (
-                            <div className='py-4 text-center text-gray-400 text-xs'>Tidak ada data.</div>
+                            <div className='py-4 text-center text-gray-400 text-xs'>
+                              Tidak ada data.
+                            </div>
                           ) : (
                             <div className='space-y-2 max-h-60 overflow-y-auto'>
                               {visitDates.map((v) => {
@@ -882,10 +1016,20 @@ export default function TrackingB2GPage() {
                                   >
                                     <Calendar className='w-4 h-4 text-blue-600 shrink-0' />
                                     <div className='flex-1 min-w-0'>
-                                      <div className='text-xs font-bold text-gray-900'>{v.visit_date}</div>
-                                      <div className='text-[10px] text-gray-500 truncate'>{v.nama_sales} • {v.city}</div>
+                                      <div className='text-xs font-bold text-gray-900'>
+                                        {v.visit_date}
+                                      </div>
+                                      <div className='text-[10px] text-gray-500 truncate'>
+                                        {v.nama_sales} • {v.city}
+                                      </div>
                                     </div>
-                                    <span className={cn('px-2 py-0.5 rounded-full text-[9px] font-bold uppercase', sc.bg, sc.text)}>
+                                    <span
+                                      className={cn(
+                                        'px-2 py-0.5 rounded-full text-[9px] font-bold uppercase',
+                                        sc.bg,
+                                        sc.text,
+                                      )}
+                                    >
                                       {v.status_visit || '-'}
                                     </span>
                                   </button>
@@ -1198,6 +1342,13 @@ export default function TrackingB2GPage() {
           </section>
         </div>
       </div>
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        columns={exportColumns}
+        onExport={handleExport}
+        isLoading={isExporting}
+      />
     </div>
   )
 }
@@ -1208,7 +1359,9 @@ function StatCard({ title, value, icon }: StatCardProps) {
       {icon && <div className='rounded-lg bg-blue-100 p-2'>{icon}</div>}
       <div className='min-w-0'>
         <p className='text-xs sm:text-sm text-gray-500'>{title}</p>
-        <p className='mt-1 sm:mt-2 text-lg sm:text-3xl font-semibold break-words'>{value ?? '-'}</p>
+        <p className='mt-1 sm:mt-2 text-lg sm:text-3xl font-semibold break-words'>
+          {value ?? '-'}
+        </p>
       </div>
     </div>
   )
