@@ -1077,8 +1077,14 @@ function FormB2BContent() {
                       { value: 'Beffry Rizkana', label: 'Beffry Rizkana' },
                       { value: 'Ferrie Ferdinal', label: 'Ferrie Ferdinal' },
                       { value: 'Hery Nugraha', label: 'Hery Nugraha' },
-                      { value: 'Hendri', label: 'Hendri' },
-                      { value: 'Eva Tamika', label: 'Eva Tamika' },
+                      {
+                        value: 'Meiliyani Anggraini',
+                        label: 'Meiliyani Anggraini',
+                      },
+                      {
+                        value: 'Muhammad Aidil Fattah',
+                        label: 'Muhammad Aidil Fattah',
+                      },
                       { value: 'Toni Ramdan', label: 'Toni Ramdan' },
                       { value: 'Mugi Khairul', label: 'Mugi Khairul' },
                     ]}
