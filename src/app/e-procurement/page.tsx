@@ -872,7 +872,7 @@ export default function EProcurementRequestPage() {
               <div className="md:col-span-8 flex w-full justify-end gap-4">
                 <button
                   onClick={addItem}
-                  className="inline-flex h-14 items-center gap-2 rounded-full bg-blue-600 px-6 text-md font-extrabold text-gray-50 shadow-sm hover:bg-blue-700"
+                  className="inline-flex h-14 items-center gap-2 rounded-full bg-blue-600 px-5 text-md font-extrabold text-gray-50 shadow-sm hover:bg-blue-700"
                 >
                   <span className="text-lg leading-none"></span> TAMBAH PRODUK
                 </button>
@@ -880,7 +880,7 @@ export default function EProcurementRequestPage() {
                 <button
                   onClick={handleKirim}
                   disabled={isSubmitting}
-                  className="inline-flex h-14 items-center justify-center rounded-full bg-green-600 px-32 text-md font-extrabold tracking-wide text-gray-50 shadow-sm hover:bg-green-700 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="inline-flex h-14 items-center justify-center rounded-full bg-green-600 px-20 text-md font-extrabold tracking-wide text-gray-50 shadow-sm hover:bg-green-700 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
                     <>
