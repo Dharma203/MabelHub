@@ -131,28 +131,63 @@ export default function EditVisitModal({
     }
   }, [isOpen, editId, onClose])
 
+  // Hidden ref for iOS .vcf fallback
+  const vcfInputRef = React.useRef<HTMLInputElement | null>(null)
+
+  function parseVCard(text: string): { name: string; phone: string } {
+    const phoneLine = text.split('\n').find((l) => l.startsWith('TEL'))
+    const nameLine = text.split('\n').find((l) => l.startsWith('FN'))
+    const phone = phoneLine?.split(':').pop()?.replace(/[^0-9+]/g, '') || ''
+    const name = nameLine?.split(':').slice(1).join(':').trim() || ''
+    return { name, phone }
+  }
+
+  function handleVcfFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const { name, phone } = parseVCard(reader.result as string)
+      if (phone) {
+        setForm((prev) => ({
+          ...prev,
+          pic_phone: phone,
+          ...(name && !prev.pic_name ? { pic_name: name } : {}),
+        }))
+      } else {
+        alert('Nomor telepon tidak ditemukan di kontak ini')
+      }
+    }
+    reader.readAsText(file)
+    // Reset agar bisa pilih file yang sama lagi
+    e.target.value = ''
+  }
+
   async function pickContactPhone() {
-    // Contact Picker API — Android Chrome & some iOS browsers
+    // Contact Picker API — works on Android Chrome
     if ('contacts' in navigator && 'ContactsManager' in window) {
       try {
         const contacts = await (navigator as any).contacts.select(
-          ['tel'],
+          ['name', 'tel'],
           { multiple: false },
         )
         if (contacts?.length && contacts[0].tel?.length) {
           const phone = contacts[0].tel[0].replace(/[^0-9+]/g, '')
-          setForm((prev) => ({ ...prev, pic_phone: phone }))
+          const name = contacts[0].name?.[0] || ''
+          setForm((prev) => ({
+            ...prev,
+            pic_phone: phone,
+            ...(name && !prev.pic_name ? { pic_name: name } : {}),
+          }))
         }
       } catch {
-        // User cancelled or API error — do nothing
+        // User cancelled — do nothing
       }
       return
     }
-    // Fallback: prompt manual input (iOS Safari doesn't support Contact Picker)
-    const phone = prompt('Masukkan nomor HP PIC:')
-    if (phone) {
-      setForm((prev) => ({ ...prev, pic_phone: phone.replace(/[^0-9+]/g, '') }))
-    }
+    // Fallback for iOS Safari: open .vcf file picker
+    // User can share a contact from Contacts app as .vcf
+    vcfInputRef.current?.click()
   }
 
   async function handleSave() {
@@ -437,6 +472,14 @@ export default function EditVisitModal({
                       📇
                     </button>
                   )}
+                  {/* Hidden input for iOS .vcf fallback */}
+                  <input
+                    ref={vcfInputRef}
+                    type='file'
+                    accept='.vcf,text/vcard'
+                    onChange={handleVcfFile}
+                    className='hidden'
+                  />
                 </div>
               </div>
 
