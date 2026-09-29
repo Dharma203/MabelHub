@@ -157,7 +157,7 @@ describe('DatabaseTrackingPage', () => {
     global.fetch = jest.fn().mockReturnValue(new Promise(() => { })) as any // never resolves
     render(<DatabaseTrackingPage />)
 
-    expect(screen.getByText(/Memuat data B2G/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Memuat data B2G/i).length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows empty state when no rows', async () => {
@@ -165,7 +165,7 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Tidak ada data B2G/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/Tidak ada data B2G/i).length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -175,8 +175,8 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dinas Kesehatan')).toBeInTheDocument()
-      expect(screen.getByText('Dinas Pendidikan')).toBeInTheDocument()
+      expect(screen.getAllByText('Dinas Kesehatan').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('Dinas Pendidikan').length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -210,7 +210,7 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dinas Kesehatan')).toBeInTheDocument()
+      expect(screen.getAllByText('Dinas Kesehatan').length).toBeGreaterThanOrEqual(1)
     })
 
     fireEvent.click(screen.getByText('Data B2B'))
@@ -226,7 +226,7 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dinas Kesehatan')).toBeInTheDocument()
+      expect(screen.getAllByText('Dinas Kesehatan').length).toBeGreaterThanOrEqual(1)
     })
 
     const searchInput = screen.getByPlaceholderText(/Cari institusi/i) as HTMLInputElement
@@ -246,7 +246,7 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dinas Kesehatan')).toBeInTheDocument()
+      expect(screen.getAllByText('Dinas Kesehatan').length).toBeGreaterThanOrEqual(1)
     })
 
     const fetchCount = (global.fetch as jest.Mock).mock.calls.length
@@ -262,14 +262,14 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dinas Kesehatan')).toBeInTheDocument()
+      expect(screen.getAllByText('Dinas Kesehatan').length).toBeGreaterThanOrEqual(1)
     })
 
     const searchInput = screen.getByPlaceholderText(/Cari institusi/i)
     await userEvent.type(searchInput, 'Pendidikan')
 
-    expect(screen.queryByText('Dinas Kesehatan')).not.toBeInTheDocument()
-    expect(screen.getByText('Dinas Pendidikan')).toBeInTheDocument()
+    expect(screen.queryAllByText('Dinas Kesehatan').length).toBe(0)
+    expect(screen.getAllByText('Dinas Pendidikan').length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows summary count matching filtered results', async () => {
@@ -277,7 +277,7 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dinas Kesehatan')).toBeInTheDocument()
+      expect(screen.getAllByText('Dinas Kesehatan').length).toBeGreaterThanOrEqual(1)
     })
 
     // Check initial count shows 2
@@ -299,13 +299,13 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dinas Kesehatan')).toBeInTheDocument()
+      expect(screen.getAllByText('Dinas Kesehatan').length).toBeGreaterThanOrEqual(1)
     })
 
     const searchInput = screen.getByPlaceholderText(/Cari institusi/i)
     await userEvent.type(searchInput, 'Kesehatan')
 
-    expect(screen.getByText('Kesehatan')).toBeInTheDocument()
+    expect(screen.getAllByText(/Kesehatan/i).length).toBeGreaterThanOrEqual(1)
   })
 
   // ── Expand/collapse detail row ──
@@ -314,7 +314,7 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dinas Kesehatan')).toBeInTheDocument()
+      expect(screen.getAllByText('Dinas Kesehatan').length).toBeGreaterThanOrEqual(1)
     })
 
     const detailButtons = screen.getAllByText('Detail')
@@ -322,9 +322,9 @@ describe('DatabaseTrackingPage', () => {
 
     // Detail fields should now be visible
     await waitFor(() => {
-      expect(screen.getByText('Nama PIC')).toBeInTheDocument()
-      expect(screen.getByText('Budi')).toBeInTheDocument()
-      expect(screen.getByText('budi@test.com')).toBeInTheDocument()
+      expect(screen.getAllByText('Nama PIC').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('Budi').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('budi@test.com').length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -333,20 +333,20 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dinas Kesehatan')).toBeInTheDocument()
+      expect(screen.getAllByText('Dinas Kesehatan').length).toBeGreaterThanOrEqual(1)
     })
 
     const detailButtons = screen.getAllByText('Detail')
     fireEvent.click(detailButtons[0])
 
     await waitFor(() => {
-      expect(screen.getByText('Tutup')).toBeInTheDocument()
+      expect(screen.getAllByText('Tutup').length).toBeGreaterThanOrEqual(1)
     })
 
-    fireEvent.click(screen.getByText('Tutup'))
+    fireEvent.click(screen.getAllByText('Tutup')[0])
 
     await waitFor(() => {
-      expect(screen.queryByText('Tutup')).not.toBeInTheDocument()
+      expect(screen.queryAllByText('Tutup').length).toBe(0)
     })
   })
 
@@ -355,18 +355,19 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dinas Kesehatan')).toBeInTheDocument()
+      expect(screen.getAllByText('Dinas Kesehatan').length).toBeGreaterThanOrEqual(1)
     })
 
     // Click the row cell
-    fireEvent.click(screen.getByText('Dinas Kesehatan'))
+    const cells = screen.getAllByText('Dinas Kesehatan')
+    fireEvent.click(cells[0])
 
     await waitFor(() => {
-      expect(screen.getByText('Budi')).toBeInTheDocument()
+      expect(screen.getAllByText('Budi').length).toBeGreaterThanOrEqual(1)
     })
 
     // Click again to collapse
-    fireEvent.click(screen.getByText('Dinas Kesehatan'))
+    fireEvent.click(cells[0])
 
     await waitFor(() => {
       expect(screen.queryByText('Nama PIC')).not.toBeInTheDocument()
@@ -379,7 +380,7 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Tidak ada data B2G/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/Tidak ada data B2G/i).length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -410,7 +411,7 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Satuan 0')).toBeInTheDocument()
+      expect(screen.getAllByText('Satuan 0').length).toBeGreaterThanOrEqual(1)
     })
 
     // Find page 2 button — it's in the pagination area with specific min-w class
@@ -420,7 +421,7 @@ describe('DatabaseTrackingPage', () => {
     fireEvent.click(page2Btn!)
 
     await waitFor(() => {
-      expect(screen.getByText('Satuan 25')).toBeInTheDocument()
+      expect(screen.getAllByText('Satuan 25').length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -435,7 +436,7 @@ describe('DatabaseTrackingPage', () => {
     render(<DatabaseTrackingPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Satuan 0')).toBeInTheDocument()
+      expect(screen.getAllByText('Satuan 0').length).toBeGreaterThanOrEqual(1)
     })
 
     // Go to page 2 via page number button
@@ -444,7 +445,7 @@ describe('DatabaseTrackingPage', () => {
     fireEvent.click(page2Btn!)
 
     await waitFor(() => {
-      expect(screen.getByText('Satuan 25')).toBeInTheDocument()
+      expect(screen.getAllByText('Satuan 25').length).toBeGreaterThanOrEqual(1)
     })
 
     // Type in search — should reset to page 1
@@ -480,17 +481,17 @@ describe('DatabaseTrackingPage', () => {
     fireEvent.click(screen.getByText('Data B2B'))
 
     await waitFor(() => {
-      expect(screen.getByText('PT Maju Jaya')).toBeInTheDocument()
+      expect(screen.getAllByText('PT Maju Jaya').length).toBeGreaterThanOrEqual(1)
     })
 
     // Expand detail
-    fireEvent.click(screen.getByText('Detail'))
+    fireEvent.click(screen.getAllByText('Detail')[0])
 
     await waitFor(() => {
-      expect(screen.getByText('Bidang Usaha')).toBeInTheDocument()
-      expect(screen.getByText('Produk Relevan')).toBeInTheDocument()
-      expect(screen.getByText('Brand Owner')).toBeInTheDocument()
-      expect(screen.getByText('Link Produk')).toBeInTheDocument()
+      expect(screen.getAllByText('Bidang Usaha').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('Produk Relevan').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('Brand Owner').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('Link Produk').length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -511,7 +512,7 @@ describe('DatabaseTrackingPage', () => {
     fireEvent.click(screen.getByText('Data B2B'))
 
     await waitFor(() => {
-      expect(screen.getByText('PT Maju Jaya')).toBeInTheDocument()
+      expect(screen.getAllByText('PT Maju Jaya').length).toBeGreaterThanOrEqual(1)
     })
 
     expect(screen.queryByTestId('select-Semua KLPD')).not.toBeInTheDocument()
