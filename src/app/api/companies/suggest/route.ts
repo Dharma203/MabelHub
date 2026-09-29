@@ -57,21 +57,6 @@ export async function GET(req: Request) {
       }
     }
 
-    const b2gItems = await db
-      .collection('database_b2g')
-      .find(filterB2G)
-      .sort({ institusiKerja: 1 })
-      .limit(limit)
-      .project({
-        institusiKerja: 1,
-        kota: 1,
-        klpd: 1,
-        satuanKerja: 1,
-        ring: 1,
-        pic_default: 1,
-      })
-      .toArray()
-
     // --- B2B ---
     const filterB2B: Record<string, unknown> = {
       ring,
@@ -86,64 +71,79 @@ export async function GET(req: Request) {
       }
     }
 
-    const b2bItems = await db
-      .collection('database_b2b')
-      .find(filterB2B)
-      .sort({ namaEntitas: 1 })
-      .limit(limit)
-      .project({
-        namaEntitas: 1,
-        jenisEntitas: 1,
-        kota: 1,
-        ring: 1,
-        pic_default: 1,
-      })
-      .toArray()
+    // --- VisitActivity: always query alongside b2g/b2b ---
+    const visitFilter: Record<string, unknown> = {
+      $and: [
+        { $or: [{ ring }, { status_ring: ring }] },
+        ...(q
+          ? [
+              {
+                $or: [
+                  { institusi_kerja: { $regex: qRegex, $options: 'i' } },
+                  { institusiKerja: { $regex: qRegex, $options: 'i' } },
+                  { satuan_kerja: { $regex: qRegex, $options: 'i' } },
+                  { satuanKerja: { $regex: qRegex, $options: 'i' } },
+                  { namaEntitas: { $regex: qRegex, $options: 'i' } },
+                  { jenisEntitas: { $regex: qRegex, $options: 'i' } },
+                ],
+              },
+            ]
+          : []),
+      ],
+    }
 
-    const visitItems =
-      b2gItems.length === 0 && b2bItems.length === 0
-        ? await db
-            .collection('VisitActivity')
-            .find({
-              $and: [
-                {
-                  $or: [{ ring }, { status_ring: ring }],
-                },
-                q
-                  ? {
-                      $or: [
-                        { institusi_kerja: { $regex: qRegex, $options: 'i' } },
-                        { institusiKerja: { $regex: qRegex, $options: 'i' } },
-                        { satuan_kerja: { $regex: qRegex, $options: 'i' } },
-                        { satuanKerja: { $regex: qRegex, $options: 'i' } },
-                        { namaEntitas: { $regex: qRegex, $options: 'i' } },
-                        { jenisEntitas: { $regex: qRegex, $options: 'i' } },
-                      ],
-                    }
-                  : {},
-              ],
-            })
-            .sort({ institusi_kerja: 1, namaEntitas: 1 })
-            .limit(limit)
-            .project({
-              institusiKerja: 1,
-              institusi_kerja: 1,
-              satuanKerja: 1,
-              satuan_kerja: 1,
-              namaEntitas: 1,
-              nama_entitas: 1,
-              jenisEntitas: 1,
-              jenis_entitas: 1,
-              jenis: 1,
-              kota: 1,
-              kota_kab: 1,
-              city: 1,
-              ring: 1,
-              status_ring: 1,
-              pic_default: 1,
-            })
-            .toArray()
-        : []
+    const [b2gItems, b2bItems, visitItems] = await Promise.all([
+      db
+        .collection('database_b2g')
+        .find(filterB2G)
+        .sort({ institusiKerja: 1 })
+        .limit(limit)
+        .project({
+          institusiKerja: 1,
+          kota: 1,
+          klpd: 1,
+          satuanKerja: 1,
+          ring: 1,
+          pic_default: 1,
+        })
+        .toArray(),
+      db
+        .collection('database_b2b')
+        .find(filterB2B)
+        .sort({ namaEntitas: 1 })
+        .limit(limit)
+        .project({
+          namaEntitas: 1,
+          jenisEntitas: 1,
+          kota: 1,
+          ring: 1,
+          pic_default: 1,
+        })
+        .toArray(),
+      db
+        .collection('VisitActivity')
+        .find(visitFilter)
+        .sort({ institusi_kerja: 1, namaEntitas: 1 })
+        .limit(limit)
+        .project({
+          institusiKerja: 1,
+          institusi_kerja: 1,
+          satuanKerja: 1,
+          satuan_kerja: 1,
+          namaEntitas: 1,
+          nama_entitas: 1,
+          jenisEntitas: 1,
+          jenis_entitas: 1,
+          jenis: 1,
+          kota: 1,
+          kota_kab: 1,
+          city: 1,
+          ring: 1,
+          status_ring: 1,
+          pic_default: 1,
+        })
+        .toArray(),
+    ])
 
     // Normalize ke shape yang sama
     const merged: SuggestionItem[] = [
