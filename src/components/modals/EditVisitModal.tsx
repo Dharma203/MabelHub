@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { compressImage } from '@/lib/image-utils'
 
 type EditModalProps = {
   isOpen: boolean
@@ -130,23 +131,50 @@ export default function EditVisitModal({
     }
   }, [isOpen, editId, onClose])
 
+  async function pickContactPhone() {
+    // Contact Picker API — Android Chrome & some iOS browsers
+    if ('contacts' in navigator && 'ContactsManager' in window) {
+      try {
+        const contacts = await (navigator as any).contacts.select(
+          ['tel'],
+          { multiple: false },
+        )
+        if (contacts?.length && contacts[0].tel?.length) {
+          const phone = contacts[0].tel[0].replace(/[^0-9+]/g, '')
+          setForm((prev) => ({ ...prev, pic_phone: phone }))
+        }
+      } catch {
+        // User cancelled or API error — do nothing
+      }
+      return
+    }
+    // Fallback: prompt manual input (iOS Safari doesn't support Contact Picker)
+    const phone = prompt('Masukkan nomor HP PIC:')
+    if (phone) {
+      setForm((prev) => ({ ...prev, pic_phone: phone.replace(/[^0-9+]/g, '') }))
+    }
+  }
+
   async function handleSave() {
-    const isPicChanged =
-      form.pic_name !== originalPic.pic_name ||
-      form.pic_phone !== originalPic.pic_phone ||
-      form.pic_role !== originalPic.pic_role ||
-      form.pic_position !== originalPic.pic_position
     if (!editId) return
     setSaving(true)
     try {
+      const isPicChanged =
+        form.pic_name !== originalPic.pic_name ||
+        form.pic_phone !== originalPic.pic_phone ||
+        form.pic_role !== originalPic.pic_role ||
+        form.pic_position !== originalPic.pic_position
+
       const payload: Record<string, any> = {
         ...form,
-        ...(isPicChanged && {
-          pic_changed: true,
-          previous_pic: originalPic, // PIC lama dikirim ke backend
-          pic_changed_by: currentUserId,
-          pic_changed_at: new Date().toISOString(),
-        }),
+        ...(isPicChanged
+          ? {
+              pic_changed: true,
+              previous_pic: originalPic,
+              pic_changed_by: currentUserId || '',
+              pic_changed_at: new Date().toISOString(),
+            }
+          : {}),
       }
 
       // Clear reschedule fields if status is not Reschedule
@@ -156,13 +184,10 @@ export default function EditVisitModal({
       }
 
       if (fileObj) {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.readAsDataURL(fileObj)
-          reader.onload = () => resolve(reader.result as string)
-          reader.onerror = (error) => reject(error)
-        })
-        payload.visit_image = base64
+        const compressed = await compressImage(fileObj)
+        if (compressed) {
+          payload.visit_image = compressed
+        }
       }
 
       const res = await fetch(`/api/visits/${editId}`, {
@@ -171,13 +196,16 @@ export default function EditVisitModal({
         body: JSON.stringify(payload),
       })
 
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
-      setSavedStatusVisit(form.status_visit)
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error ?? `Server error ${res.status}`)
 
+      setSavedStatusVisit(form.status_visit)
       onSuccess()
-    } catch (e: any) {
-      alert('Gagal simpan data: ' + e.message)
+    } catch (e: unknown) {
+      console.error(e)
+      const message =
+        e instanceof Error ? e.message : 'Terjadi kesalahan tak terduga'
+      alert('Gagal simpan data: ' + message)
     } finally {
       setSaving(false)
     }
@@ -384,20 +412,32 @@ export default function EditVisitModal({
                 <label className='mb-1 block text-sm font-bold text-black'>
                   Nomor PIC
                 </label>
-                <input
-                  value={form.pic_phone}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, pic_phone: e.target.value }))
-                  }
-                  placeholder='08XXX'
-                  type='text'
-                  readOnly={isFieldLocked('pic_phone')}
-                  className={` rounded-lg h-10 w-full bg-white border border-gray-300 outline-none px-3 shadow-sm ${
-                    !isFieldLocked('pic_phone')
-                      ? 'focus:ring-1 focus:ring-blue-300 text-black'
-                      : 'text-black cursor-not-allowed bg-gray-100'
-                  }`}
-                />
+                <div className='flex gap-1'>
+                  <input
+                    value={form.pic_phone}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, pic_phone: e.target.value }))
+                    }
+                    placeholder='08XXX'
+                    type='text'
+                    readOnly={isFieldLocked('pic_phone')}
+                    className={` rounded-lg h-10 flex-1 bg-white border border-gray-300 outline-none px-3 shadow-sm ${
+                      !isFieldLocked('pic_phone')
+                        ? 'focus:ring-1 focus:ring-blue-300 text-black'
+                        : 'text-black cursor-not-allowed bg-gray-100'
+                    }`}
+                  />
+                  {!isFieldLocked('pic_phone') && (
+                    <button
+                      type='button'
+                      onClick={pickContactPhone}
+                      className='h-10 px-3 rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium shrink-0'
+                      title='Pilih dari Kontak'
+                    >
+                      📇
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Row 2 */}
