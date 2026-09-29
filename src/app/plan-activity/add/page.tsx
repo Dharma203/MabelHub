@@ -31,6 +31,7 @@ type Company = {
 type SatuanKerja = {
   _id: string
   satuanKerja: string
+  institusiKerja?: string
   namaEntitas: string
   kota: string
   klpd: string
@@ -61,6 +62,7 @@ type PlanItem = {
     role: string
   }
   targetUserId?: string // leader assigns to specific sales
+  searchMode: 'institusi' | 'satker' // ponytail: lets user pick search order
   showSug: boolean
   loadingSug: boolean
   sugs: Company[]
@@ -108,6 +110,7 @@ function newItem(): PlanItem {
     selectedSatker: null,
     pic_default: { nama: '', no_telp: '', jabatan: '', role: '' },
     targetUserId: '',
+    searchMode: 'institusi',
     showSug: false,
     loadingSug: false,
     sugs: [],
@@ -329,17 +332,19 @@ function AddPlansContent() {
     institusi: string,
     q: string,
   ) {
-    if (!ring || !institusi) return
+    if (!ring) return
 
     try {
       patchItem(itemId, { loadingSatkerSug: true, showSatkerSug: true })
 
-      const qs = new URLSearchParams({
+      const params: Record<string, string> = {
         ring,
-        institusi,
         q: q || '',
         limit: '10',
-      })
+      }
+      if (institusi) params.institusi = institusi
+
+      const qs = new URLSearchParams(params)
 
       const res = await fetch(
         `/api/companies/suggest-satker?${qs.toString()}`,
@@ -361,6 +366,25 @@ function AddPlansContent() {
     } catch {
       patchItem(itemId, { satkerSugs: [], loadingSatkerSug: false })
     }
+  }
+
+  // When user searches satker-first, picking a result auto-fills institusi + other fields
+  function pickSatkerFirst(id: string, c: SatuanKerja) {
+    patchItem(id, {
+      selectedSatker: c,
+      satuanKerja: c.satuanKerja || '',
+      institusiQuery: c.institusiKerja || '',
+      namaEntitas: c.namaEntitas || '',
+      kota: c.kota || '',
+      klpd: c.klpd || '',
+      showSatkerSug: false,
+      pic_default: {
+        nama: c.pic_default?.nama || '',
+        no_telp: c.pic_default?.no_telp || '',
+        jabatan: c.pic_default?.jabatan || '',
+        role: c.pic_default?.role || '',
+      },
+    })
   }
 
   const canSubmit = useMemo(() => {
@@ -426,7 +450,6 @@ function AddPlansContent() {
       setSaving(false)
     }
   }
-
   // --- UI ---
 
   return (
@@ -605,108 +628,234 @@ function AddPlansContent() {
 
                     <div className='hidden md:block' />
 
-                    {/* INSTITUSI / NAMA ENTITAS AUTOCOMPLETE */}
-                    <div className='md:col-span-2'>
-                      <label className='text-xs font-bold tracking-wide text-gray-500 uppercase'>
-                        {it.ring === 'RING 4' ? 'Nama Entitas' : 'Institusi'}{' '}
-                        <span className='text-gray-400 lowercase font-normal'>
-                          (Sesuai Ring)
-                        </span>
-                      </label>
+                    {/* SEARCH MODE TOGGLE (RING 1-3 only) */}
+                    {it.ring && it.ring !== 'RING 4' && (
+                      <div className='md:col-span-2 flex items-center gap-2'>
+                        <span className='text-xs font-bold tracking-wide text-gray-400 uppercase'>Cari berdasarkan:</span>
+                        <div className='inline-flex rounded-lg bg-gray-100 p-0.5'>
+                          <button
+                            type='button'
+                            onClick={() => {
+                              resetCompanyFields(it.id)
+                              patchItem(it.id, { searchMode: 'institusi' })
+                            }}
+                            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                              it.searchMode === 'institusi'
+                                ? 'bg-white text-blue-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            Institusi
+                          </button>
+                          <button
+                            type='button'
+                            onClick={() => {
+                              resetCompanyFields(it.id)
+                              patchItem(it.id, { searchMode: 'satker' })
+                            }}
+                            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                              it.searchMode === 'satker'
+                                ? 'bg-white text-blue-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            Satuan Kerja
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
-                      <div className='relative mt-2'>
-                        <input
-                          value={
-                            it.ring === 'RING 4'
-                              ? it.namaEntitas
-                              : it.institusiQuery
-                          }
-                          onChange={(e) => {
-                            const val = e.target.value
-                            if (it.ring === 'RING 4') {
+                    {/* MODE: INSTITUSI FIRST (default for RING 1-3) or RING 4 */}
+                    {(it.ring === 'RING 4' || it.searchMode === 'institusi') && (
+                      <div className='md:col-span-2'>
+                        <label className='text-xs font-bold tracking-wide text-gray-500 uppercase'>
+                          {it.ring === 'RING 4' ? 'Nama Entitas' : 'Institusi'}{' '}
+                          <span className='text-gray-400 lowercase font-normal'>
+                            (Sesuai Ring)
+                          </span>
+                        </label>
+
+                        <div className='relative mt-2'>
+                          <input
+                            value={
+                              it.ring === 'RING 4'
+                                ? it.namaEntitas
+                                : it.institusiQuery
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value
+                              if (it.ring === 'RING 4') {
+                                patchItem(it.id, {
+                                  namaEntitas: val,
+                                  showSug: true,
+                                })
+                                if (it.ring) fetchSuggestion(it.id, it.ring, val)
+                                return
+                              }
                               patchItem(it.id, {
-                                namaEntitas: val,
+                                institusiQuery: val,
                                 showSug: true,
                               })
                               if (it.ring) fetchSuggestion(it.id, it.ring, val)
-                              return
+                            }}
+                            onFocus={() => {
+                              if (it.ring) {
+                                const q =
+                                  it.ring === 'RING 4'
+                                    ? it.namaEntitas
+                                    : it.institusiQuery
+                                fetchSuggestion(it.id, it.ring, q)
+                              }
+                            }}
+                            disabled={!it.ring}
+                            placeholder={
+                              !it.ring
+                                ? 'Pilih Ring dahulu'
+                                : it.ring === 'RING 4'
+                                  ? 'Ketik untuk mencari nama entitas...'
+                                  : 'Ketik untuk mencari institusi...'
                             }
-                            patchItem(it.id, {
-                              institusiQuery: val,
-                              showSug: true,
-                            })
-                            if (it.ring) fetchSuggestion(it.id, it.ring, val)
-                          }}
-                          onFocus={() => {
-                            if (it.ring) {
-                              const q =
-                                it.ring === 'RING 4'
-                                  ? it.namaEntitas
-                                  : it.institusiQuery
-                              fetchSuggestion(it.id, it.ring, q)
-                            }
-                          }}
-                          disabled={!it.ring}
-                          placeholder={
-                            !it.ring
-                              ? 'Pilih Ring dahulu'
-                              : it.ring === 'RING 4'
-                                ? 'Ketik untuk mencari nama entitas...'
-                                : 'Ketik untuk mencari institusi...'
-                          }
-                          className={`relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${
-                            !it.ring
-                              ? 'bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed'
-                              : 'bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600'
-                          }`}
-                        />
+                            className={`relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6 transition-all ${
+                              !it.ring
+                                ? 'bg-gray-50 text-gray-500 ring-gray-200 cursor-not-allowed'
+                                : 'bg-white text-gray-900 ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600'
+                            }`}
+                          />
 
-                        {it.showSug && it.ring && (
-                          <div className='absolute z-20 mt-1 w-full overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 border border-gray-100'>
-                            <div className='max-h-60 overflow-y-auto'>
-                              {it.loadingSug ? (
-                                <div className='px-4 py-6 text-sm text-gray-500 text-center'>
-                                  Loading...
-                                </div>
-                              ) : it.sugs.length === 0 ? (
-                                <div className='px-4 py-6 text-sm text-gray-500 text-center'>
-                                  Tidak ada data ditemukan.
-                                </div>
-                              ) : (
-                                it.sugs.map((c) => (
-                                  <button
-                                    key={c._id}
-                                    type='button'
-                                    onClick={() => pickCompany(it.id, c)}
-                                    className='block w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-none'
-                                  >
-                                    <div className='font-bold text-sm text-gray-900'>
-                                      {it.ring === 'RING 4'
-                                        ? c.namaEntitas || c.institusiKerja
-                                        : c.institusiKerja}
-                                    </div>
-                                    <div className='text-[11px] text-gray-500 truncate mt-0.5'>
-                                      {c.kota} • {c.klpd} •{' '}
-                                      {c.satuanKerja || c.namaEntitas || ''}
-                                    </div>
-                                  </button>
-                                ))
-                              )}
+                          {it.showSug && it.ring && (
+                            <div className='absolute z-20 mt-1 w-full overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 border border-gray-100'>
+                              <div className='max-h-60 overflow-y-auto'>
+                                {it.loadingSug ? (
+                                  <div className='px-4 py-6 text-sm text-gray-500 text-center'>
+                                    Loading...
+                                  </div>
+                                ) : it.sugs.length === 0 ? (
+                                  <div className='px-4 py-6 text-sm text-gray-500 text-center'>
+                                    Tidak ada data ditemukan.
+                                  </div>
+                                ) : (
+                                  it.sugs.map((c) => (
+                                    <button
+                                      key={c._id}
+                                      type='button'
+                                      onClick={() => pickCompany(it.id, c)}
+                                      className='block w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-none'
+                                    >
+                                      <div className='font-bold text-sm text-gray-900'>
+                                        {it.ring === 'RING 4'
+                                          ? c.namaEntitas || c.institusiKerja
+                                          : c.institusiKerja}
+                                      </div>
+                                      <div className='text-[11px] text-gray-500 truncate mt-0.5'>
+                                        {c.kota} • {c.klpd} •{' '}
+                                        {c.satuanKerja || c.namaEntitas || ''}
+                                      </div>
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                              <div className='bg-gray-50 px-4 py-2 border-t border-gray-100 flex justify-end'>
+                                <button
+                                  onClick={() =>
+                                    patchItem(it.id, { showSug: false })
+                                  }
+                                  className='text-xs font-semibold text-gray-500 hover:text-gray-800'
+                                >
+                                  Tutup
+                                </button>
+                              </div>
                             </div>
-                            <div className='bg-gray-50 px-4 py-2 border-t border-gray-100 flex justify-end'>
-                              <button
-                                onClick={() =>
-                                  patchItem(it.id, { showSug: false })
-                                }
-                                className='text-xs font-semibold text-gray-500 hover:text-gray-800'
-                              >
-                                Tutup
-                              </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* MODE: SATKER FIRST (RING 1-3 only) */}
+                    {it.ring && it.ring !== 'RING 4' && it.searchMode === 'satker' && (
+                      <div className='md:col-span-2'>
+                        <label className='text-xs font-bold tracking-wide text-gray-500 uppercase'>
+                          Satuan Kerja{' '}
+                          <span className='text-gray-400 lowercase font-normal'>
+                            (Cari langsung)
+                          </span>
+                        </label>
+
+                        <div className='relative mt-2'>
+                          <input
+                            value={it.satuanKerja}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              patchItem(it.id, {
+                                satuanKerja: val,
+                                showSatkerSug: true,
+                              })
+                              fetchSatkerSuggestion(it.id, it.ring, '', val)
+                            }}
+                            onFocus={() => {
+                              fetchSatkerSuggestion(it.id, it.ring, '', it.satuanKerja)
+                            }}
+                            placeholder='Ketik untuk mencari satuan kerja...'
+                            className='relative w-full rounded-lg border-0 py-2.5 px-4 shadow-sm ring-1 ring-inset ring-gray-300 bg-white text-gray-900 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition-all'
+                          />
+
+                          {it.showSatkerSug && (
+                            <div className='absolute z-20 mt-1 w-full overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 border border-gray-100'>
+                              <div className='max-h-60 overflow-y-auto'>
+                                {it.loadingSatkerSug ? (
+                                  <div className='px-4 py-6 text-sm text-gray-500 text-center'>
+                                    Loading...
+                                  </div>
+                                ) : it.satkerSugs.length === 0 ? (
+                                  <div className='px-4 py-6 text-sm text-gray-500 text-center'>
+                                    Tidak ada data ditemukan.
+                                  </div>
+                                ) : (
+                                  it.satkerSugs.map((c) => (
+                                    <button
+                                      key={c._id}
+                                      type='button'
+                                      onClick={() => pickSatkerFirst(it.id, c)}
+                                      className='block w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-none'
+                                    >
+                                      <div className='font-bold text-sm text-gray-900'>
+                                        {c.satuanKerja}
+                                      </div>
+                                      <div className='text-[11px] text-gray-500 truncate mt-0.5'>
+                                        {c.institusiKerja ? `${c.institusiKerja} • ` : ''}{c.kota} • {c.klpd} • {c.ring}
+                                      </div>
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                              <div className='bg-gray-50 px-4 py-2 border-t border-gray-100 flex justify-end'>
+                                <button
+                                  onClick={() =>
+                                    patchItem(it.id, { showSatkerSug: false })
+                                  }
+                                  className='text-xs font-semibold text-gray-500 hover:text-gray-800'
+                                >
+                                  Tutup
+                                </button>
+                              </div>
                             </div>
+                          )}
+                        </div>
+
+                        {/* Show auto-filled institusi as readonly */}
+                        {it.institusiQuery && (
+                          <div className='mt-3'>
+                            <label className='text-xs font-bold tracking-wide text-gray-400 uppercase'>
+                              Institusi <span className='lowercase font-normal'>(terisi otomatis)</span>
+                            </label>
+                            <input
+                              value={it.institusiQuery}
+                              readOnly
+                              className='mt-1 block w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm cursor-not-allowed'
+                            />
                           </div>
                         )}
                       </div>
-                    </div>
+                    )}
 
                     {/* AUTOFILL FIELDS */}
                     <div>
@@ -741,7 +890,7 @@ function AddPlansContent() {
                       )}
                     </div>
 
-                    {!it.ring || it.ring !== 'RING 4' ? (
+                    {it.ring && it.ring !== 'RING 4' && it.searchMode === 'institusi' ? (
                       <div className='md:col-span-2'>
                         <label className='text-xs font-bold tracking-wide text-gray-400 uppercase'>
                           Satuan Kerja

@@ -20,53 +20,54 @@ export async function GET(req: Request) {
       50,
     )
 
-    if (!rawRing || !institusi) {
+    if (!rawRing) {
       return NextResponse.json(
-        { error: 'ring dan institusi wajib' },
+        { error: 'ring wajib' },
         { status: 400 },
       )
     }
 
     const ring = rawRing.toUpperCase().replace(/\s+/g, ' ').trim()
-    const escapedInstitusi = escapeRegex(institusi)
-    // ponytail: contains-match instead of exact — catches "UNIVERSITAS LAMPUNG" inside longer strings too
-    const institusiRegex = { $regex: escapedInstitusi, $options: 'i' }
+    const institusiRegex = institusi
+      ? { $regex: escapeRegex(institusi), $options: 'i' }
+      : null
 
     const client = await clientPromise
     const db = client.db(getDbName())
 
     const qRegex = q ? { $regex: escapeRegex(q), $options: 'i' } : null
 
-    // --- B2G: match institusi, optionally filter satuanKerja by q ---
+    // --- B2G ---
     const b2gFilter: Record<string, unknown> = {
       ring,
-      institusiKerja: institusiRegex,
       satuanKerja: { $exists: true, $ne: '' },
     }
+    if (institusiRegex) b2gFilter.institusiKerja = institusiRegex
     if (qRegex) b2gFilter.satuanKerja = qRegex
 
-    // --- B2B: match institusi via namaEntitas, optionally filter by q ---
+    // --- B2B ---
     const b2bFilter: Record<string, unknown> = {
       ring,
-      namaEntitas: institusiRegex,
+      namaEntitas: { $exists: true, $ne: '' },
     }
+    if (institusiRegex) b2bFilter.namaEntitas = institusiRegex
     if (qRegex) {
-      b2bFilter.$or = [
-        { namaEntitas: qRegex },
-      ]
+      b2bFilter.$or = [{ namaEntitas: qRegex }]
     }
 
-    // --- VisitActivity: always query, match institusi across field variants ---
+    // --- VisitActivity ---
     const visitMatch: Record<string, unknown>[] = [
       { $or: [{ ring }, { status_ring: ring }] },
-      {
+    ]
+    if (institusiRegex) {
+      visitMatch.push({
         $or: [
           { institusi_kerja: institusiRegex },
           { institusiKerja: institusiRegex },
           { namaEntitas: institusiRegex },
         ],
-      },
-    ]
+      })
+    }
     if (qRegex) {
       visitMatch.push({
         $or: [
@@ -85,11 +86,11 @@ export async function GET(req: Request) {
         .limit(limit)
         .project({
           satuanKerja: 1,
+          institusiKerja: 1,
           kota: 1,
           klpd: 1,
           ring: 1,
           pic_default: 1,
-          institusiKerja: 1,
         })
         .toArray(),
       db
@@ -107,8 +108,11 @@ export async function GET(req: Request) {
         .project({
           satuanKerja: 1,
           satuan_kerja: 1,
+          institusiKerja: 1,
+          institusi_kerja: 1,
           namaEntitas: 1,
           kota: 1,
+          city: 1,
           klpd: 1,
           ring: 1,
           status_ring: 1,
@@ -123,6 +127,7 @@ export async function GET(req: Request) {
       ...b2gItems.map((row: Row) => ({
         _id: String(row._id ?? ''),
         satuanKerja: text(row.satuanKerja),
+        institusiKerja: text(row.institusiKerja),
         kota: text(row.kota),
         klpd: text(row.klpd),
         ring: text(row.ring),
@@ -131,6 +136,7 @@ export async function GET(req: Request) {
       ...b2bItems.map((row: Row) => ({
         _id: String(row._id ?? ''),
         satuanKerja: text(row.namaEntitas),
+        institusiKerja: '',
         kota: text(row.kota),
         klpd: '',
         ring: text(row.ring),
@@ -140,8 +146,10 @@ export async function GET(req: Request) {
         _id: String(row._id ?? ''),
         satuanKerja:
           text(row.satuanKerja) || text(row.satuan_kerja) || text(row.namaEntitas),
+        institusiKerja:
+          text(row.institusiKerja) || text(row.institusi_kerja),
         namaEntitas: text(row.namaEntitas),
-        kota: text(row.kota),
+        kota: text(row.kota) || text(row.city),
         klpd: text(row.klpd),
         ring: text(row.ring) || text(row.status_ring),
         pic_default: row.pic_default ?? null,
