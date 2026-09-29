@@ -131,37 +131,6 @@ export default function EditVisitModal({
     }
   }, [isOpen, editId, onClose])
 
-  // Hidden ref for iOS .vcf fallback
-  const vcfInputRef = React.useRef<HTMLInputElement | null>(null)
-
-  function parseVCard(text: string): { name: string; phone: string } {
-    const phoneLine = text.split('\n').find((l) => l.startsWith('TEL'))
-    const nameLine = text.split('\n').find((l) => l.startsWith('FN'))
-    const phone = phoneLine?.split(':').pop()?.replace(/[^0-9+]/g, '') || ''
-    const name = nameLine?.split(':').slice(1).join(':').trim() || ''
-    return { name, phone }
-  }
-
-  function handleVcfFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const { name, phone } = parseVCard(reader.result as string)
-      if (phone) {
-        setForm((prev) => ({
-          ...prev,
-          pic_phone: phone,
-          ...(name && !prev.pic_name ? { pic_name: name } : {}),
-        }))
-      } else {
-        alert('Nomor telepon tidak ditemukan di kontak ini')
-      }
-    }
-    reader.readAsText(file)
-    // Reset agar bisa pilih file yang sama lagi
-    e.target.value = ''
-  }
 
   async function pickContactPhone() {
     // Contact Picker API — works on Android Chrome
@@ -185,9 +154,32 @@ export default function EditVisitModal({
       }
       return
     }
-    // Fallback for iOS Safari: open .vcf file picker
-    // User can share a contact from Contacts app as .vcf
-    vcfInputRef.current?.click()
+
+    // iOS Safari / unsupported browsers: try reading from clipboard first
+    // User copies phone number from Contacts app, then taps this button to paste
+    if (navigator.clipboard?.readText) {
+      try {
+        const clipText = await navigator.clipboard.readText()
+        const cleaned = clipText.replace(/[^0-9+\s\-]/g, '').replace(/[\s\-]/g, '')
+        if (cleaned && /^[+]?\d{8,15}$/.test(cleaned)) {
+          setForm((prev) => ({ ...prev, pic_phone: cleaned }))
+          return
+        }
+      } catch {
+        // Clipboard permission denied — fall through
+      }
+    }
+
+    // Final fallback: instruct user
+    alert(
+      'Browser ini tidak mendukung pemilihan kontak langsung.\n\n' +
+      'Cara mengambil nomor dari Kontak:\n' +
+      '1. Buka aplikasi Kontak di HP\n' +
+      '2. Pilih kontak yang diinginkan\n' +
+      '3. Tekan & tahan nomor HP → Salin\n' +
+      '4. Kembali ke sini, tap tombol 📇 untuk paste otomatis\n' +
+      '   atau paste manual ke kolom Nomor PIC'
+    )
   }
 
   async function handleSave() {
@@ -472,14 +464,6 @@ export default function EditVisitModal({
                       📇
                     </button>
                   )}
-                  {/* Hidden input for iOS .vcf fallback */}
-                  <input
-                    ref={vcfInputRef}
-                    type='file'
-                    accept='.vcf,text/vcard'
-                    onChange={handleVcfFile}
-                    className='hidden'
-                  />
                 </div>
               </div>
 
