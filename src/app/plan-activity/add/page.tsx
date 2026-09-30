@@ -864,8 +864,7 @@ function AddPlansContent() {
                       </label>
                       <input
                         value={it.kota}
-                        readOnly
-                        className='mt-2 block w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm cursor-not-allowed'
+                        className='mt-2 block w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm'
                         placeholder='Terisi otomatis'
                       />
                     </div>
@@ -883,8 +882,7 @@ function AddPlansContent() {
                       ) : (
                         <input
                           value={it.klpd}
-                          readOnly
-                          className='mt-2 block w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm cursor-not-allowed'
+                          className='mt-2 block w-full rounded-lg bg-gray-50 border-0 py-2.5 px-4 text-gray-500 shadow-sm ring-1 ring-gray-200 sm:text-sm'
                           placeholder='Terisi otomatis'
                         />
                       )}
@@ -921,7 +919,7 @@ function AddPlansContent() {
                                   it.satuanKerja,
                                 )
                             }}
-                            disabled={!it.institusiQuery}
+                            type={it.institusiQuery}
                             placeholder={
                               !it.institusiQuery
                                 ? 'Pilih Institusi dahulu'
