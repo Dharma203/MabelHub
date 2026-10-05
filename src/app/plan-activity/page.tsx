@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { useSession } from '@/components/session/SessionProvider'
+import MissingPhoneBanner from '@/components/MissingPhoneBanner'
 import EditVisitModal from '@/components/modals/EditVisitModal'
 import {
   Pen,
@@ -1590,6 +1591,8 @@ export default function PlanActivityPage() {
                 </span>
               </div>
             </div>
+
+            <MissingPhoneBanner />
 
             {/* TOOLBAR */}
             <div className='mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-3 rounded-xl shadow-sm ring-1 ring-black/5'>

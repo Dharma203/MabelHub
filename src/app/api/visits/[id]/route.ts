@@ -3,6 +3,12 @@ import { ObjectId } from 'mongodb'
 import clientPromise, { getDbName } from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
 import { getLeaderAllowedUserIds, getUserLiteById } from '@/lib/visit-auth'
+import {
+  getConsecutiveMissingPhoneCount,
+  isPhoneFilled,
+  isVisitedStatus,
+  recomputeAlert,
+} from '@/lib/missing-phone-alert'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 
@@ -248,6 +254,53 @@ export async function PUT(
   // PATCH SANITIZE
   // =========================
   const patch = pickAllowedPatch(body)
+  const targetStatus =
+    patch.reschedule_date && String(patch.reschedule_date).trim() !== ''
+      ? 'Not Visited'
+      : patch.status_visit ?? existingDoc.status_visit
+  const targetPhone =
+    patch.pic_phone !== undefined ? patch.pic_phone : existingDoc.pic_phone
+  const alertOwnerId = String(
+    existingDoc.user_id ||
+      (session.role === 'SALES' ? session.userId : ''),
+  )
+  const targetSatker = String(
+    patch.satuan_kerja ?? existingDoc.satuan_kerja ?? '',
+  )
+  const streakInputsChanged = [
+    'status_visit',
+    'pic_phone',
+    'satuan_kerja',
+    'visit_date',
+  ].some(
+    (field) =>
+      patch[field] !== undefined &&
+      String(patch[field] ?? '') !== String(existingDoc[field] ?? ''),
+  )
+
+  if (
+    alertOwnerId &&
+    isVisitedStatus(targetStatus) &&
+    !isPhoneFilled(targetPhone) &&
+    targetSatker &&
+    streakInputsChanged
+  ) {
+    const currentStreak = await getConsecutiveMissingPhoneCount(
+      db,
+      alertOwnerId,
+      targetSatker,
+      new ObjectId(id),
+    )
+    if (currentStreak >= 5) {
+      return NextResponse.json(
+        {
+          error:
+            'Nomor telepon wajib diisi setelah 5 kunjungan berturut-turut tanpa nomor telepon.',
+        },
+        { status: 400 },
+      )
+    }
+  }
 
   // Convert base64 visit_image to a file in /uploads/
   if (patch.visit_image && typeof patch.visit_image === 'string') {
@@ -394,6 +447,22 @@ export async function PUT(
     return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 })
   }
 
+  const alertUserId = String(
+    doc.user_id || (session.role === 'SALES' ? session.userId : ''),
+  )
+  const oldSatker = String(existingDoc.satuan_kerja || '')
+  const newSatker = String(doc.satuan_kerja || '')
+  if (
+    alertUserId &&
+    (isVisitedStatus(existingDoc.status_visit) ||
+      isVisitedStatus(doc.status_visit))
+  ) {
+    if (oldSatker && oldSatker !== newSatker) {
+      await recomputeAlert(db, alertUserId, oldSatker)
+    }
+    if (newSatker) await recomputeAlert(db, alertUserId, newSatker)
+  }
+
   return NextResponse.json({
     data: { ...doc, _id: String((doc as any)._id) },
   })
@@ -420,7 +489,7 @@ export async function DELETE(
 
   const existing = await col.findOne(
     { _id: new ObjectId(id) },
-    { projection: { user_id: 1 } },
+    { projection: { user_id: 1, satuan_kerja: 1, status_visit: 1 } },
   )
   if (!existing) {
     return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 })
@@ -463,6 +532,16 @@ export async function DELETE(
   const del = await col.deleteOne({ _id: new ObjectId(id) })
   if (del.deletedCount === 0) {
     return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 })
+  }
+
+  const alertUserId = String((existing as any).user_id || '')
+  const satuanKerja = String((existing as any).satuan_kerja || '')
+  if (
+    alertUserId &&
+    satuanKerja &&
+    isVisitedStatus((existing as any).status_visit)
+  ) {
+    await recomputeAlert(db, alertUserId, satuanKerja)
   }
 
   return NextResponse.json({ ok: true })

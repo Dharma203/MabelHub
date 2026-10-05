@@ -179,7 +179,9 @@ export async function GET(req: Request) {
   }
 
   function ownerFilter(userId: string, fullName: string | null) {
-    const conditions: any[] = [{ user_id: userId }]
+    const ids: unknown[] = [userId]
+    if (ObjectId.isValid(userId)) ids.push(new ObjectId(userId))
+    const conditions: any[] = [{ user_id: { $in: ids } }]
     if (fullName) {
       conditions.push({
         $and: [{ nama_sales: fullName }, NO_USER_ID],
@@ -189,7 +191,11 @@ export async function GET(req: Request) {
   }
 
   function multiOwnerFilter(userIds: string[], fullNames: string[]) {
-    const conditions: any[] = [{ user_id: { $in: userIds } }]
+    const ids: unknown[] = [...userIds]
+    ids.push(
+      ...userIds.filter(ObjectId.isValid).map((userId) => new ObjectId(userId)),
+    )
+    const conditions: any[] = [{ user_id: { $in: ids } }]
     if (fullNames.length > 0) {
       conditions.push({
         $and: [{ nama_sales: { $in: fullNames } }, NO_USER_ID],
