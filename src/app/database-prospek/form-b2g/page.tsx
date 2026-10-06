@@ -679,7 +679,7 @@ function FormB2GContent() {
                     onChange={(val: string) => setKlpd(val)}
                     options={[
                       { value: '', label: '-- Pilih -- ' },
-                      { value: 'KEMENTRIAN', label: 'KEMENTRIAN' },
+                      { value: 'KEMENTERIAN', label: 'KEMENTERIAN' },
                       { value: 'LEMBAGA', label: 'LEMBAGA' },
                       { value: 'PROVINSI', label: 'PROVINSI' },
                       { value: 'KOTA', label: 'KOTA' },
