@@ -349,6 +349,9 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/monitoring-leader',
           icon: 'Phone',
         },
+        {
+          label: ''
+        }
       ],
     },
     {
