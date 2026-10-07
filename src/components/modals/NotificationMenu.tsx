@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Bell, Briefcase, Megaphone, Info, Building, X, Clock, CheckCheck, BellRing } from "lucide-react";
+import { Bell, Briefcase, Megaphone, Info, Building, X, Clock, CheckCheck, BellRing, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type NotificationItem = {
@@ -9,7 +9,7 @@ type NotificationItem = {
   userId: string;
   title: string;
   message: string;
-  type?: "TASK" | "ANNOUNCEMENT" | "REQUEST" | "SYSTEM";
+  type?: "TASK" | "ANNOUNCEMENT" | "REQUEST" | "SYSTEM" | "MISSING_PHONE";
   isRead: boolean;
   link?: string;
   createdAt: string;
@@ -35,6 +35,11 @@ const TYPE_CONFIG = {
     icon: Info,
     bgClass: "bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400",
     borderClass: "border-purple-100 dark:border-purple-900/30",
+  },
+  MISSING_PHONE: {
+    icon: AlertTriangle,
+    bgClass: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400",
+    borderClass: "border-red-100 dark:border-red-900/30",
   },
   DEFAULT: {
     icon: Info,

@@ -51,6 +51,17 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
       ],
     },
     {
+      title: 'MONITORING',
+      icon: 'Command',
+      items: [
+        {
+          label: 'Instansi No Phone',
+          href: '/monitoring-leader',
+          icon: 'Phone',
+        },
+      ],
+    },
+    {
       title: 'SALES',
       icon: 'User',
       items: [
@@ -114,6 +125,17 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
       title: 'PRODUCT HUB',
       icon: 'Package',
       items: [{ label: 'Data Produk', href: '/produk', icon: 'CheckSquare' }],
+    },
+    {
+      title: 'MONITORING',
+      icon: 'Command',
+      items: [
+        {
+          label: 'Instansi No Phone',
+          href: '/monitoring-leader',
+          icon: 'Phone',
+        },
+      ],
     },
     {
       title: 'E-PROCUREMENT',
@@ -315,6 +337,17 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           label: 'Tracking Visit B2B',
           href: '/tracking-b2b',
           icon: 'Building',
+        },
+      ],
+    },
+    {
+      title: 'MONITORING',
+      icon: 'Dashboard',
+      items: [
+        {
+          label: 'Instansi No Phone',
+          href: '/monitoring-leader',
+          icon: 'Phone',
         },
       ],
     },

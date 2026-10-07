@@ -6,6 +6,7 @@ import { flexParseDateExpr } from '@/lib/flex-date-expr'
 import { toVisitDateStr, toCreatedAtStr } from '@/lib/visit-date'
 import { normalizeRing } from '@/lib/ring'
 import { exactText, statusText } from '@/lib/visit-filter-utils'
+import { ObjectId } from 'mongodb'
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(Math.max(n, min), max)
@@ -88,7 +89,9 @@ export async function GET(req: Request) {
    * new docs (with user_id) and legacy docs (only nama_sales).
    */
   function ownerFilter(userId: string, fullName: string | null) {
-    const conditions: any[] = [{ user_id: userId }]
+    const ids: unknown[] = [userId]
+    if (ObjectId.isValid(userId)) ids.push(new ObjectId(userId))
+    const conditions: any[] = [{ user_id: { $in: ids } }]
     if (fullName) {
       // Legacy docs: match by nama_sales where user_id is absent
       conditions.push({
@@ -102,7 +105,11 @@ export async function GET(req: Request) {
    * Build an ownership filter for multiple users (team scenario).
    */
   function multiOwnerFilter(userIds: string[], fullNames: string[]) {
-    const conditions: any[] = [{ user_id: { $in: userIds } }]
+    const ids: unknown[] = [...userIds]
+    ids.push(
+      ...userIds.filter(ObjectId.isValid).map((userId) => new ObjectId(userId)),
+    )
+    const conditions: any[] = [{ user_id: { $in: ids } }]
     if (fullNames.length > 0) {
       conditions.push({
         $and: [{ nama_sales: { $in: fullNames } }, NO_USER_ID],
@@ -211,8 +218,14 @@ export async function GET(req: Request) {
     if (!match.$and) match.$and = []
     match.$and.push({
       $or: [
-        { pic_phone: { $type: 'number' } },
-        { pic_phone: { $type: 'string', $regex: /\S/ } },
+        { pic_phone: { $type: 'number', $ne: 0 } },
+        {
+          pic_phone: {
+            $type: 'string',
+            $regex: /\S/,
+            $not: /^\s*(?:-|0)\s*$/,
+          },
+        },
       ],
     })
   } else if (phone === 'NO_CONTACT') {
@@ -221,7 +234,8 @@ export async function GET(req: Request) {
       $or: [
         { pic_phone: { $exists: false } },
         { pic_phone: null },
-        { pic_phone: { $type: 'string', $regex: /^\s*$/ } },
+        { pic_phone: 0 },
+        { pic_phone: { $type: 'string', $regex: /^\s*(?:-|0)?\s*$/ } },
       ],
     })
   } else if (phone) {
@@ -762,7 +776,7 @@ export async function POST(req: Request) {
       id: nextId,
 
       // legacy field (dipakai query existing)
-      user_id: targetUserId,
+      user_id: new ObjectId(targetUserId),
 
       // new field (biar stats/team bisa pakai assignedTo.userId)
       assignedTo: targetUser
@@ -810,7 +824,14 @@ export async function POST(req: Request) {
     const ins = await visits.insertOne(doc as any)
 
     return NextResponse.json(
-      { ok: true, data: { ...doc, _id: String(ins.insertedId) } },
+      {
+        ok: true,
+        data: {
+          ...doc,
+          user_id: targetUserId,
+          _id: String(ins.insertedId),
+        },
+      },
       { status: 201 },
     )
   } catch (e: any) {

@@ -194,7 +194,7 @@ export async function POST(req: Request) {
 
       docs.push({
         // legacy
-        user_id: targetUserId || null,
+        user_id: targetUserId ? new ObjectId(targetUserId) : null,
 
         nama_sales,
 
@@ -227,9 +227,9 @@ export async function POST(req: Request) {
     // 5) Create Notifications if assigned to another user
     const notificationsToInsert = []
     for (const doc of docs) {
-      if (doc.user_id && doc.user_id !== session.userId) {
+      if (doc.user_id && String(doc.user_id) !== session.userId) {
         notificationsToInsert.push({
-          userId: doc.user_id,
+          userId: String(doc.user_id),
           title: 'Tugas Visit Baru',
           message: `${session.fullName || session.username} (Leader/Admin) memberikan tugas visit ke instansi ${doc.institusi_kerja} pada tanggal ${visit_date}.`,
           type: 'TASK',

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { useSession } from '@/components/session/SessionProvider'
+import MissingPhoneBanner from '@/components/MissingPhoneBanner'
 import EditVisitModal from '@/components/modals/EditVisitModal'
 import {
   Pen,
@@ -503,43 +504,6 @@ export default function PlanActivityPage() {
         setTimeout(() => setCopiedPlanId(null), 2000)
       })
       .catch(console.error)
-  }
-
-  function copyAllPlan(plan: PlanRow) {
-    const institusiValue = plan.institusi_kerja || plan.namaEntitas || '-'
-    const institusiLabel = plan.institusi_kerja
-      ? 'Institusi Kerja'
-      : 'Nama Entitas'
-    const satuanValue = plan.satuan_kerja || plan.jenisEntitas || '-'
-    const satuanLabel = plan.satuan_kerja ? 'Satuan Kerja' : 'Jenis Entitas'
-
-    const lines = [
-      `🗓️ Tanggal Kegiatan - ${formatTanggalForCopy(plan.tanggal)}`,
-      `👥 Nama Sales: ${plan.nama_sales || '-'}`,
-      ``,
-      `------------------------------`,
-      `City: ${plan.kota || '-'}`,
-      `K/L/PD: ${plan.klpd || '-'}`,
-      `${institusiLabel}: ${institusiValue}`,
-      `${satuanLabel}: ${satuanValue}`,
-      `Status Ring: ${normalizeRing(plan.status_ring) || '-'}`,
-      `Nama PIC: ${plan.pic_name || '-'}`,
-      `Nomor HP: ${plan.pic_phone || '-'}`,
-      `Jabatan: ${plan.pic_role || '-'}`,
-      `Posisi: ${plan.pic_position || '-'}`,
-      `Kegiatan: ${plan.kegiatan_status || '-'}`,
-      `Keterangan: ${plan.descriptions || '-'}`,
-      `Tindak Lanjut: ${plan.tindak_lanjut || '-'}`,
-      `Status: ${plan.status || '-'}`,
-      `Gambar: ${getImageFullUrl(plan.visit_image, plan.id)}`,
-    ];
-
-    const text = lines.join('\n')
-    const copyToClipboard = (str: string) => {
-      if (navigator.clipboard && window.isSecureContext) {
-        return navigator.clipboard.writeText(str)
-      }
-    }
   }
 
   // Copy all plan visits for a specific day
@@ -1201,7 +1165,7 @@ export default function PlanActivityPage() {
                     />
                     <div className='flex-1 min-w-0'>
                       <p className='text-sm font-semibold text-gray-800 truncate'>
-                        {plan.institusi_kerja || plan.kota || '-'}
+                        {plan.institusi_kerja || plan.namaEntitas || '-'}
                       </p>
                       <p className='text-xs text-gray-500 truncate'>
                         {plan.kota} {plan.klpd ? `• ${plan.klpd}` : ''}
@@ -1627,6 +1591,8 @@ export default function PlanActivityPage() {
                 </span>
               </div>
             </div>
+
+            <MissingPhoneBanner />
 
             {/* TOOLBAR */}
             <div className='mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-3 rounded-xl shadow-sm ring-1 ring-black/5'>
