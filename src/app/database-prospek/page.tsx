@@ -1,14 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
-import Link from 'next/link'
-import { useSession } from '@/components/session/SessionProvider'
 import Card from '@/components/ui/Card'
-interface CardItemProps {
-  title: string
-  value?: string
-  icon?: React.ReactNode
-}
 
 export default function DatabaseProspekPage() {
   return (
