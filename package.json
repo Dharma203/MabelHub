@@ -43,7 +43,7 @@
     "react-native-contacts": "^8.0.10",
     "react-select": "^5.10.2",
     "recharts": "^3.7.0",
-    "seroval": "^1.6.2",
+    "seroval": "^1.6.9",
     "xlsx-js-style": "^1.2.0",
     "zod": "^4.3.6"
   },
