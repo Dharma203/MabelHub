@@ -341,6 +341,18 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
       ],
     },
     {
+      title: 'SALES',
+      icon: 'User',
+      items: [
+        { label: 'Validasi Sales', href: '/validasi-sales', icon: 'User' },
+        {
+          label: 'Sales Report System',
+          href: '/sales-report-system',
+          icon: 'FileText',
+        },
+      ],
+    },
+    {
       title: 'MONITORING',
       icon: 'Dashboard',
       items: [
@@ -349,9 +361,6 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/monitoring-leader',
           icon: 'Phone',
         },
-        {
-          label: ''
-        }
       ],
     },
     {

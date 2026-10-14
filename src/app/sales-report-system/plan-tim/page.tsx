@@ -1,191 +1,125 @@
 'use client'
 
 import SearchableSelect from '@/components/ui/SearchableSelect'
-import { useState, useMemo, useEffect, useRef, Suspense } from 'react'
-import { useSession } from '@/components/session/SessionProvider'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { ArrowBigUp, Clock, Save, Target } from 'lucide-react'
+import { useState, Suspense } from 'react'
+import { useRouter } from 'next/navigation'
+import { Clock, Notebook, Plus, Save, Target, X } from 'lucide-react'
 import { validateFormFieldsPlan } from '@/utils/formValidationPlan'
-import { computeChangedFields } from '@/utils/validation'
-
-type ReportItem = {
-  id: string
-  created_at: string
-  nama_sales: string
-  updated_at: string
-  code_submit: string
-  period: string
-  period_of: string
-  month: string
-  year: string
-  leaderId: string
-  leaderName: string
-  total_active_sales: string
-  visit_target: string
-  demo_target: string
-  sph_target: string
-  sph_deal_target: string
-  revenue: string
-  note: string
-}
+import { generatePlanTimCode } from '@/utils/planTimCode'
+import { getPlanTimPeriodConfig } from '@/utils/planTimPeriod'
+import {
+  createInitialPlanTimSalesTargets,
+  planTimSalesNames,
+  sumPlanTimSalesTargets,
+} from '@/utils/planTimSales'
 
 function PlanTimContent() {
-  const [codeSubmit, setCodeSubmit] = useState('')
   const [period, setPeriod] = useState('')
   const [periodOf, setPeriodOf] = useState('')
   const [month, setMonth] = useState('')
   const [year, setYear] = useState('')
-  const [leaderId, setLeaderId] = useState('')
-  const [leaderName, setLeaderName] = useState('')
-  const [activeSales, setActiveSales] = useState('')
-  const [visitTarget, setVisitTarget] = useState('')
-  const [demoTarget, setDemoTarget] = useState('')
-  const [sphTarget, setSphTarget] = useState('')
-  const [sphDealTarget, setSphDealTarget] = useState('')
-  const [revenue, setRevenue] = useState('')
-  const [isOpen, setIsOpen] = useState(false)
-  const [note, setNote] = useState('')
-  const searchParams = useSearchParams()
-  const [originalSnapshot, setOriginalSnapshot] = useState<{
-    header: Record<string, string>
-    items: any[]
-  } | null>(null)
-
-  const [items, setItems] = useState<
-  {
-    id: string
-    leaderName: string
-    leaderId: string
-    note: string
-  }[]
-  >(() => [
-    {
-      id: Date.now().toString(36) + Math.random().toString(36).substring(2),
-      leaderName: '',
-      leaderId: '',
-      note: '',
-    }
-  ])
-
-  const wrapperRef = useRef<HTMLDivElement>(null)
-
-  const isRevisionMode = !!(
-    searchParams.get('id')?.trim() || originalSnapshot
+  const leaderName = 'Arie Muhamad Fajar'
+  const [salesTargets, setSalesTargets] = useState(
+    createInitialPlanTimSalesTargets,
   )
+  const [note, setNote] = useState('')
+  const router = useRouter()
+  const periodConfig = getPlanTimPeriodConfig(period)
+  const salesTotals = sumPlanTimSalesTargets(salesTargets)
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        wrapperRef.current &&
-        !wrapperRef.current.contains(e.target as Node)
-      ) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  const handlePeriodChange = (value: string) => {
+    const config = getPlanTimPeriodConfig(value)
+    setPeriod(value)
+    setPeriodOf(config.periodOfValue)
+    setMonth(config.monthValue)
+  }
 
   const handleKirim = () => {
-    const headerError = validateFormFieldsPlan({
-      leaderName,
-      visit_target: visitTarget,
-      demo_target: demoTarget,
-      revenue,
-      sph_target: sphTarget,
-    })
-    if (headerError) {
-      alert(headerError.message)
-      return
-    }
-
-    const makePrefix = (leaderName: string): string => {
-      if (!leaderName) return 'ARI'
-      const consonants = 'bcdfghjklmnpqrstvwxyz'
-      let result = leaderName[0].toUpperCase()
-      for (let i = 1; i < leaderName.length && result.length < 3; i++) {
-        if (consonants.includes(leaderName[i].toLowerCase())) {
-          result += leaderName[i].toUpperCase()
-        }
+    try {
+      if (
+        salesTargets.length === 0 ||
+        salesTargets.some((row) => !row.nama_sales)
+      ) {
+        alert('Pilih nama sales untuk setiap baris atau hapus baris kosong.')
+        return
       }
-      while (result.length < 3) result += 'X'
-      return result
-    }
-    const prefixFallback = makePrefix(leaderName)
-
-    const makeMonthPrefix = (period: string): string => {
-      if (!period) return 'BL'
-      const consonants = 'bcdfghjklmnpqrstvwxyz'
-      let result = period[0].toUpperCase()
-      for (let i = 1; i < period.length && result.length < 2; i++) {
-        if (consonants.includes(period[i].toLowerCase())) {
-          result += period[i].toUpperCase()
-        }
+      const headerError = validateFormFieldsPlan({
+        leaderName,
+        visit_target: String(salesTotals.visit_target),
+        demo_target: String(salesTotals.demo_target),
+        revenue: String(salesTotals.revenue),
+        sph_target: String(salesTotals.sph_target),
+      })
+      if (headerError) {
+        alert(headerError.message)
+        return
       }
-      while (result.length < 2) result += 'X'
-      return result
-    }
-    const date = new Date()
-    const year = date.toLocaleDateString('id-ID', {
-      year: 'numeric'
-    })
-    .replace(/\//g, '')
-    const generatedCode = 
-    codeSubmit.trim() ||
-    `${prefixFallback}-${makeMonthPrefix}-${'X'}-${year}`
+      if (![period, periodOf, month, year].every((value) => value.trim())) {
+        alert('Periode, Periode Ke, Bulan, dan Tahun wajib dipilih.')
+        return
+      }
 
-    const headerPayload = {
-      codeSubmit: generatedCode,
-      period: period,
-      periodOf : 'X',
-      month: month,
-      year: year,
-      leaderName: leaderName,
-      activeSales: activeSales,
-      visitTarget: visitTarget,
-      demoTarget: demoTarget,
-      sphTarget: sphDealTarget,
-      sphDealTarget: sphDealTarget,
-      revenue: revenue,
-      note: note
-    }
-
-    const itemsPayload = items.map((item) => ({
-      id: item.id,
-      leaderName: item.leaderName,
-      leaderId: item.leaderId,
-      note: note,
-
-    }))
-
-    let res : Response
-
-    if (isRevisionMode) {
-      // hitung perubahan field
-      const changedFields = computeChangedFields(
-        originalSnapshot,
-        headerPayload,
-        itemsPayload,
-      )
-
-      // mode revisi : panggil put
-      
-
-
+      const payload = {
+        code_submit: generatePlanTimCode({
+          leaderName,
+          period,
+          periodOf,
+          month,
+          year,
+        }),
+        leaderName: leaderName.trim(),
+        note: note.trim(),
+        period,
+        periodOf,
+        month,
+        year,
+        total_active_sales: String(salesTargets.length),
+        visit_target: String(salesTotals.visit_target),
+        demo_target: String(salesTotals.demo_target),
+        sph_target: String(salesTotals.sph_target),
+        sph_deal_target: String(salesTotals.sph_deal_target),
+        revenue: String(salesTotals.revenue),
+        sales_targets: salesTargets.map(
+          ({
+            nama_sales,
+            visit_target,
+            demo_target,
+            sph_target,
+            sph_deal_target,
+            revenue,
+            note,
+          }) => ({
+            nama_sales,
+            visit_target,
+            demo_target,
+            sph_target,
+            sph_deal_target,
+            revenue,
+            note,
+          }),
+        ),
+      }
+      sessionStorage.setItem('sales-report-plan-tim-draft', JSON.stringify(payload))
+      alert('Data Plan Tim disimpan sementara. Lengkapi Plan Visit untuk mengirim semuanya.')
+      router.push('/sales-report-system/plan-visit')
+    } catch (error) {
+      console.error('Error saving Plan Tim draft:', error)
+      alert('Gagal menyimpan data Plan Tim sementara di browser.')
     }
   }
 
   return (
-    <div className='min-h-screen p-4 md:p-8 bg-blue-50'>
-      <div className='mx-auto max-w-7xl space-y-8'>
+    <div className='min-h-screen bg-blue-50'>
+      <div className='mx-auto'>
         <div className='flex-1 p-4'>
           <div className='bg-white shadow-md rounded-xl p-6 mb-6 border border-gray-100'>
             <div className='flex flex-col'>
               <h1 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
-                Plan Tim
+                Form Submit Plan Sales
               </h1>
               <div className='text-sm ml-4 mt-2 text-slate-500 font-medium'>
-                Form Input Plan Tim
+                Isi rencana penjualan tim untuk periode yang dipilih, Target tim
+                dihitung otomatis dari akumulasi target per sales.
               </div>
             </div>
           </div>
@@ -209,7 +143,7 @@ function PlanTimContent() {
                 </label>
                 <SearchableSelect
                   value={period}
-                  onChange={(val: string) => setPeriod(val)}
+                  onChange={handlePeriodChange}
                   options={[
                     { value: '', label: '-- Pilih --' },
                     { value: 'Bulanan', label: 'Bulanan' },
@@ -226,10 +160,8 @@ function PlanTimContent() {
                 <SearchableSelect
                   value={periodOf}
                   onChange={(val: string) => setPeriodOf(val)}
-                  options={[
-                    { value: '', label: '-- Pilih --' },
-                    { value: 'X', label: 'X' },
-                  ]}
+                  options={periodConfig.periodOfOptions}
+                  isDisabled={periodConfig.periodOfDisabled}
                 />
               </div>
               <div className='relative mt-2'>
@@ -239,6 +171,7 @@ function PlanTimContent() {
                 <SearchableSelect
                   value={month}
                   onChange={(val: string) => setMonth(val)}
+                  isDisabled={periodConfig.monthDisabled}
                   options={[
                     { value: '', label: '-- Pilih --' },
                     { value: 'January', label: 'January' },
@@ -286,134 +219,184 @@ function PlanTimContent() {
                 </p>
               </div>
             </div>
-            <div className='gap-3 grid grid-cols-1 md:grid-cols-5'>
-              <div className='relative mt-2'>
-                <label className='text-sm font-medium text-gray-700'>
-                  Target Visit
-                </label>
-                <div className='relative mt-2'>
-                  <input
-                    type='number'
-                    value={visitTarget}
-                    onChange={(e) => setVisitTarget(e.target.value)}
-                    placeholder='Contoh 120'
-                    className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
-                  />
-                </div>
-              </div>
-              <div className='relative mt-2'>
-                <label className='text-sm font-medium text-gray-700'>
-                  Target Demo / Presentasi
-                </label>
-                <div className='relative mt-2'>
-                  <input
-                    type='number'
-                    value={demoTarget}
-                    onChange={(e) => setDemoTarget(e.target.value)}
-                    placeholder='Contoh 120'
-                    className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
-                  />
-                </div>
-              </div>
-              <div className='relative mt-2'>
-                <label className='text-sm font-medium text-gray-700'>
-                  Target SPH
-                </label>
-                <div className='relative mt-2'>
-                  <input
-                    type='number'
-                    value={sphTarget}
-                    onChange={(e) => setSphTarget(e.target.value)}
-                    placeholder='Contoh 120'
-                    className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
-                  />
-                </div>
-              </div>
-              <div className='relative mt-2'>
-                <label className='text-sm font-medium text-gray-700'>
-                  Target Closing SPH
-                </label>
-                <div className='relative mt-2'>
-                  <input
-                    type='number'
-                    value={sphDealTarget}
-                    onChange={(e) => setSphDealTarget(e.target.value)}
-                    placeholder='Contoh 120'
-                    className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
-                  />
-                </div>
-              </div>
-              <div className='relative mt-2'>
-                <label className='text-sm font-medium text-gray-700'>
-                  Target Revenue Total
-                </label>
-                <div className='relative mt-2'>
-                  <input
-                    type='number'
-                    value={revenue}
-                    onChange={(e) => setRevenue(e.target.value)}
-                    placeholder='Contoh 120'
-                    className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
-                  />
-                </div>
-              </div>
+            <div className='mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800'>
+              Setiap nama sales hanya dapat dipilih satu kali. Total target
+              dihitung otomatis.
             </div>
+            <div className='overflow-x-auto'>
+              <table className='w-full min-w-262.5 text-left text-sm'>
+                <thead>
+                  <tr className='bg-slate-50 text-xs uppercase text-slate-600'>
+                    <th className='px-3 py-3'>#</th>
+                    <th className='px-3 py-3'>Nama Sales *</th>
+                    <th className='px-3 py-3'>Target Visit</th>
+                    <th className='px-3 py-3'>Target Demo</th>
+                    <th className='px-3 py-3'>Target SPH</th>
+                    <th className='px-3 py-3'>Target Closing</th>
+                    <th className='px-3 py-3'>Target Revenue (Rp)</th>
+                    <th className='px-3 py-3'>Catatan</th>
+                    <th className='px-3 py-3' aria-label='Aksi' />
+                  </tr>
+                </thead>
+                <tbody>
+                  {salesTargets.map((row, index) => (
+                    <tr key={row.id}>
+                      <td className='px-3 py-2 text-slate-500'>{index + 1}</td>
+                      <td className='min-w-48 px-2 py-2'>
+                        <SearchableSelect
+                          value={row.nama_sales}
+                          onChange={(value) =>
+                            setSalesTargets((current) =>
+                              current.map((item) =>
+                                item.id === row.id
+                                  ? { ...item, nama_sales: value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          options={[
+                            { value: '', label: '-- Pilih sales --' },
+                            ...planTimSalesNames
+                              .filter(
+                                (name) =>
+                                  name === row.nama_sales ||
+                                  !salesTargets.some(
+                                    (item) =>
+                                      item.id !== row.id &&
+                                      item.nama_sales === name,
+                                  ),
+                              )
+                              .map((name) => ({ value: name, label: name })),
+                          ]}
+                        />
+                      </td>
+                      {(
+                        [
+                          ['visit_target', 'Target Visit'],
+                          ['demo_target', 'Target Demo'],
+                          ['sph_target', 'Target SPH'],
+                          ['sph_deal_target', 'Target Closing'],
+                          ['revenue', 'Target Revenue'],
+                        ] as const
+                      ).map(([field, label]) => (
+                        <td key={field} className='min-w-28 px-2 py-2'>
+                          <input
+                            aria-label={`${label} ${row.nama_sales || index + 1}`}
+                            type='number'
+                            min='0'
+                            value={row[field]}
+                            onChange={(event) =>
+                              setSalesTargets((current) =>
+                                current.map((item) =>
+                                  item.id === row.id
+                                    ? { ...item, [field]: event.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className='h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                          />
+                        </td>
+                      ))}
+                      <td className='min-w-28 px-2 py-2'>
+                        <input
+                          aria-label={`Catatan ${row.nama_sales || index + 1}`}
+                          type='text'
+                          value={row.note}
+                          placeholder='Opsional'
+                          onChange={(event) =>
+                            setSalesTargets((current) =>
+                              current.map((item) =>
+                                item.id === row.id
+                                  ? { ...item, note: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          className='h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                        />
+                      </td>
+                      <td className='px-2 py-2'>
+                        <button
+                          type='button'
+                          aria-label={`Hapus baris sales ${index + 1}`}
+                          onClick={() =>
+                            setSalesTargets((current) =>
+                              current.filter((item) => item.id !== row.id),
+                            )
+                          }
+                          className='rounded-md bg-red-100 p-2 text-red-600 hover:bg-red-200'
+                        >
+                          <X size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className='bg-sky-50 font-bold text-sky-900'>
+                    <td colSpan={2} className='px-3 py-3'>
+                      TOTAL TIM
+                    </td>
+                    <td className='px-3 py-3'>{salesTotals.visit_target}</td>
+                    <td className='px-3 py-3'>{salesTotals.demo_target}</td>
+                    <td className='px-3 py-3'>{salesTotals.sph_target}</td>
+                    <td className='px-3 py-3'>{salesTotals.sph_deal_target}</td>
+                    <td className='px-3 py-3'>
+                      Rp {salesTotals.revenue.toLocaleString('id-ID')}
+                    </td>
+                    <td colSpan={2} />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <button
+              type='button'
+              onClick={() =>
+                setSalesTargets((current) => [
+                  ...current,
+                  {
+                    id: `${Date.now()}-${Math.random()}`,
+                    nama_sales: '',
+                    visit_target: '0',
+                    demo_target: '0',
+                    sph_target: '0',
+                    sph_deal_target: '0',
+                    revenue: '0',
+                    note: '',
+                  },
+                ])
+              }
+              disabled={salesTargets.length >= planTimSalesNames.length}
+              className='mt-4 inline-flex items-center gap-2 rounded-lg border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              <Plus size={16} />
+              Tambah Sales
+            </button>
           </section>
           <section className='mt-6 rounded-2xl bg-white p-8 shadow-sm ring-1 ring-black/5'>
-            <div className='flex items-center justify-between gap-4 mb-6'>
-              <div>
-                <h2 className='text-xl font-bold text-gray-800'>
-                  Informasi PIC & Tambahan
-                </h2>
+            <div className='flex items-center gap-3 mb-6'>
+              <Notebook
+                size={38}
+                className='text-white bg-blue-600 rounded-2xl p-1 px-2'
+              />
+              <div className='flex flex-col'>
+                <h2 className='text-xl font-bold text-gray-800'>Catatan Tim</h2>
                 <p className='text-sm font-medium text-gray-500'>
-                  Data Penginput, Jumlah Sales Aktif, Catatan
+                  Keterangan Tambahan (Opsional)
                 </p>
               </div>
             </div>
-            <div className='gap-3 grid grid-cols-1 md:grid-cols-3'>
-              <div className='relative mt-2'>
-                <label className='text-sm font-medium text-gray-700'>
-                  Nama Leader
-                </label>
-                <div className='relative mt-2'>
-                  <input
-                    type='text'
-                    value={leaderName}
-                    onChange={(e) => setLeaderName(e.target.value)}
-                    placeholder='Nama Leader'
-                    className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
-                  />
-                </div>
-              </div>
-              <div className='relative mt-2'>
-                <label className='text-sm font-medium text-gray-700'>
-                  Jumlah Sales Aktif
-                </label>
-                <div className='relative mt-2'>
-                  <input
-                    type='text'
-                    value={activeSales}
-                    onChange={(e) => setActiveSales(e.target.value)}
-                    placeholder='Nama Leader'
-                    className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
-                  />
-                </div>
-              </div>
-              <div className='relative mt-2'>
-                <label className='text-sm font-medium text-gray-700'>
-                  Catatan
-                </label>
-                <div className='relative mt-2'>
-                  <input
-                    type='text'
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder='Nama Leader'
-                    className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
-                  />
-                </div>
-              </div>
-            </div>
+            <label className='mb-2 block text-sm font-medium text-gray-700'>
+              Catatan
+            </label>
+            <input
+              type='text'
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder='Tulis catatan (opsional)'
+              className='h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+            />
           </section>
           <div className='mt-6'>
             <div className='flex items-center justify-center gap-4 mb-6'>

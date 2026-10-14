@@ -20,13 +20,6 @@ export function validateFormFieldsPlan(data: {
   ]
 
   for (const field of requiredHeader) {
-    if (field.label === 'Leader Name') {
-      if (data.leaderName === 'Arie Muhamad Fajar' && !field.value.trim()) {
-        return { field: field.label, message: `Field "${field.label}" wajib diisi.` }
-      }
-      continue
-    }
-
     if (!field.value.trim()) {
       return { field: field.label, message: `Field "${field.label}" wajib diisi.` }
     }
