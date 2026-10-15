@@ -127,17 +127,6 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
       items: [{ label: 'Data Produk', href: '/produk', icon: 'CheckSquare' }],
     },
     {
-      title: 'MONITORING',
-      icon: 'Command',
-      items: [
-        {
-          label: 'Instansi No Phone',
-          href: '/monitoring-leader',
-          icon: 'Phone',
-        },
-      ],
-    },
-    {
       title: 'E-PROCUREMENT',
       icon: 'ShoppingCart',
       items: [
