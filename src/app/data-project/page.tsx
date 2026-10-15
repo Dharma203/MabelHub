@@ -17,7 +17,10 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  FileText
+  FileText,
+  Building2,
+  ExternalLink,
+  Tag,
 } from "lucide-react";
 
 type Penagihan = {
@@ -101,13 +104,12 @@ function DataProjectContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Edit Modal State
+  // Detail Modal State
+  const [selectedDetail, setSelectedDetail] = useState<Contract | null>(null);
+
+  // Edit Modal State (hanya ubah status)
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [editStatus, setEditStatus] = useState("PENAGIHAN");
-  const [editDokSales, setEditDokSales] = useState("Belum Upload");
-  const [editTglMulai, setEditTglMulai] = useState("");
-  const [editTglBerakhir, setEditTglBerakhir] = useState("");
-  const [editNominal, setEditNominal] = useState<number | string>(0);
   const [savingEdit, setSavingEdit] = useState(false);
   const [modalError, setModalError] = useState("");
   const [modalSuccess, setModalSuccess] = useState("");
@@ -194,7 +196,7 @@ function DataProjectContent() {
   }, [contracts]);
 
   const uniqueDokSales = useMemo(() => {
-    const set = new Set<string>(["Belum Upload", "Approved", "Proses Verifikasi"]);
+    const set = new Set<string>(["Belum Upload", "Sudah Upload"]);
     contracts.forEach((c) => {
       if (c.dokSales) set.add(c.dokSales);
     });
@@ -332,19 +334,15 @@ function DataProjectContent() {
     }
   };
 
-  // Open Edit Modal
+  // Open Edit Modal (hanya status)
   const openEditModal = (c: Contract) => {
     setEditingContract(c);
     setEditStatus(c.status || "PENAGIHAN");
-    setEditDokSales(c.dokSales || "Belum Upload");
-    setEditTglMulai(c.penagihan?.tanggalMulai || "");
-    setEditTglBerakhir(c.penagihan?.tanggalBerakhir || "");
-    setEditNominal(c.penagihan?.nominalPenagihan ?? 0);
     setModalError("");
     setModalSuccess("");
   };
 
-  // Save Modal
+  // Save Modal (hanya update status)
   const handleSaveModal = async () => {
     if (!editingContract) return;
     setSavingEdit(true);
@@ -354,12 +352,6 @@ function DataProjectContent() {
     try {
       const payload = {
         status: editStatus,
-        dokSales: editDokSales,
-        penagihan: {
-          tanggalMulai: editTglMulai,
-          tanggalBerakhir: editTglBerakhir,
-          nominalPenagihan: Number(editNominal) || 0,
-        },
       };
 
       const res = await fetch(
@@ -372,20 +364,20 @@ function DataProjectContent() {
       );
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Gagal menyimpan perubahan");
+      if (!res.ok) throw new Error(json.error || "Gagal menyimpan status");
 
       setContracts((prev) =>
         prev.map((c) =>
-          c.nomorKontrak === editingContract.nomorKontrak ? { ...c, ...json.data } : c
+          c.nomorKontrak === editingContract.nomorKontrak ? { ...c, status: editStatus, ...json.data } : c
         )
       );
 
-      setModalSuccess("Perubahan berhasil disimpan!");
+      setModalSuccess("Status project berhasil diperbarui!");
       setTimeout(() => {
         setEditingContract(null);
-      }, 1000);
+      }, 800);
     } catch (err: any) {
-      setModalError(err.message || "Gagal menyimpan");
+      setModalError(err.message || "Gagal menyimpan status");
     } finally {
       setSavingEdit(false);
     }
@@ -746,7 +738,8 @@ function DataProjectContent() {
                   return (
                     <tr
                       key={c.nomorKontrak || idx}
-                      className="hover:bg-blue-50/40 transition-colors group"
+                      onClick={() => setSelectedDetail(c)}
+                      className="hover:bg-blue-50/60 cursor-pointer transition-colors group"
                     >
                       {/* NO */}
                       <td className="py-4 px-3 text-center text-xs font-semibold text-slate-400">
@@ -790,20 +783,16 @@ function DataProjectContent() {
 
                       {/* DOK. SALES */}
                       <td className="py-4 px-3.5 whitespace-nowrap">
-                        {dokVal === "Approved" ? (
-                          <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full text-xs font-semibold">
-                            Approved
-                          </span>
-                        ) : dokVal === "Proses Verifikasi" ? (
-                          <span className="text-amber-700 bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 rounded-full text-xs font-semibold">
-                            Proses Verifikasi
-                          </span>
-                        ) : dokVal === "Belum Upload" ? (
-                          <span className="text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full text-xs font-medium">
-                            Belum Upload
+                        {dokVal === "Sudah Upload" ? (
+                          <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Sudah Upload
                           </span>
                         ) : (
-                          <span className="text-slate-400">{dokVal}</span>
+                          <span className="text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full text-xs font-medium inline-flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            Belum Upload
+                          </span>
                         )}
                       </td>
 
@@ -830,9 +819,12 @@ function DataProjectContent() {
                       {/* EDIT ACTION BUTTON */}
                       <td className="py-4 px-3 text-center">
                         <button
-                          onClick={() => openEditModal(c)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(c);
+                          }}
                           className="p-1.5 rounded-lg border border-blue-200 bg-blue-50/50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-2xs active:scale-90"
-                          title="Edit Status & Penagihan"
+                          title="Ubah Status Project"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -914,15 +906,15 @@ function DataProjectContent() {
         </div>
       </div>
 
-      {/* ─── Modal Edit Status & Penagihan ─── */}
+      {/* ─── Modal Edit Status ─── */}
       {editingContract && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">
-                  Edit Data Project
+                  Ubah Status Project
                 </h3>
                 <p className="text-xs text-slate-500 font-mono mt-0.5">
                   {editingContract.nomorKontrak}
@@ -938,15 +930,15 @@ function DataProjectContent() {
 
             {/* Modal Body */}
             <div className="p-6 space-y-4 text-xs md:text-sm">
-              {/* Instansi Info */}
+              {/* Instansi Info Summary */}
               <div className="bg-blue-50/60 rounded-xl p-3 border border-blue-100 space-y-1">
                 <div className="font-bold text-blue-900 text-xs">
                   {editingContract.instansi || "—"}
                 </div>
-                <div className="text-slate-600 text-xs">
+                <div className="text-slate-600 text-xs truncate">
                   {editingContract.namaPengadaan || "—"}
                 </div>
-                <div className="text-slate-700 font-bold text-xs pt-1">
+                <div className="text-slate-700 font-bold text-xs pt-0.5">
                   Nilai: {fmtCurrency(editingContract.nominalKontrak)}
                 </div>
               </div>
@@ -954,87 +946,17 @@ function DataProjectContent() {
               {/* Status Select */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Status Project
+                  Pilih Status Project Baru
                 </label>
                 <select
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 >
                   <option value="PENAGIHAN">PENAGIHAN</option>
                   <option value="DONE PROJECT">DONE PROJECT</option>
                   <option value="PENDING">PENDING</option>
                 </select>
-              </div>
-
-              {/* Dok. Sales Select */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Dokumen Sales
-                </label>
-                <select
-                  value={editDokSales}
-                  onChange={(e) => setEditDokSales(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                >
-                  <option value="Belum Upload">Belum Upload</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Proses Verifikasi">Proses Verifikasi</option>
-                </select>
-              </div>
-
-              {/* Penagihan fields */}
-              <div className="pt-2 border-t border-slate-100">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">
-                  Kelola Penagihan
-                </h4>
-
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Tgl Mulai Penagihan
-                    </label>
-                    <input
-                      type="date"
-                      value={editTglMulai}
-                      onChange={(e) => setEditTglMulai(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Tgl Berakhir Penagihan
-                    </label>
-                    <input
-                      type="date"
-                      value={editTglBerakhir}
-                      onChange={(e) => setEditTglBerakhir(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                    Nominal Penagihan (Rp)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 font-bold text-xs pointer-events-none">
-                      Rp
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={editNominal ? editNominal.toLocaleString("id-ID") : ""}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/\D/g, "");
-                        setEditNominal(raw ? parseInt(raw, 10) : 0);
-                      }}
-                      placeholder="0"
-                      className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    />
-                  </div>
-                </div>
               </div>
 
               {modalError && (
@@ -1067,7 +989,307 @@ function DataProjectContent() {
                 disabled={savingEdit}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-xs hover:shadow-md transition-all disabled:opacity-50 active:scale-95"
               >
-                {savingEdit ? "Menyimpan..." : "Simpan Perubahan"}
+                {savingEdit ? "Menyimpan..." : "Simpan Status"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal Detail Project ─── */}
+      {selectedDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/70 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-sm shadow-blue-500/20 flex-shrink-0">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Detail Data Project
+                  </h3>
+                  <p className="text-xs text-slate-500 font-mono mt-0.5">
+                    {selectedDetail.nomorKontrak}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedDetail(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                title="Tutup"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto p-6 space-y-5 text-sm">
+              {/* Ringkasan Utama Card */}
+              <div className="rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50/40 p-5 border border-blue-100 shadow-2xs space-y-3">
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-600 block">
+                    Instansi & Pengadaan
+                  </span>
+                  <div className="text-base font-extrabold text-slate-900 mt-0.5">
+                    {selectedDetail.instansi || "—"}
+                  </div>
+                  <div className="text-xs font-medium text-slate-600 mt-1">
+                    {selectedDetail.namaPengadaan || "—"}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-blue-200/50">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                      Nilai Pengadaan / Kontrak
+                    </span>
+                    <span className="text-lg font-black text-blue-900">
+                      {fmtCurrency(selectedDetail.nominalKontrak)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Status Project */}
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                      selectedDetail.status === "DONE PROJECT"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-slate-100 text-slate-700 border-slate-200"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        selectedDetail.status === "DONE PROJECT" ? "bg-emerald-500" : "bg-slate-400"
+                      }`} />
+                      {selectedDetail.status || "PENAGIHAN"}
+                    </span>
+
+                    {/* Dok Sales */}
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-xs font-semibold border inline-flex items-center gap-1 ${
+                        selectedDetail.dokSales === "Sudah Upload"
+                          ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                          : "text-slate-600 bg-slate-100 border-slate-200"
+                      }`}
+                    >
+                      {selectedDetail.dokSales === "Sudah Upload" ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          Dok: Sudah Upload
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          Dok: Belum Upload
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid Informasi Detail */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Bendera */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                    Bendera Perusahaan
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedDetail.bendera || selectedDetail.perusahaan || "—"}
+                  </span>
+                </div>
+
+                {/* No Kontrak */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                    Nomor Kontrak / SPK
+                  </span>
+                  <span className="font-mono text-xs font-bold text-slate-800">
+                    {selectedDetail.nomorKontrak || "—"}
+                  </span>
+                </div>
+
+                {/* Marketing */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                    Marketing / Sales
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedDetail.marketing || "—"}
+                  </span>
+                </div>
+
+                {/* PIC */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                    PIC Admin
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedDetail.pic || "—"}
+                  </span>
+                </div>
+
+                {/* Tanggal Kontrak */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                    Tanggal Kontrak
+                  </span>
+                  <span className="font-medium text-slate-800">
+                    {fmtDate(selectedDetail.tanggalKontrak)}
+                  </span>
+                </div>
+
+                {/* Tanggal Berakhir */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                    Tanggal Berakhir Kontrak
+                  </span>
+                  <span className="font-medium text-slate-800">
+                    {fmtDate(selectedDetail.tanggalBerakhirKontrak)}
+                  </span>
+                </div>
+
+                {/* Tanggal Penyerahan */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 sm:col-span-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                    Tanggal Penyerahan
+                  </span>
+                  <span className="font-medium text-slate-800">
+                    {fmtDate(selectedDetail.tanggalPenyerahan)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Status Dokumen & Link GDrive */}
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
+                  Dokumen & Berkas
+                </span>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Dok. Fisik</span>
+                    <span className={`font-extrabold ${selectedDetail.fisik === "YA" ? "text-emerald-600" : "text-slate-400"}`}>
+                      {selectedDetail.fisik || "TIDAK"}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Dok. Scan</span>
+                    <span className={`font-extrabold ${selectedDetail.scan === "YA" ? "text-emerald-600" : "text-slate-400"}`}>
+                      {selectedDetail.scan || "TIDAK"}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 sm:col-span-2">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Nama Folder</span>
+                    <span className="font-semibold text-slate-800 truncate block">
+                      {selectedDetail.namaFolder || "—"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Link GDrive */}
+                <div className="pt-2">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Link GDrive</span>
+                  {selectedDetail.link ? (
+                    <a
+                      href={selectedDetail.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 px-3 py-1.5 rounded-xl transition-colors max-w-full break-all"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">{selectedDetail.link}</span>
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">Belum ada link GDrive</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Data Penagihan */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-2xs space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
+                  Informasi Penagihan
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Tgl Mulai</span>
+                    <span className="font-semibold text-slate-800">{fmtDate(selectedDetail.penagihan?.tanggalMulai)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Tgl Berakhir</span>
+                    <span className="font-semibold text-slate-800">{fmtDate(selectedDetail.penagihan?.tanggalBerakhir)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Nominal Penagihan</span>
+                    <span className="font-bold text-blue-900">{fmtCurrency(selectedDetail.penagihan?.nominalPenagihan)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Request IDs */}
+              {selectedDetail.requestIds && selectedDetail.requestIds.length > 0 && (
+                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
+                    Request ID Terkait (E-Procurement)
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedDetail.requestIds.map((id: string) => (
+                      <span key={id} className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-lg border border-indigo-200">
+                        <Tag className="w-3 h-3" />
+                        <span>{id}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Keterangan & Catatan */}
+              {(selectedDetail.keterangan || selectedDetail.catatan) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {selectedDetail.keterangan && (
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                        Keterangan
+                      </span>
+                      <p className="text-slate-700 whitespace-pre-wrap">{selectedDetail.keterangan}</p>
+                    </div>
+                  )}
+                  {selectedDetail.catatan && (
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                        Catatan
+                      </span>
+                      <p className="text-slate-700 whitespace-pre-wrap">{selectedDetail.catatan}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/70 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedDetail(null)}
+                className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs transition-colors"
+              >
+                Tutup
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const target = selectedDetail;
+                  setSelectedDetail(null);
+                  openEditModal(target);
+                }}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-xs hover:shadow-md transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Ubah Status</span>
               </button>
             </div>
           </div>

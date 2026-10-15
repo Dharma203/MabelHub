@@ -48,7 +48,8 @@ type BarangItem = {
   merekBarang: string;
   tipeBarang: string;
   jumlahUnit: number;
-  kondisiBarang: string;
+  kondisiBarang: "BARU" | "ADA KENDALA" | "";
+  kendala?: string;
   fotoSerahTerimaFile: File | null;
   fotoBarangFile: File | null;
   videoBarangFile: File | null;
@@ -67,6 +68,7 @@ const emptyBarang = (): BarangItem => ({
   tipeBarang: "",
   jumlahUnit: 0,
   kondisiBarang: "",
+  kendala: "",
   fotoSerahTerimaFile: null,
   fotoBarangFile: null,
   videoBarangFile: null,
@@ -283,6 +285,14 @@ function DokumentasiProjectContent() {
       return;
     }
 
+    for (let i = 0; i < barangList.length; i++) {
+      const item = barangList[i];
+      if (item.kondisiBarang === "ADA KENDALA" && !item.kendala?.trim()) {
+        setSubmitError(`Keterangan kendala pada Barang #${i + 1} wajib diisi`);
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
@@ -295,6 +305,7 @@ function DokumentasiProjectContent() {
           tipeBarang: item.tipeBarang,
           jumlahUnit: item.jumlahUnit,
           kondisiBarang: item.kondisiBarang,
+          kendala: item.kondisiBarang === "ADA KENDALA" ? (item.kendala || "").trim() : "",
         };
 
         if (item.fotoSerahTerimaFile) {
@@ -856,17 +867,46 @@ function DokumentasiProjectContent() {
                     <select
                       className={inputCls}
                       value={item.kondisiBarang}
-                      onChange={(e) =>
-                        updateBarang(idx, "kondisiBarang", e.target.value)
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value as "BARU" | "ADA KENDALA" | "";
+                        setBarangList((prev) =>
+                          prev.map((it, i) =>
+                            i === idx
+                              ? {
+                                  ...it,
+                                  kondisiBarang: val,
+                                  kendala: val === "ADA KENDALA" ? it.kendala : "",
+                                }
+                              : it
+                          )
+                        );
+                      }}
                     >
                       <option value="">— Pilih Kondisi —</option>
                       <option value="BARU">BARU</option>
-                      <option value="BEKAS">BEKAS</option>
-                      <option value="RUSAK">RUSAK</option>
+                      <option value="ADA KENDALA">ADA KENDALA</option>
                     </select>
                   </div>
                 </div>
+
+                {/* Input Manual Kendala jika kondisiBarang === 'ADA KENDALA' */}
+                {item.kondisiBarang === "ADA KENDALA" && (
+                  <div className="p-4 bg-amber-50/80 border border-amber-200/90 rounded-xl space-y-1.5 transition-all">
+                    <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-900">
+                      <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                      <span>
+                        Keterangan Kendala Barang <span className="text-rose-500">*</span>
+                      </span>
+                    </div>
+                    <textarea
+                      rows={2}
+                      className="w-full px-3.5 py-2.5 bg-white border border-amber-300 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-slate-400"
+                      value={item.kendala || ""}
+                      onChange={(e) => updateBarang(idx, "kendala", e.target.value)}
+                      placeholder="Jelaskan kendala atau kerusakan pada barang ini secara rinci..."
+                    />
+                  </div>
+                )}
 
                 {/* File Uploads */}
                 <div>

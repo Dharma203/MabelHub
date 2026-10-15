@@ -118,6 +118,7 @@ export async function POST(req: Request) {
         tipeBarang: String(item.tipeBarang ?? "").trim(),
         jumlahUnit: Number(item.jumlahUnit) || 0,
         kondisiBarang: String(item.kondisiBarang ?? "").trim(),
+        kendala: String(item.kendala ?? "").trim(),
       };
 
       // Handle foto serah terima
@@ -183,5 +184,14 @@ export async function POST(req: Request) {
 
   await db.collection(COL_NAME).insertOne(doc);
 
+  // Otomatis tandai dokSales pada contracts sebagai 'Sudah Upload'
+  if (nomorKontrak) {
+    await db.collection("contracts").updateOne(
+      { nomorKontrak },
+      { $set: { dokSales: "Sudah Upload", updatedAt: now } }
+    );
+  }
+
   return NextResponse.json({ data: doc }, { status: 201 });
 }
+

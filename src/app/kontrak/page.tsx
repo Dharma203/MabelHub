@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useState, Fragment, Suspense } from "react";
+import { useEffect, useState, useMemo, Fragment, Suspense } from "react";
 import { useSession } from "@/components/session/SessionProvider";
 import { useSearchParams, useRouter } from "next/navigation";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import {
+  Search,
+  X,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 
 type Contract = {
   nomorKontrak: string;
@@ -388,6 +395,126 @@ function KontrakPageContent() {
   const [editTarget, setEditTarget] = useState<Contract | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
+  // Filters
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [filterMarketing, setFilterMarketing] = useState("Semua");
+  const [filterBendera, setFilterBendera] = useState("Semua");
+  const [filterPic, setFilterPic] = useState("Semua");
+  const [filterStatus, setFilterStatus] = useState("Semua");
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  const uniqueMarketing = useMemo(() => {
+    const set = new Set<string>();
+    contracts.forEach((c) => {
+      if (c.marketing) set.add(c.marketing);
+    });
+    return Array.from(set).sort();
+  }, [contracts]);
+
+  const uniqueBendera = useMemo(() => {
+    const set = new Set<string>();
+    contracts.forEach((c) => {
+      if (c.bendera) set.add(c.bendera);
+    });
+    return Array.from(set).sort();
+  }, [contracts]);
+
+  const uniquePic = useMemo(() => {
+    const set = new Set<string>();
+    contracts.forEach((c) => {
+      if (c.pic) set.add(c.pic);
+    });
+    return Array.from(set).sort();
+  }, [contracts]);
+
+  const resetFilters = () => {
+    setSearchTerm("");
+    setDateFrom("");
+    setDateTo("");
+    setFilterMarketing("Semua");
+    setFilterBendera("Semua");
+    setFilterPic("Semua");
+    setFilterStatus("Semua");
+    setCurrentPage(1);
+  };
+
+  const isExpiring = (d: string) => {
+    if (!d) return false;
+    const diff = new Date(d).getTime() - Date.now();
+    return diff > 0 && diff <= 7 * 24 * 60 * 60 * 1000;
+  };
+
+  // Filtered Contracts
+  const filteredContracts = useMemo(() => {
+    return contracts.filter((c) => {
+      // Search term
+      if (searchTerm) {
+        const q = searchTerm.toLowerCase();
+        const matchInstansi = c.instansi?.toLowerCase().includes(q);
+        const matchKontrak = c.nomorKontrak?.toLowerCase().includes(q);
+        const matchMarketing = c.marketing?.toLowerCase().includes(q);
+        const matchPic = c.pic?.toLowerCase().includes(q);
+        const matchPengadaan = c.namaPengadaan?.toLowerCase().includes(q);
+        const matchBendera = c.bendera?.toLowerCase().includes(q);
+        if (!matchInstansi && !matchKontrak && !matchMarketing && !matchPic && !matchPengadaan && !matchBendera) {
+          return false;
+        }
+      }
+
+      // Date range on tanggalKontrak
+      if (dateFrom && c.tanggalKontrak && c.tanggalKontrak < dateFrom) {
+        return false;
+      }
+      if (dateTo && c.tanggalKontrak && c.tanggalKontrak > dateTo) {
+        return false;
+      }
+
+      // Dropdown filters
+      if (filterMarketing !== "Semua" && c.marketing !== filterMarketing) {
+        return false;
+      }
+      if (filterBendera !== "Semua" && c.bendera !== filterBendera) {
+        return false;
+      }
+      if (filterPic !== "Semua" && c.pic !== filterPic) {
+        return false;
+      }
+      if (filterStatus === "Segera Berakhir" && !isExpiring(c.tanggalBerakhirKontrak)) {
+        return false;
+      }
+      if (filterStatus === "Aktif" && isExpiring(c.tanggalBerakhirKontrak)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    contracts,
+    searchTerm,
+    dateFrom,
+    dateTo,
+    filterMarketing,
+    filterBendera,
+    filterPic,
+    filterStatus,
+  ]);
+
+  const totalItems = filteredContracts.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+
+  const paginatedContracts = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredContracts.slice(start, start + pageSize);
+  }, [filteredContracts, currentPage, pageSize]);
+
+  const startRecordIndex = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endRecordIndex = Math.min(currentPage * pageSize, totalItems);
+
   useEffect(() => {
     if (!sessionLoading) {
       if (!user) {
@@ -527,11 +654,7 @@ function KontrakPageContent() {
     }
   };
 
-  const isExpiring = (d: string) => {
-    if (!d) return false;
-    const diff = new Date(d).getTime() - Date.now();
-    return diff > 0 && diff <= 7 * 24 * 60 * 60 * 1000;
-  };
+
 
   if (sessionLoading || loading) {
     return (
@@ -574,14 +697,180 @@ function KontrakPageContent() {
             <div className="mb-6 rounded-2xl bg-rose-50 p-4 text-rose-600 text-sm font-semibold border border-rose-100">{error}</div>
           )}
 
+          {/* ─── Filter Section Card (seperti Data Project) ─── */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-5 md:p-6 space-y-4 mb-6">
+            {/* Row 1: Search + Date Range */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              {/* Search Input */}
+              <div className="md:col-span-6 lg:col-span-8">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                  PENCARIAN
+                </label>
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Cari instansi, no kontrak, marketing, pengadaan..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 p-0.5"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Tanggal Kontrak Dari */}
+              <div className="md:col-span-3 lg:col-span-2">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                  TGL KONTRAK DARI
+                </label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    setDateFrom(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-3 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs md:text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
+              </div>
+
+              {/* Tanggal Kontrak Sampai */}
+              <div className="md:col-span-3 lg:col-span-2">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                  TGL KONTRAK SAMPAI
+                </label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => {
+                    setDateTo(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-3 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs md:text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Row 2: Dropdown Filters & Reset */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 items-end">
+              {/* Marketing */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                  MARKETING
+                </label>
+                <select
+                  value={filterMarketing}
+                  onChange={(e) => {
+                    setFilterMarketing(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                >
+                  <option value="Semua">Semua</option>
+                  {uniqueMarketing.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Bendera */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                  BENDERA
+                </label>
+                <select
+                  value={filterBendera}
+                  onChange={(e) => {
+                    setFilterBendera(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                >
+                  <option value="Semua">Semua</option>
+                  {uniqueBendera.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* PIC */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                  PIC
+                </label>
+                <select
+                  value={filterPic}
+                  onChange={(e) => {
+                    setFilterPic(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                >
+                  <option value="Semua">Semua</option>
+                  {uniquePic.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Jatuh Tempo */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 block">
+                  STATUS
+                </label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                >
+                  <option value="Semua">Semua Status</option>
+                  <option value="Segera Berakhir">Segera Berakhir (≤ 7 Hari)</option>
+                  <option value="Aktif">Aktif</option>
+                </select>
+              </div>
+
+              {/* Reset Filter Button */}
+              <div>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="w-full py-2 px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-95"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Filter</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Table */}
-          <div className="mt-8 overflow-hidden rounded-2xl bg-white shadow-sm border border-slate-200">
+          <div className="overflow-hidden rounded-2xl bg-white shadow-2xs border border-slate-200">
             <div className="border-b border-slate-100 bg-slate-50/50 flex items-center justify-between px-6 py-4">
               <h3 className="text-sm font-semibold text-slate-800">
                 Data Kontrak
               </h3>
-              <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-600 border border-indigo-100">
-                {contracts.length} kontrak
+              <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100">
+                {totalItems} dari {contracts.length} kontrak
               </span>
             </div>
 
@@ -601,10 +890,16 @@ function KontrakPageContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {contracts.length === 0 ? (
-                    <tr><td colSpan={9} className="px-5 py-12 text-center text-slate-400 font-medium">Belum ada kontrak.</td></tr>
+                  {paginatedContracts.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="px-5 py-12 text-center text-slate-400 font-medium">
+                        {contracts.length === 0
+                          ? "Belum ada kontrak."
+                          : "Tidak ada kontrak yang sesuai dengan filter pencarian."}
+                      </td>
+                    </tr>
                   ) : (
-                    contracts.map((c) => (
+                    paginatedContracts.map((c) => (
                       <Fragment key={c.nomorKontrak}>
                         <tr className={`border-b border-slate-100/80 hover:bg-slate-50 cursor-pointer transition-colors ${expandedRow === c.nomorKontrak ? "bg-indigo-50/20" : ""} ${isExpiring(c.tanggalBerakhirKontrak) && expandedRow !== c.nomorKontrak ? "bg-amber-50/50" : ""}`}
                           onClick={() => setExpandedRow(expandedRow === c.nomorKontrak ? null : c.nomorKontrak)}>
@@ -642,7 +937,7 @@ function KontrakPageContent() {
                           <tr className="border-b border-neutral-100 bg-slate-50/50">
                             <td colSpan={9} className="px-5 py-5 text-sm">
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
-                                <div><span className="font-semibold text-slate-500 text-xs block mb-1">Link:</span>{" "}<span className="text-slate-800">{c.link ? <a href={c.link} target="_blank" className="text-blue-600 hover:underline">{c.link}</a> : "-"}</span></div>
+                                <div><span className="font-semibold text-slate-500 text-xs block mb-1">Link GDrive:</span>{" "}<span className="text-slate-800">{c.link ? <a href={c.link} target="_blank" className="text-blue-600 hover:underline">{c.link}</a> : "-"}</span></div>
                                 <div><span className="font-semibold text-slate-500 text-xs block mb-1">Folder:</span> <span className="text-slate-800">{c.namaFolder || "-"}</span></div>
                                 <div><span className="font-semibold text-slate-500 text-xs block mb-1">Fisik:</span> <span className={`font-bold ${c.fisik === "YA" ? "text-emerald-600" : "text-slate-400"}`}>{c.fisik}</span></div>
                                 <div><span className="font-semibold text-slate-500 text-xs block mb-1">Scan:</span> <span className={`font-bold ${c.scan === "YA" ? "text-emerald-600" : "text-slate-400"}`}>{c.scan}</span></div>
@@ -660,6 +955,74 @@ function KontrakPageContent() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Pagination footer */}
+            <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4 text-xs font-medium text-slate-500">
+              <div className="flex items-center gap-2">
+                <span>Tampilkan</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span>baris per halaman</span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <span>
+                  Menampilkan <strong className="text-slate-800">{startRecordIndex}</strong> - <strong className="text-slate-800">{endRecordIndex}</strong> dari <strong className="text-slate-800">{totalItems}</strong> kontrak
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                    className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                    title="Halaman Sebelumnya"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum = i + 1;
+                    if (totalPages > 5 && currentPage > 3) {
+                      pageNum = currentPage - 3 + i;
+                      if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                          currentPage === pageNum
+                            ? "bg-blue-600 text-white shadow-2xs"
+                            : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                    title="Halaman Selanjutnya"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           </main>

@@ -36,7 +36,16 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ data: doc });
+  const hasDok = await db
+    .collection("dokumentasi_project")
+    .findOne({ nomorKontrak: nk });
+
+  return NextResponse.json({
+    data: {
+      ...doc,
+      dokSales: hasDok ? "Sudah Upload" : "Belum Upload",
+    },
+  });
 }
 
 export async function PUT(

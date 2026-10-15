@@ -47,8 +47,25 @@ export async function GET(req: Request) {
     .limit(500)
     .toArray();
 
+  // Ambil daftar nomor kontrak yang sudah memiliki dokumentasi project
+  const reportedNomorKontraks = await db
+    .collection("dokumentasi_project")
+    .distinct("nomorKontrak");
+  const reportedSet = new Set(
+    reportedNomorKontraks.map((nk: any) => String(nk ?? "").trim())
+  );
+
+  const enrichedItems = items.map((c: any) => {
+    const nk = String(c.nomorKontrak ?? "").trim();
+    const isUploaded = reportedSet.has(nk);
+    return {
+      ...c,
+      dokSales: isUploaded ? "Sudah Upload" : "Belum Upload",
+    };
+  });
+
   return NextResponse.json(
-    { data: items },
+    { data: enrichedItems },
     {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
