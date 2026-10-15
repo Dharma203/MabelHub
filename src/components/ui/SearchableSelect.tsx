@@ -50,6 +50,9 @@ export default function SearchableSelect({
           minHeight: "3rem", // h-12 (48px)
           borderColor: state.isFocused ? "#bfdbfe" : "#e5e7eb", // blue-200 : gray-200
           boxShadow: state.isFocused ? "0 0 0 2px #bfdbfe" : "none", // ring-2 ring-blue-200
+          backgroundColor: state.isDisabled ? "#f8fafc" : base.backgroundColor,
+          cursor: state.isDisabled ? "not-allowed" : "default",
+          opacity: state.isDisabled ? 0.75 : 1,
           "&:hover": {
             borderColor: state.isFocused ? "#bfdbfe" : "#d1d5db",
           },
@@ -72,11 +75,15 @@ export default function SearchableSelect({
             color: "white",
           },
         }),
+        menuPortal: (base) => ({
+          ...base,
+          zIndex: 99999,
+        }),
         menu: (base) => ({
           ...base,
           borderRadius: "0.5rem", // Tailwind rounded-lg
           overflow: "hidden",
-          zIndex: 9999,
+          zIndex: 99999,
         }),
       }}
       {...rest}

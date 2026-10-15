@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
-import { param } from "motion/react-client";
+
+export const dynamic = "force-dynamic";
 
 const DB_NAME = getDbName();
 const COL_NAME = "contracts";
@@ -73,7 +74,7 @@ export async function PUT(
     "link", "namaFolder", "instansi", "tanggalKontrak",
     "namaPengadaan", "keterangan", "marketing", "bendera",
     "tanggalPenyerahan", "catatan", "pic", "tanggalBerakhirKontrak",
-    "perusahaan",
+    "perusahaan", "status", "dokSales",
   ];
 
   for (const f of stringFields) {

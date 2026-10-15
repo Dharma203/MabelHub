@@ -39,49 +39,7 @@ export default function Sidebar() {
   const role = user?.role as Role;
   const rawSections: MenuSection[] = user ? getMenuByRole(role) : [];
 
-  const [companies, setCompanies] = useState<string[]>([]);
-
-  useEffect(() => {
-    fetch("/api/parameters")
-      .then(res => res.json())
-      .then(json => {
-        if (json?.data?.perusahaan) {
-          setCompanies(json.data.perusahaan);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const sections = useMemo(() => {
-    const toTitleCase = (str: string) => {
-      if (!str) return "";
-      return str.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
-    };
-
-    return rawSections.map(section => {
-      if (section.title === "FINANCE") {
-        return {
-          ...section,
-          items: companies.map(company => ({
-            label: toTitleCase(company),
-            href: `/finance?perusahaan=${encodeURIComponent(company || "")}`,
-            icon: "Building"
-          }))
-        };
-      }
-      if (section.title === "KONTRAK") {
-        return {
-          ...section,
-          items: companies.map(company => ({
-            label: toTitleCase(company),
-            href: `/kontrak?perusahaan=${encodeURIComponent(company || "")}`,
-            icon: "Building"
-          }))
-        };
-      }
-      return section;
-    });
-  }, [rawSections, companies]);
+  const sections = rawSections;
 
   const toggleSection = (e: React.MouseEvent, title: string) => {
     e.stopPropagation();
@@ -175,6 +133,7 @@ export default function Sidebar() {
   };
 
   const isSectionActive = (section: MenuSection) =>
+    (section.href ? isActive(section.href) : false) ||
     section.items.some(item => !!item.href && isActive(item.href));
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -313,13 +272,39 @@ export default function Sidebar() {
           ref={navRef}
           className={`flex-1 overflow-y-auto no-scrollbar px-3 py-4 space-y-3 ${isOpen ? "sidebar-nav-mobile" : ""}`}
         >
-          {sections.map((section) => {
+          {sections.map((section, idx) => {
             const SectionIcon = (Icons as any)[section.icon] || Icons.Circle;
             const expanded = openSections[section.title] !== false;
             const hasActiveItem = isSectionActive(section);
 
+            // Direct link section (no sub-items)
+            if (section.href && section.items.length === 0) {
+              const active = isActive(section.href);
+              return (
+                <div key={`${section.title}-${idx}`} className="space-y-1">
+                  <Link
+                    href={section.href}
+                    className={`flex items-center w-full h-12 rounded-xl transition-all duration-200 px-3 
+                      ${active ? "bg-white text-blue-900 shadow-lg shadow-white/10" : "text-white/60 hover:text-white hover:bg-white/10"}
+                    `}
+                  >
+                    <div className={`flex-shrink-0 w-6 h-6 flex items-center justify-center mr-4 
+                      ${active ? "text-blue-900" : "text-white"}
+                    `}>
+                      <SectionIcon className="w-5 h-5" />
+                    </div>
+                    <div className={`flex-1 flex items-center justify-between overflow-hidden ${labelVisibility} transition-opacity duration-300`}>
+                      <span className="text-[10px] font-bold tracking-widest uppercase truncate whitespace-nowrap">
+                        {section.title}
+                      </span>
+                    </div>
+                  </Link>
+                </div>
+              );
+            }
+
             return (
-              <div key={section.title} className="space-y-1">
+              <div key={`${section.title}-${idx}`} className="space-y-1">
                 {/* SECTION HEADER / ICON */}
                 <button
                    onClick={(e) => toggleSection(e, section.title)}
