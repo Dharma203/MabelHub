@@ -2,7 +2,6 @@
 
 import {
   Calendar,
-  ChevronUp,
   Filter,
   Package,
   MessageCircleCodeIcon,
@@ -18,16 +17,23 @@ import {
   Send,
   ChevronDown,
   X,
-  LucidePenBox,
-  SendIcon,
   PencilIcon,
+  Users2,
+  Download,
 } from 'lucide-react'
-import router, { useRouter } from 'next/navigation'
+import SearchableSelect from '@/components/ui/SearchableSelect'
+import EditModal from '@/components/modals/EditModal'
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import React from 'react'
+import {
+  listStatusByUpdate,
+  getDetailOptions,
+} from '@/data/statusupdatebroadcast'
+import { loadXLSX } from '@/lib/xlsx-loader'
+import { useExportToSheets } from '@/hooks/useExportToSheets'
 
 type StatusWaSummary = {
-  terkirim: number,
+  terkirim: number
   diterima: number
   belumRespon: number
   positif: number
@@ -39,11 +45,12 @@ type StatusWaSummary = {
 }
 
 type BroadCastRow = {
-  _id: string;
+  _id: string
   kode: string
   nama_perusahaan: string
   segmen: string
   segmentasi: string
+  sumber_data: string
   kota: string
   provinsi: string
   produk: string
@@ -54,6 +61,7 @@ type BroadCastRow = {
   bidang_perusahaan: string
   sumber_date: string
   sumber_lain: string
+  sales_internal: string
   merek_tayang: string
   brand_owner: string
   email: string
@@ -67,6 +75,8 @@ type BroadCastRow = {
   jenis_entitas: string
   status_wa: string
   detail_update: string
+  created_at: string
+  requestor: string
   ke_sales: string
 }
 
@@ -78,6 +88,7 @@ type FilterOptions = {
   kota: string[]
   status_wa: string[]
   ke_sales: string[]
+  pic: string[]
 }
 
 type LatestRevision = {
@@ -88,7 +99,6 @@ type LatestRevision = {
   changed_fields?: { field: string; oldValue: string; newValue: string }[]
   snapshot_before?: any
 }
-
 
 type ApiStats = {
   total_no_telp: number
@@ -126,6 +136,10 @@ type ApiStats = {
     unik: number
     pct: number
   }[]
+  pic: {
+    no: number
+    pic: string
+  }
 }
 
 type keSalesSummary = {
@@ -135,61 +149,113 @@ type keSalesSummary = {
   kosong: number
 }
 
-interface DataItem {
-  id: string;
-  kode_input: string,
-  nama_perusahaan: string,
-  produk: string,
-  merek_tayang: string,
-  kota: string,
-  provinsi: string,
-  pic: string,
-  jabatan: string,
-  telp: string,
-  email: string,
-  alamat: string,
-  segmen: string,
-  segmentasi: string,
-  tipe: string,
-  bidang_perusahaan: string,
-  brand_owner: string,
-  sumber_data: string,
-  sumber_lain: string,
-  link_produk: string,
-  link_toko: string,
-  penginput: string,
-  jenis_entitas: string,
-  bulan_data: string,
-  status_wa: string,
-  detail_update: string,
-  ke_sales: string,
+type ExportField = {
+  key: keyof BroadCastRow
+  label: string
 }
 
+const EXPORT_FIELDS: ExportField[] = [
+  { key: 'created_at', label: 'Tanggal Input' },
+  { key: 'kode', label: 'Kode' },
+  { key: 'requestor', label: 'Penginput' },
+  { key: 'nama_perusahaan', label: 'Nama Perusahaan' },
+  { key: 'segmen', label: 'Segmen' },
+  { key: 'segmentasi', label: 'Segmentasi' },
+  { key: 'sumber_data', label: 'Sumber Data' },
+  { key: 'kota', label: 'Kota' },
+  { key: 'provinsi', label: 'Provinsi' },
+  { key: 'produk', label: 'Produk' },
+  { key: 'pic', label: 'PIC' },
+  { key: 'jabatan', label: 'Jabatan' },
+  { key: 'telp', label: 'Telp' },
+  { key: 'tipe', label: 'Tipe Kontak' },
+  { key: 'bidang_perusahaan', label: 'Bidang Perusahaan' },
+  { key: 'sumber_lain', label: 'Sumber Lain' },
+  { key: 'sales_internal', label: 'Sales Internal' },
+  { key: 'merek_tayang', label: 'Merek Tayang' },
+  { key: 'brand_owner', label: 'Brand Owner' },
+  { key: 'email', label: 'Email' },
+  { key: 'link_produk', label: 'Link Produk' },
+  { key: 'link_toko', label: 'Link Toko' },
+  { key: 'alamat', label: 'Alamat' },
+  { key: 'requestor', label: 'Requestor' },
+  { key: 'jenis_entitas', label: 'Jenis Entitas' },
+  { key: 'keterangan_update', label: 'Keterangan Update' },
+  { key: 'bulan_data', label: 'Bulan Data' },
+  { key: 'updated_at', label: 'Tanggal Update' },
+  { key: 'status_wa', label: 'Status Whatsapp'},
+  { key: 'detail_update', label: 'Detail Update'},
+  { key: 'ke_sales', label: 'Ke Sales'},
+]
 
+interface DataItem {
+  id: string
+  kode_input: string
+  nama_perusahaan: string
+  produk: string
+  merek_tayang: string
+  kota: string
+  provinsi: string
+  pic: string
+  jabatan: string
+  telp: string
+  email: string
+  alamat: string
+  segmen: string
+  segmentasi: string
+  tipe: string
+  bidang_perusahaan: string
+  brand_owner: string
+  sumber_data: string
+  sumber_lain: string
+  link_produk: string
+  link_toko: string
+  penginput: string
+  jenis_entitas: string
+  bulan_data: string
+  status_wa: string
+  detail_update: string
+  ke_sales: string
+}
 
 function cn(...s: Array<string | false | null | undefined>) {
-  return s.filter(Boolean).join(" ");
+  return s.filter(Boolean).join(' ')
 }
 
 function getPageWindow(current: number, totalPages: number, size: number) {
   if (totalPages <= size)
-    return Array.from({ length: totalPages }, (_, i) => i + 1);
+    return Array.from({ length: totalPages }, (_, i) => i + 1)
 
-  const half = Math.floor(size / 2);
-  let start = Math.max(1, current - half);
-  let end = start + size - 1;
+  const half = Math.floor(size / 2)
+  let start = Math.max(1, current - half)
+  let end = start + size - 1
 
   if (end > totalPages) {
-    end = totalPages;
-    start = end - size + 1;
+    end = totalPages
+    start = end - size + 1
   }
-  return Array.from({ length: size }, (_, i) => start + i);
+  return Array.from({ length: size }, (_, i) => start + i)
+}
+
+function formatBulanData(val: string): string {
+  const mm = val.split('-')
+  if (!mm) return val
+  return `${BULAN_NAMES[mm[1]] ?? mm[1]}`
 }
 
 const BULAN_NAMES: Record<string, string> = {
-  '01': 'January', '02': 'February', '03': 'March', '04': 'April',
-  '05': 'May', '06': 'June', '07': 'July', '08': 'August',
-  '09': 'September', '10': 'October', '11': 'November', '12': 'December',
+  '01': 'January',
+  '02': 'February',
+  '03': 'March',
+  '04': 'April',
+  '05': 'May',
+  '06': 'June',
+  '07': 'July',
+  '08': 'August',
+  '09': 'September',
+  '10': 'October',
+  '11': 'November',
+  '12': 'December',
 }
 function formatBulan(val: string): string {
   const [yyyy, mm] = val.split('-')
@@ -218,7 +284,7 @@ function DetailItem({
   return (
     <div className='flex items-start gap-1.5 min-w-0'>
       {icon && (
-        <span className='mt-[1px] shrink-0 text-[11px] leading-none'>{icon}</span>
+        <span className='mt-px shrink-0 text-[11px] leading-none'>{icon}</span>
       )}
       <div className='flex flex-col min-w-0'>
         <span className='text-[9.5px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-0.5'>
@@ -236,7 +302,7 @@ function DetailItem({
             🔗 Buka Link
           </a>
         ) : (
-          <span className='text-[10.5px] text-slate-700 font-medium break-words leading-snug'>
+          <span className='text-[10.5px] text-slate-700 font-medium wrap-break-word leading-snug'>
             {value}
           </span>
         )}
@@ -255,34 +321,7 @@ export default function TrackingBroadcastPage() {
     { id: 'Status Wa', icon: MessageCircleCodeIcon, label: 'Status WA' },
     { id: 'Detail Update', icon: PencilIcon, label: 'Detail Update' },
     { id: 'Ke Sales', icon: Users, label: 'Ke Sales' },
-  ]
-
-
-  const detailOptions = [
-    { value: 'Belum ada update', label: 'Belum ada update' },
-    { value: 'Baik, terima kasih informasinya.', label: 'Baik, terima kasih informasinya.' },
-    { value: 'Mohon ditunggu sebentar.', label: 'Mohon ditunggu sebentar.' },
-    { value: 'Kami pelajari terlebih dahulu.', label: 'Kami pelajari terlebih dahulu.' },
-    { value: 'Informasi sudah kami terima.', label: 'Informasi sudah kami terima.' },
-    { value: 'Terima kasih sudah menghubungi kami.', label: 'Terima kasih sudah menghubungi kami.' },
-    { value: 'Sudah ada sales', label: 'Sudah ada sales' },
-    { value: 'Hanya Menjawab Nama', label: 'Hanya Menjawab Nama' },
-    { value: 'Nanti jika ada kebutuhan kami hubungi.', label: 'Nanti jika ada kebutuhan kami hubungi.' },
-    { value: 'Bertanya status TKDN', label: 'Bertanya status TKDN' },
-    { value: 'Bertanya Spesifikasi', label: 'Bertanya Spesifikasi' },
-    { value: 'Bertanya Pricelist', label: 'Bertanya Pricelist' },
-    { value: 'Bersedia berdiskusi lebih lanjut dengan sales', label: 'Bersedia berdiskusi lebih lanjut dengan sales' },
-    { value: 'Bersedia di Presentasikan untuk presales', label: 'Bersedia di Presentasikan untuk presales' },
-    { value: 'Meminta & mengisi form reseller', label: 'Meminta & mengisi form reseller' },
-    { value: 'Meminta SPH', label: 'Meminta SPH' },
-    { value: 'Tidak tertarik', label: 'Tidak tertarik' },
-    { value: 'Belum butuh', label: 'Belum butuh' },
-    { value: 'Budget belum ada', label: 'Budget belum ada' },
-    { value: 'Sudah pakai brand lain', label: 'Sudah pakai brand lain' },
-    { value: 'Jangan hubungi lagi', label: 'Jangan hubungi lagi' },
-    { value: 'Harga terlalu mahal', label: 'Harga terlalu mahal' },
-    { value: 'Spesifikasi tidak cocok', label: 'Spesifikasi tidak cocok' },
-    { value: 'Nomor Invalid', label: 'Nomor Invalid' },
+    { id: 'Nama PIC', icon: Users2, label: 'Nama PIC' },
   ]
 
   // Summary Status WA
@@ -313,7 +352,7 @@ export default function TrackingBroadcastPage() {
   // Select all: gunakan `rows` (state data yang sudah di-fetch)
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(rows.map(r => r._id))
+      setSelectedIds(rows.map((r) => r._id))
     } else {
       setSelectedIds([])
     }
@@ -321,16 +360,16 @@ export default function TrackingBroadcastPage() {
 
   // Toggle satu checkbox per baris
   const handleSelectedOne = (id: string) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     )
   }
-
+  
   const handleFilterByStatus = (status: string) => {
-    setStatusWa(prev =>
+    setStatusWa((prev) =>
       prev.includes(status)
-        ? prev.filter(s => s !== status)
-        : [...prev, status]
+        ? prev.filter((s) => s !== status)
+        : [...prev, status],
     )
     setPage(1)
     setSelected(null)
@@ -344,9 +383,9 @@ export default function TrackingBroadcastPage() {
     }
     setisSending(true)
     try {
-      const selectedRows = rows.filter(r => selectedIds.includes(r._id))
+      const selectedRows = rows.filter((r) => selectedIds.includes(r._id))
       const results = await Promise.allSettled(
-        selectedRows.map(row =>
+        selectedRows.map((row) =>
           fetch('/api/tracking-broadcast/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -380,12 +419,14 @@ export default function TrackingBroadcastPage() {
               ke_sales: row.ke_sales,
               sent_at: new Date().toISOString(),
             }),
-          })
-        )
+          }),
+        ),
       )
-      const failed = results.filter(r => r.status === 'rejected').length
+      const failed = results.filter((r) => r.status === 'rejected').length
       if (failed > 0) {
-        alert(`⚠️ ${results.length - failed} berhasil, ${failed} gagal dikirim.`)
+        alert(
+          `⚠️ ${results.length - failed} berhasil, ${failed} gagal dikirim.`,
+        )
       } else {
         alert(`✅ ${results.length} data berhasil dikirim!`)
         setSelectedIds([])
@@ -402,6 +443,51 @@ export default function TrackingBroadcastPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(true)
   const [isFilterOpen2, setIsFilterOpen2] = useState(true)
 
+  // export modal state
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportStartDate, setExportStartDate] = useState('')
+  const [exportEndDate, setExportEndDate] = useState('')
+  const [exportMode, setExportMode] = useState<'all' | 'date' | 'pagination'>(
+    'all',
+  )
+  const [exportFields, setExportFields] = useState<Set<keyof BroadCastRow>>(
+    () => new Set(EXPORT_FIELDS.map((f) => f.key)),
+  )
+  const [exporting, setExporting] = useState(false)
+
+  // Google Sheets export
+  const { exportToSheets, loading: googleSheetsLoading } = useExportToSheets()
+
+  // helper modal – edit PIC
+  const [selectedRow, setSelectedRow] = useState<BroadCastRow | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleEditClick = (row: BroadCastRow) => {
+    setSelectedRow(row);
+    setIsModalOpen(true);
+  }
+
+  const handleSavePic = async (rowId: string, newPic: string) => {
+    try {
+      const res = await fetch('/api/tracking-broadcast', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: rowId, pic: newPic }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error || 'Gagal menyimpan PIC')
+      }
+      // Update tampilan tabel secara lokal tanpa refetch
+      setRows((prev) =>
+        prev.map((r) => (r._id === rowId ? { ...r, pic: newPic } : r))
+      )
+      setIsModalOpen(false)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan PIC')
+    }
+  };
+
   // filter value - multi-select arrays
   const [bulan, setBulan] = useState<string[]>([])
   const [perusahaan, setPerusahaan] = useState<string[]>([])
@@ -410,16 +496,18 @@ export default function TrackingBroadcastPage() {
   const [kota, setKota] = useState<string[]>([])
   const [statusWa, setStatusWa] = useState<string[]>([])
   const [toSales, setToSales] = useState<string[]>([])
+  const [namaPic, setNamaPic] = useState<string[]>([])
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
   // data - statistik & analitik
-  const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<ApiStats | null>(null)
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
-  const [dropdownSearch, setDropdownSearch] = useState<Record<string, string>>({})
+  const [dropdownSearch, setDropdownSearch] = useState<Record<string, string>>(
+    {},
+  )
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     bulan: [],
     perusahaan: [],
@@ -428,6 +516,7 @@ export default function TrackingBroadcastPage() {
     kota: [],
     status_wa: [],
     ke_sales: [],
+    pic: [],
   })
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -445,82 +534,6 @@ export default function TrackingBroadcastPage() {
     window.open(`https://wa.me/${cleanNumber}`, '_blank', 'noopener,noreferrer')
   }
 
-
-  // Update status WA per baris (optimistic update di local state)
-  const updateRowStatusWa = useCallback((id: string, value: string) => {
-    setRows(prev => prev.map(r => r._id === id ? { ...r, status_wa: value } : r))
-  }, [])
-
-  // Update ke_sales per baris (optimistic update di local state)
-  const updateRowKeSales = useCallback((id: string, value: string) => {
-    setRows(prev => prev.map(r => r._id === id ? { ...r, ke_sales: value } : r))
-  }, [])
-
-  // Update detail update per baris (optimistic update di local state)
-  const updateRowDetailUpdate = useCallback((id: string, value: string) => {
-    setRows(prev => prev.map(r => r._id === id ? { ...r, detail_update: value } : r))
-  }, [])
-
-  // Kirim data satu baris ke database tracking_broadcast
-  const [sendingRows, setSendingRows] = useState<Set<string>>(new Set())
-
-  const handleSendRow = useCallback(async (row: BroadCastRow) => {
-    if (sendingRows.has(row._id)) return // sudah sedang proses
-    setSendingRows(prev => new Set(prev).add(row._id))
-    try {
-      const payload = {
-        source_id: row._id,
-        kode: row.kode,
-        nama_perusahaan: row.nama_perusahaan,
-        produk: row.produk,
-        merek_tayang: row.merek_tayang,
-        kota: row.kota,
-        provinsi: row.provinsi,
-        pic: row.pic,
-        jabatan: row.jabatan,
-        telp: row.telp,
-        email: row.email,
-        alamat: row.alamat,
-        segmen: row.segmen,
-        segmentasi: row.segmentasi,
-        tipe: row.tipe,
-        bidang_perusahaan: row.bidang_perusahaan,
-        brand_owner: row.brand_owner,
-        sumber_date: row.sumber_date,
-        sumber_lain: row.sumber_lain,
-        link_produk: row.link_produk,
-        link_toko: row.link_toko,
-        penginput: row.penginput,
-        jenis_entitas: row.jenis_entitas,
-        bulan_data: row.bulan_data,
-        status_wa: row.status_wa,
-        detail_update: row.detail_update,
-        ke_sales: row.ke_sales,
-        sent_at: new Date().toISOString(),
-      }
-
-      const res = await fetch('/api/tracking-broadcast/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err?.error || 'Gagal menyimpan data')
-      }
-
-      alert(`✅ Data "${row.nama_perusahaan}" berhasil dikirim!`)
-    } catch (error) {
-      console.error('[handleSendRow] Error:', error)
-      alert(error instanceof Error ? error.message : 'Terjadi kesalahan saat mengirim data')
-    } finally {
-      setSendingRows(prev => { const s = new Set(prev); s.delete(row._id); return s })
-    }
-  }, [sendingRows])
-
-  // Pagination
-
   const [pageSize, setPageSize] = useState(25)
   const [page, setPage] = useState(1)
   const [rows, setRows] = useState<BroadCastRow[]>([])
@@ -529,36 +542,138 @@ export default function TrackingBroadcastPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [selected, setSelected] = useState<BroadCastRow | null>(null)
   const [loadingRevision, setLoadingRevision] = useState(false)
-  const [latestRevision, setLatestRevision] = useState<LatestRevision | null>(null)
+  const [latestRevision, setLatestRevision] = useState<LatestRevision | null>(
+    null,
+  )
+
+  // Baru setelah ini boleh ada useCallback yang pakai setRows
+  const updateRowStatusWa = (id: string, value: string) => {
+    setRows((prev) =>
+      prev.map((r) => (r._id === id ? { ...r, status_wa: value } : r)),
+    )
+  }
+
+  const updateRowKeSales = (id: string, value: string) => {
+    setRows((prev) =>
+      prev.map((r) => (r._id === id ? { ...r, ke_sales: value } : r)),
+    )
+  }
+
+  const updateRowDetailUpdate = (id: string, value: string) => {
+    setRows((prev) =>
+      prev.map((r) => (r._id === id ? { ...r, detail_update: value } : r)),
+    )
+  }
+
+  // Kirim data satu baris ke database tracking_broadcast
+  const [sendingRows, setSendingRows] = useState<Set<string>>(new Set())
+
+  const handleSendRow = useCallback(
+    async (row: BroadCastRow) => {
+      if (sendingRows.has(row._id)) return // sudah sedang proses
+      setSendingRows((prev) => new Set(prev).add(row._id))
+      try {
+        const payload = {
+          source_id: row._id,
+          kode: row.kode,
+          nama_perusahaan: row.nama_perusahaan,
+          produk: row.produk,
+          merek_tayang: row.merek_tayang,
+          kota: row.kota,
+          provinsi: row.provinsi,
+          pic: row.pic,
+          jabatan: row.jabatan,
+          telp: row.telp,
+          email: row.email,
+          alamat: row.alamat,
+          segmen: row.segmen,
+          segmentasi: row.segmentasi,
+          tipe: row.tipe,
+          bidang_perusahaan: row.bidang_perusahaan,
+          brand_owner: row.brand_owner,
+          sumber_date: row.sumber_date,
+          sumber_lain: row.sumber_lain,
+          link_produk: row.link_produk,
+          link_toko: row.link_toko,
+          penginput: row.penginput,
+          jenis_entitas: row.jenis_entitas,
+          bulan_data: row.bulan_data,
+          status_wa: row.status_wa,
+          detail_update: row.detail_update,
+          ke_sales: row.ke_sales,
+          sent_at: new Date().toISOString(),
+        }
+
+        const res = await fetch('/api/tracking-broadcast/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err?.error || 'Gagal menyimpan data')
+        }
+
+        alert(`✅ Data "${row.nama_perusahaan}" berhasil dikirim!`)
+      } catch (error) {
+        console.error('[handleSendRow] Error:', error)
+        alert(
+          error instanceof Error
+            ? error.message
+            : 'Terjadi kesalahan saat mengirim data',
+        )
+      } finally {
+        setSendingRows((prev) => {
+          const s = new Set(prev)
+          s.delete(row._id)
+          return s
+        })
+      }
+    },
+    [sendingRows],
+  )
 
   useEffect(() => {
     fetch('/api/tracking-broadcast/filters')
-      .then(r => {
+      .then((r) => {
         if (!r.ok) throw new Error(`Filter API error: ${r.status}`)
         return r.json()
       })
       .then((data: FilterOptions) => setFilterOptions(data))
-      .catch(err => console.error('[filters fetch]', err))
+      .catch((err) => console.error('[filters fetch]', err))
   }, [])
-
 
   // Auto-fetch riwayat revisi terbaru saat row di-expand
   useEffect(() => {
-    if (!selected?.kode) {
-      setLatestRevision(null)
-      return
+    const fetchRevision = async () => {
+      if (!selected?.kode) {
+        setLatestRevision(null)
+        return
+      }
+      setLoadingRevision(true)
+      try {
+        const r = await fetch(
+          `/api/input-database/history/${encodeURIComponent(selected.kode)}`,
+        )
+        const data: LatestRevision = await r.json()
+        setLatestRevision(data)
+      } catch {
+        setLatestRevision({ found: false })
+      } finally {
+        setLoadingRevision(false)
+      }
     }
-    setLoadingRevision(true)
-    fetch(`/api/input-database/history/${encodeURIComponent(selected.kode)}`)
-      .then(r => r.json())
-      .then((data: LatestRevision) => setLatestRevision(data))
-      .catch(() => setLatestRevision({ found: false }))
-      .finally(() => setLoadingRevision(false))
+
+    fetchRevision()
   }, [selected?.kode])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setOpenDropdown(null)
       }
     }
@@ -568,151 +683,460 @@ export default function TrackingBroadcastPage() {
   }, [])
 
   // ---- filter helpers ----
-  const getFilterArr = useCallback((id: string): string[] => {
+  const getFilterArr = useCallback(
+    (id: string): string[] => {
+      switch (id) {
+        case 'Bulan':
+          return bulan
+        case 'Perusahaan':
+          return perusahaan
+        case 'Produk':
+          return produk
+        case 'Provinsi':
+          return provinsi
+        case 'Kota':
+          return kota
+        case 'Status Wa':
+          return statusWa
+        case 'Ke Sales':
+          return toSales
+        case 'Nama PIC':
+          return namaPic
+        default:
+          return []
+      }
+    },
+    [bulan, perusahaan, produk, provinsi, kota, statusWa, toSales, namaPic],
+  )
+
+  // ✅ Sesudah — hapus dependency array
+  const setFilterArr = (id: string, vals: string[]) => {
     switch (id) {
-      case 'Bulan': return bulan
-      case 'Perusahaan': return perusahaan
-      case 'Produk': return produk
-      case 'Provinsi': return provinsi
-      case 'Kota': return kota
-      case 'Status Wa': return statusWa
-      case 'Ke Sales': return toSales
-      default: return []
+      case 'Bulan':
+        setBulan(vals)
+        break
+      case 'Perusahaan':
+        setPerusahaan(vals)
+        break
+      case 'Produk':
+        setProduk(vals)
+        break
+      case 'Provinsi':
+        setProvinsi(vals)
+        break
+      case 'Kota':
+        setKota(vals)
+        break
+      case 'Status Wa':
+        setStatusWa(vals)
+        break
+      case 'Ke Sales':
+        setToSales(vals)
+        break
+      case 'Nama PIC':
+        setNamaPic(vals)
+        break
+      default:
+        return []
     }
-  }, [bulan, perusahaan, produk, provinsi, kota, statusWa, toSales])
+    setPage(1)
+    setSelected(null)
+  }
 
-  const setFilterArr = useCallback((id: string, vals: string[]) => {
-    switch (id) {
-      case 'Bulan': setBulan(vals); break
-      case 'Perusahaan': setPerusahaan(vals); break
-      case 'Produk': setProduk(vals); break
-      case 'Provinsi': setProvinsi(vals); break
-      case 'Kota': setKota(vals); break
-      case 'Status Wa': setStatusWa(vals); break
-      case 'Ke Sales': setToSales(vals); break
-    }
-    setPage(1); setSelected(null)
-  }, [])
+  const toggleFilterVal = useCallback(
+    (id: string, val: string) => {
+      const cur = getFilterArr(id)
+      setFilterArr(
+        id,
+        cur.includes(val) ? cur.filter((v) => v !== val) : [...cur, val],
+      )
+    },
+    [getFilterArr, setFilterArr],
+  )
 
-  const toggleFilterVal = useCallback((id: string, val: string) => {
-    const cur = getFilterArr(id)
-    setFilterArr(id, cur.includes(val) ? cur.filter(v => v !== val) : [...cur, val])
-  }, [getFilterArr, setFilterArr])
-
-  const clearFilterArr = useCallback((id: string) => {
+  const clearFilterArr = (id: string) => {
     setFilterArr(id, [])
     setOpenDropdown(null)
-  }, [setFilterArr])
+  }
 
-  const selectAllFilter = useCallback((id: string, opts: string[]) => {
-    setFilterArr(id, [...opts])
-  }, [setFilterArr])
+  const selectAllFilter = useCallback(
+    (id: string, opts: string[]) => {
+      setFilterArr(id, [...opts])
+    },
+    [setFilterArr],
+  )
 
   // getOptions: tidak pakai useCallback supaya selalu baca filterOptions terbaru
   const getOptions = (id: string): string[] => {
     switch (id) {
-      case 'Bulan': return filterOptions.bulan
-      case 'Perusahaan': return filterOptions.perusahaan
-      case 'Produk': return filterOptions.produk
-      case 'Provinsi': return filterOptions.provinsi
-      case 'Kota': return filterOptions.kota
-      case 'Status Wa': return filterOptions.status_wa
-      case 'Ke Sales': return filterOptions.ke_sales
-      default: return []
+      case 'Bulan':
+        return filterOptions.bulan
+      case 'Perusahaan':
+        return filterOptions.perusahaan
+      case 'Produk':
+        return filterOptions.produk
+      case 'Provinsi':
+        return filterOptions.provinsi
+      case 'Kota':
+        return filterOptions.kota
+      case 'Status Wa':
+        return filterOptions.status_wa
+      case 'Ke Sales':
+        return filterOptions.ke_sales
+      case 'Nama PIC':
+        return filterOptions.pic || []
+      default:
+        return []
     }
   }
 
   // ---- main data fetch (paginated rows) ----
   useEffect(() => {
     let mounted = true
-      ; (async () => {
-        setLoadingRows(true)
+    ;(async () => {
+      setLoadingRows(true)
+      if (!mounted) return
+
+      const qs = new URLSearchParams()
+      qs.set('limit', String(pageSize))
+      qs.set('page', String(page))
+
+      bulan.forEach((v) => qs.append('bulan', v))
+      perusahaan.forEach((v) => qs.append('perusahaan', v))
+      produk.forEach((v) => qs.append('produk', v))
+      provinsi.forEach((v) => qs.append('provinsi', v))
+      kota.forEach((v) => qs.append('kota', v))
+      statusWa.forEach((v) => qs.append('status_wa', v))
+      toSales.forEach((v) => qs.append('ke_sales', v))
+      namaPic.forEach((v) => qs.append('pic', v))
+      if (startDate) qs.set('startDate', startDate)
+      if (endDate) qs.set('endDate', endDate)
+
+      try {
+        const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        const json = await res.json().catch(() => ({}))
         if (!mounted) return
 
-        const qs = new URLSearchParams()
-        qs.set('limit', String(pageSize))
-        qs.set('page', String(page))
-
-        bulan.forEach(v => qs.append('bulan', v))
-        perusahaan.forEach(v => qs.append('perusahaan', v))
-        produk.forEach(v => qs.append('produk', v))
-        provinsi.forEach(v => qs.append('provinsi', v))
-        kota.forEach(v => qs.append('kota', v))
-        statusWa.forEach(v => qs.append('status_wa', v))
-        toSales.forEach(v => qs.append('ke_sales', v))
-        if (startDate) qs.set('startDate', startDate)
-        if (endDate) qs.set('endDate', endDate)
-
-        try {
-          const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, { cache: 'no-store' })
-          const json = await res.json().catch(() => ({}))
-          if (!mounted) return
-
-          setRows(Array.isArray(json?.items) ? json.items : [])
-          setStatusWaSummary({
-            terkirim: json?.statusWaSummary?.terkirim ?? 0,
-            diterima: json?.statusWaSummary?.diterima ?? 0,
-            belumRespon: json?.statusWaSummary?.belumRespon ?? 0,
-            positif: json?.statusWaSummary?.positif ?? 0,
-            netral: json?.statusWaSummary?.netral ?? 0,
-            negatif: json?.statusWaSummary?.negatif ?? 0,
-            aktif: json?.statusWaSummary?.aktif ?? 0,
-            kosong: json?.statusWaSummary?.kosong ?? 0,
-            total: json?.statusWaSummary?.total ?? 0,
-          })
-          setStats({
-            total_no_telp: json?.summaryStats?.total_no_telp ?? 0,
-            total_provinsi: json?.summaryStats?.total_provinsi ?? 0,
-            total_kota: json?.summaryStats?.total_kota ?? 0,
-            total_nama: json?.summaryStats?.total_nama ?? 0,
-            total_merek: json?.summaryStats?.total_merek ?? 0,
-            total_kontak_unik: json?.summaryStats?.total_kontak_unik ?? 0,
-            total_wa_unik: json?.summaryStats?.total_wa_unik ?? 0,
-            provinsi_kota: json?.summaryStats?.provinsi_kota ?? [],
-            wa_provinsi_kota: json?.summaryStats?.wa_provinsi_kota ?? [],
-            ke_sales_provinsi: json?.summaryStats?.ke_sales_provinsi ?? [],
-            per_sales: json?.summaryStats?.per_sales ?? [],
-          })
-          setKeSalesSummary({
-            arie: json?.keSalesSummary?.arie ?? 0,
-            beffry: json?.keSalesSummary?.beffry ?? 0,
-            ferrie: json?.keSalesSummary?.ferrie ?? 0,
-            kosong: json?.keSalesSummary?.kosong ?? 0,
-          })
-          const pg = json?.pagination ?? {}
-          setTotal(Number(pg?.total ?? 0))
-          setTotalPages(Number(pg?.totalPages ?? 1))
-          setSelected(null)
-        } catch {
-          if (!mounted) return
-          setRows([]); setTotal(0); setTotalPages(1); setSelected(null)
-        } finally {
-          if (mounted) { setLoadingRows(false) }
+        setRows(Array.isArray(json?.items) ? json.items : [])
+        setStatusWaSummary({
+          terkirim: json?.statusWaSummary?.terkirim ?? 0,
+          diterima: json?.statusWaSummary?.diterima ?? 0,
+          belumRespon: json?.statusWaSummary?.belumRespon ?? 0,
+          positif: json?.statusWaSummary?.positif ?? 0,
+          netral: json?.statusWaSummary?.netral ?? 0,
+          negatif: json?.statusWaSummary?.negatif ?? 0,
+          aktif: json?.statusWaSummary?.aktif ?? 0,
+          kosong: json?.statusWaSummary?.kosong ?? 0,
+          total: json?.statusWaSummary?.total ?? 0,
+        })
+        setStats({
+          total_no_telp: json?.summaryStats?.total_no_telp ?? 0,
+          total_provinsi: json?.summaryStats?.total_provinsi ?? 0,
+          total_kota: json?.summaryStats?.total_kota ?? 0,
+          total_nama: json?.summaryStats?.total_nama ?? 0,
+          total_merek: json?.summaryStats?.total_merek ?? 0,
+          total_kontak_unik: json?.summaryStats?.total_kontak_unik ?? 0,
+          total_wa_unik: json?.summaryStats?.total_wa_unik ?? 0,
+          provinsi_kota: json?.summaryStats?.provinsi_kota ?? [],
+          wa_provinsi_kota: json?.summaryStats?.wa_provinsi_kota ?? [],
+          ke_sales_provinsi: json?.summaryStats?.ke_sales_provinsi ?? [],
+          per_sales: json?.summaryStats?.per_sales ?? [],
+          pic: json?.summaryStats?.pic ?? [],
+        })
+        setKeSalesSummary({
+          arie: json?.keSalesSummary?.arie ?? 0,
+          beffry: json?.keSalesSummary?.beffry ?? 0,
+          ferrie: json?.keSalesSummary?.ferrie ?? 0,
+          kosong: json?.keSalesSummary?.kosong ?? 0,
+        })
+        const pg = json?.pagination ?? {}
+        setTotal(Number(pg?.total ?? 0))
+        setTotalPages(Number(pg?.totalPages ?? 1))
+        setSelected(null)
+      } catch {
+        if (!mounted) return
+        setRows([])
+        setTotal(0)
+        setTotalPages(1)
+        setSelected(null)
+      } finally {
+        if (mounted) {
+          setLoadingRows(false)
         }
-      })()
-    return () => { mounted = false }
-  }, [page, pageSize, bulan, perusahaan, produk, provinsi, kota, statusWa, toSales, startDate, endDate])
+      }
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [
+    page,
+    pageSize,
+    bulan,
+    perusahaan,
+    produk,
+    provinsi,
+    kota,
+    statusWa,
+    toSales,
+    startDate,
+    endDate,
+    namaPic,
+  ])
 
   const safePage = useMemo(
     () => Math.min(Math.max(1, page), Math.max(1, totalPages)),
     [page, totalPages],
   )
+
+  // Merge listStatusByUpdate (hardcoded) with DB-sourced values from filterOptions
+  const mergedStatusOptions = useMemo(() => {
+    const baseOptions = [...listStatusByUpdate]
+    const existingValues = new Set(baseOptions.map((o) => o.value))
+
+    // Tambahkan status dari DB yang belum ada di list hardcoded
+    filterOptions.status_wa.forEach((s) => {
+      if (s && !existingValues.has(s)) {
+        baseOptions.push({ value: s, label: s })
+        existingValues.add(s)
+      }
+    })
+
+    return baseOptions
+  }, [filterOptions.status_wa])
+
+  // Untuk setiap baris, pastikan status_wa saat ini selalu ada di options
+  const getStatusOptionsForRow = useCallback(
+    (currentStatus: string) => {
+      if (
+        !currentStatus ||
+        mergedStatusOptions.some((o) => o.value === currentStatus)
+      ) {
+        return mergedStatusOptions
+      }
+      // Tambahkan value yang ada di DB tapi belum ada di options
+      return [
+        ...mergedStatusOptions,
+        { value: currentStatus, label: currentStatus },
+      ]
+    },
+    [mergedStatusOptions],
+  )
+
   const showingFrom = total === 0 ? 0 : (safePage - 1) * pageSize + 1
   const showingTo = Math.min(total, safePage * pageSize)
-  const gotoPage = (p: number) => setPage(Math.min(Math.max(1, p), Math.max(1, totalPages)))
+  const gotoPage = (p: number) =>
+    setPage(Math.min(Math.max(1, p), Math.max(1, totalPages)))
+
+  // export handler
+  async function handleExport() {
+    const XLSX = await loadXLSX()
+    // Validasi mode 'date' wajib isi tanggal
+    if (exportMode === 'date' && !exportStartDate && !exportEndDate) {
+      alert('Silakan pilih minimal salah satu tanggal (mulai atau akhir)')
+      return
+    }
+
+    setExporting(true)
+    try {
+      let allRows: BroadCastRow[] = []
+
+      if (exportMode === 'pagination') {
+        // Mode pagination: pakai data yang sedang tampil di tabel (rows state)
+        allRows = rows
+      } else {
+        const qs = new URLSearchParams()
+        qs.set('limit', '50000')
+        qs.set('page', '1')
+        qs.set('export', 'true')
+
+        // Filter kategori tetap dipakai di semua mode (bulan, produk, dst)
+        bulan.forEach((v) => qs.append('bulan', v))
+        produk.forEach((v) => qs.append('produk', v))
+        perusahaan.forEach((v) => qs.append('perusahaan', v))
+        provinsi.forEach((v) => qs.append('provinsi', v))
+        kota.forEach((v) => qs.append('kota', v))
+        statusWa.forEach((v) => qs.append('status_wa', v))
+        toSales.forEach((v) => qs.append('ke_sales', v))
+        namaPic.forEach((v) => qs.append('pic', v))
+
+        if (exportMode === 'date') {
+          // Mode by tanggal: pakai tanggal dari modal export (format YYYY-MM-DD)
+          if (exportStartDate) qs.set('startDate', exportStartDate)
+          if (exportEndDate) qs.set('endDate', exportEndDate)
+        }
+        // Mode 'all': tidak set startDate/endDate sama sekali → tarik semua data
+
+        const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        const json = await res.json().catch(() => ({}))
+        allRows = Array.isArray(json?.items) ? json.items : []
+      }
+
+      if (allRows.length === 0) {
+        alert('Tidak ada data untuk di-export')
+        return
+      }
+      console.log(allRows[0])
+      const selectedFields = EXPORT_FIELDS.filter((f) =>
+        exportFields.has(f.key),
+      )
+      const exportData = allRows.map((row, idx) => {
+        const obj: Record<string, any> = { No: idx + 1 }
+        selectedFields.forEach((f) => {
+          let val = row[f.key] ?? ''
+          if ((f.key === 'created_at' || f.key === 'updated_at') && val) {
+            try {
+              const d = new Date(val as string)
+              if (!isNaN(d.getTime())) {
+                const yyyy = d.getFullYear()
+                const mm = String(d.getMonth() + 1).padStart(2, '0')
+                const dd = String(d.getDate()).padStart(2, '0')
+                val = `${yyyy}-${mm}-${dd}`
+              }
+            } catch (err) {
+              // fallback if invalid date
+            }
+          }
+          obj[f.label] = val
+        })
+        return obj
+      })
+
+      const ws = XLSX.utils.json_to_sheet(exportData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Data')
+
+      const modeLabel =
+        exportMode === 'all'
+          ? 'Semua'
+          : exportMode === 'date'
+            ? 'ByTanggal'
+            : `Hal${safePage}`
+      const dateStr = new Date().toISOString().slice(0, 10)
+      XLSX.writeFile(wb, `TrackingBroadcast_${modeLabel}_${dateStr}.xlsx`)
+
+      setShowExportModal(false)
+    } catch (e: any) {
+      alert(e?.message ?? 'Gagal export data')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportToSheets = async () => {
+    if (exportMode === 'date' && !exportStartDate && !exportEndDate) {
+      alert('Silakan pilih minimal salah satu tanggal (mulai atau akhir)')
+      return
+    }
+
+    setExporting(true)
+    try {
+      let allRows: BroadCastRow[] = []
+
+      if (exportMode === 'pagination') {
+        allRows = rows
+      } else {
+        const qs = new URLSearchParams()
+        qs.set('limit', '50000')
+        qs.set('page', '1')
+        qs.set('export', 'true')
+
+        bulan.forEach((v) => qs.append('bulan', v))
+        produk.forEach((v) => qs.append('produk', v))
+        perusahaan.forEach((v) => qs.append('perusahaan', v))
+        provinsi.forEach((v) => qs.append('provinsi', v))
+        kota.forEach((v) => qs.append('kota', v))
+        statusWa.forEach((v) => qs.append('status_wa', v))
+        toSales.forEach((v) => qs.append('ke_sales', v))
+        namaPic.forEach((v) => qs.append('pic', v))
+
+        if (exportMode === 'date') {
+          if (exportStartDate) qs.set('startDate', exportStartDate)
+          if (exportEndDate) qs.set('endDate', exportEndDate)
+        }
+
+        const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        const json = await res.json().catch(() => ({}))
+        allRows = Array.isArray(json?.items) ? json.items : []
+      }
+
+      if (allRows.length === 0) {
+        alert('Tidak ada data untuk di-export')
+        return
+      }
+
+      const selectedFields = EXPORT_FIELDS.filter((f) =>
+        exportFields.has(f.key),
+      )
+      const headers = ['No', ...selectedFields.map((f) => f.label)]
+      const sheetRows = allRows.map((row, idx) => {
+        const rowData: (string | number | boolean | null)[] = [idx + 1]
+        selectedFields.forEach((f) => {
+          let val = row[f.key] ?? ''
+          if ((f.key === 'created_at' || f.key === 'updated_at') && val) {
+            try {
+              const d = new Date(val as string)
+              if (!isNaN(d.getTime())) {
+                const yyyy = d.getFullYear()
+                const mm = String(d.getMonth() + 1).padStart(2, '0')
+                const dd = String(d.getDate()).padStart(2, '0')
+                val = `${yyyy}-${mm}-${dd}`
+              }
+            } catch (err) {
+              if (err) {
+                alert('gagal export')
+                return
+              }
+            }
+          }
+          rowData.push(val)
+        })
+        return rowData
+      })
+
+      const modeLabel =
+        exportMode === 'all'
+          ? 'Semua'
+          : exportMode === 'date'
+            ? 'ByTanggal'
+            : `Hal${safePage}`
+      const title = `TrackingBroadcast_${modeLabel}`
+
+      await exportToSheets(title, headers, sheetRows)
+      setShowExportModal(false)
+    } catch (e: any) {
+      alert(e?.message ?? 'Gagal export ke Google Sheets')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className='min-h-screen bg-blue-50'>
       <div className='flex'>
-        <div className='flex-1 p-3 sm:p-6'>
-          <div className='bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-100'>
-            <div className='flex flex-col'>
-              <h4 className='text-[20px] mb-1 font-extrabold text-(--gray-800) m-0 tracking-[-0.5px]'>
-                Tracking Broadcast WA
-              </h4>
-              <p className='text-sm ml-1 text-slate-500 font-medium'>
-                Monitor status pengiriman pesan dari sheet DATA WA
-              </p>
+        <div className='flex-1 p-2 sm:p-4 md:p-6 max-w-full overflow-x-hidden'>
+          <div className='bg-white rounded-xl shadow-md p-4 sm:p-6 mb-4 sm:mb-6 border border-gray-100'>
+            <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+              <div>
+                <h4 className='text-[17px] sm:text-[20px] mb-1 font-extrabold text-(--gray-800) m-0 tracking-[-0.5px]'>
+                  Database Tracking
+                </h4>
+                <p className='text-xs sm:text-sm ml-1 text-slate-500 font-medium'>
+                  Monitor dan kelola seluruh data entitas dengan filter cerdas
+                </p>
+              </div>
+              <button
+                onClick={() => setShowExportModal(true)}
+                className='flex items-center gap-2 h-10 rounded-xl bg-green-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-green-700 transition-colors shrink-0'
+              >
+                <Download size={16} strokeWidth={2.5} />
+                Export Data
+              </button>
             </div>
           </div>
           <section className='bg-white rounded-xl shadow-sm border border-gray-200'>
@@ -729,7 +1153,7 @@ export default function TrackingBroadcastPage() {
               </div>
               <button
                 className='bg-white text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors cursor-pointer shadow-sm'
-                aria-label={isFilterOpen ? "Tutup filter" : "Buka filter"}
+                aria-label={isFilterOpen ? 'Tutup filter' : 'Buka filter'}
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
               >
                 <ChevronDown
@@ -758,24 +1182,45 @@ export default function TrackingBroadcastPage() {
                 <div className='flex items-center gap-2'>
                   <input
                     type='date'
-                    className='w-30 text-xs h-8 px-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400'
+                    className='w-30 text-xs h-8 px-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 cursor-pointer'
                     placeholder='mm/dd/yyyy'
                     value={startDate}
-                    onChange={(e) => { setStartDate(e.target.value); setPage(1); setSelected(null); }}
+                    onChange={(e) => {
+                      setStartDate(e.target.value)
+                      setPage(1)
+                      setSelected(null)
+                    }}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker()
+                      }
+                    }}
                   />
                   <span className='text-gray-400 font-semibold'>-</span>
                   <input
                     type='date'
-                    className='w-30 text-xs h-8 px-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400'
+                    className='w-30 text-xs h-8 px-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:outline-none cursor-pointer focus:ring-1 focus:ring-blue-400 focus:border-blue-400'
                     placeholder='mm/dd/yyyy'
                     value={endDate}
-                    onChange={(e) => { setEndDate(e.target.value); setPage(1); setSelected(null); }}
+                    onChange={(e) => {
+                      setEndDate(e.target.value)
+                      setPage(1)
+                      setSelected(null)
+                    }}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker()
+                      }
+                    }}
                   />
                 </div>
               </div>
 
               {/* Baris 2: Tombol Filter dengan Dropdown */}
-              <div ref={dropdownRef} className='flex flex-wrap lg:flex-nowrap gap-2 w-full'>
+              <div
+                ref={dropdownRef}
+                className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:flex lg:flex-nowrap gap-2 w-full'
+              >
                 {filterButtons.map((btn) => {
                   const IconComponent = btn.icon
                   const activeArr = getFilterArr(btn.id)
@@ -784,25 +1229,32 @@ export default function TrackingBroadcastPage() {
                   const opts = getOptions(btn.id)
                   const search = dropdownSearch[btn.id] ?? ''
                   const filtered = search
-                    ? opts.filter(o => {
-                      const display = btn.id === 'Bulan' ? formatBulan(o) : o
-                      return display.toLowerCase().includes(search.toLowerCase())
-                    })
+                    ? opts.filter((o) => {
+                        const display = btn.id === 'Bulan' ? formatBulan(o) : o
+                        return display
+                          .toLowerCase()
+                          .includes(search.toLowerCase())
+                      })
                     : opts
-                  const allSelected = opts.length > 0 && opts.every(o => activeArr.includes(o))
+                  const allSelected =
+                    opts.length > 0 && opts.every((o) => activeArr.includes(o))
                   const isOpen = openDropdown === btn.id
                   return (
-                    <div key={btn.id} className='relative inline-block flex-1 min-w-[110px]'>
+                    <div
+                      key={btn.id}
+                      className='relative inline-block lg:flex-1 min-w-0'
+                    >
                       {/* Trigger button - pill putih, border highlight biru saat diklik */}
                       <button
                         type='button'
                         onClick={() => setOpenDropdown(isOpen ? null : btn.id)}
-                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${isOpen
-                          ? 'border-2 border-blue-500 bg-white text-blue-600 shadow-md'
-                          : isActive
-                            ? 'border-2 border-blue-400 bg-white text-blue-700'
-                            : 'border border-slate-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600'
-                          }`}
+                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${
+                          isOpen
+                            ? 'border-2 border-blue-500 bg-white text-blue-600 shadow-md'
+                            : isActive
+                              ? 'border-2 border-blue-400 bg-white text-blue-700'
+                              : 'border border-slate-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600'
+                        }`}
                       >
                         <span className='flex items-center gap-1.5 min-w-0'>
                           <IconComponent
@@ -818,7 +1270,10 @@ export default function TrackingBroadcastPage() {
                               {count}
                             </span>
                           )}
-                          <ChevronDown size={10} className={`ml-0.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                          <ChevronDown
+                            size={10}
+                            className={`ml-0.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                          />
                         </span>
                       </button>
 
@@ -827,7 +1282,8 @@ export default function TrackingBroadcastPage() {
                         <div
                           className='absolute top-[calc(100%+4px)] left-0 z-[9999] w-56 bg-white rounded-lg flex flex-col'
                           style={{
-                            boxShadow: '0 12px 40px -4px rgba(0,0,0,0.2), 0 4px 12px -2px rgba(0,0,0,0.08)',
+                            boxShadow:
+                              '0 12px 40px -4px rgba(0,0,0,0.2), 0 4px 12px -2px rgba(0,0,0,0.08)',
                             border: '1px solid #e2e8f0',
                           }}
                         >
@@ -838,7 +1294,12 @@ export default function TrackingBroadcastPage() {
                               type='text'
                               placeholder='Cari...'
                               value={search}
-                              onChange={e => setDropdownSearch(prev => ({ ...prev, [btn.id]: e.target.value }))}
+                              onChange={(e) =>
+                                setDropdownSearch((prev) => ({
+                                  ...prev,
+                                  [btn.id]: e.target.value,
+                                }))
+                              }
                               className='w-full text-[11px] px-2 py-1.5 border border-gray-300 rounded-md outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400'
                             />
                           </div>
@@ -861,28 +1322,41 @@ export default function TrackingBroadcastPage() {
                             </button>
                           </div>
                           {/* Option list */}
-                          <div className='max-h-48 overflow-y-auto border-t border-gray-100' style={{ scrollbarWidth: 'thin' }}>
+                          <div
+                            className='max-h-48 overflow-y-auto border-t border-gray-100'
+                            style={{ scrollbarWidth: 'thin' }}
+                          >
                             {filtered.length === 0 ? (
-                              <div className='px-3 py-2 text-[10px] text-slate-400 text-center'>Tidak ada data</div>
-                            ) : filtered.map(opt => {
-                              const checked = activeArr.includes(opt)
-                              return (
-                                <label
-                                  key={opt}
-                                  className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-blue-50 ${checked ? 'bg-blue-50/60' : ''}`}
-                                >
-                                  <input
-                                    type='checkbox'
-                                    checked={checked}
-                                    onChange={() => toggleFilterVal(btn.id, opt)}
-                                    className='accent-blue-600 w-3.5 h-3.5 shrink-0'
-                                  />
-                                  <span className={`text-[11px] truncate ${checked ? 'font-semibold text-blue-700' : 'text-slate-700'}`}>
-                                    {btn.id === 'Bulan' ? formatBulan(opt) : opt}
-                                  </span>
-                                </label>
-                              )
-                            })}
+                              <div className='px-3 py-2 text-[10px] text-slate-400 text-center'>
+                                Tidak ada data
+                              </div>
+                            ) : (
+                              filtered.map((opt) => {
+                                const checked = activeArr.includes(opt)
+                                return (
+                                  <label
+                                    key={opt}
+                                    className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-blue-50 ${checked ? 'bg-blue-50/60' : ''}`}
+                                  >
+                                    <input
+                                      type='checkbox'
+                                      checked={checked}
+                                      onChange={() =>
+                                        toggleFilterVal(btn.id, opt)
+                                      }
+                                      className='accent-blue-600 w-3.5 h-3.5 shrink-0'
+                                    />
+                                    <span
+                                      className={`text-[11px] truncate ${checked ? 'font-semibold text-blue-700' : 'text-slate-700'}`}
+                                    >
+                                      {btn.id === 'Bulan'
+                                        ? formatBulan(opt)
+                                        : opt}
+                                    </span>
+                                  </label>
+                                )
+                              })
+                            )}
                           </div>
                         </div>
                       )}
@@ -894,8 +1368,11 @@ export default function TrackingBroadcastPage() {
               {/* Hint info row */}
               <div className='flex items-center gap-1.5 text-[10px] text-slate-400'>
                 <span className='text-blue-400'>ⓘ</span>
-                Klik tombol filter → centang pilihan. Bisa pilih lebih dari satu.
-                {(filterButtons.some(b => getFilterArr(b.id).length > 0) || startDate || endDate) && (
+                Klik tombol filter → centang pilihan. Bisa pilih lebih dari
+                satu.
+                {(filterButtons.some((b) => getFilterArr(b.id).length > 0) ||
+                  startDate ||
+                  endDate) && (
                   <span className='text-blue-600 font-semibold ml-1'>
                     Menampilkan {total.toLocaleString()} data
                   </span>
@@ -903,15 +1380,16 @@ export default function TrackingBroadcastPage() {
               </div>
 
               {/* ---- Chips row: active selections ---- */}
-              {filterButtons.some(b => getFilterArr(b.id).length > 0) && (
+              {filterButtons.some((b) => getFilterArr(b.id).length > 0) && (
                 <div className='flex flex-wrap gap-1 mt-0.5'>
-                  {filterButtons.flatMap(btn =>
-                    getFilterArr(btn.id).map(val => (
+                  {filterButtons.flatMap((btn) =>
+                    getFilterArr(btn.id).map((val) => (
                       <span
                         key={`${btn.id}-${val}`}
                         className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 border border-blue-200'
                       >
-                        {btn.label}: {btn.id === 'Bulan' ? formatBulan(val) : val}
+                        {btn.label}:{' '}
+                        {btn.id === 'Bulan' ? formatBulan(val) : val}
                         <button
                           type='button'
                           onClick={() => toggleFilterVal(btn.id, val)}
@@ -920,11 +1398,13 @@ export default function TrackingBroadcastPage() {
                           <X size={9} />
                         </button>
                       </span>
-                    ))
+                    )),
                   )}
                   <button
                     type='button'
-                    onClick={() => filterButtons.forEach(b => clearFilterArr(b.id))}
+                    onClick={() =>
+                      filterButtons.forEach((b) => clearFilterArr(b.id))
+                    }
                     className='text-[10px] text-red-500 hover:text-red-700 font-semibold ml-1'
                   >
                     Reset Semua
@@ -934,9 +1414,8 @@ export default function TrackingBroadcastPage() {
             </div>
           </section>
 
-          <section className='bg-white mt-4 rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
-
-            <div className='bg-[#095D4B] text-white px-6 h-10 flex items-center justify-between'>
+          <section className='bg-white mt-3 sm:mt-4 rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
+            <div className='bg-[#095D4B] text-white px-3 sm:px-6 h-10 flex items-center justify-between'>
               <div className='flex items-center'>
                 <BarChart2 size={12} className='mr-2' strokeWidth={2.5} />
                 <strong className='text-[8px] font-bold tracking-wide'>
@@ -946,12 +1425,15 @@ export default function TrackingBroadcastPage() {
                   (Klik baris tabel untuk drill-down)
                 </span>
               </div>
-              <button className='bg-white text-blue-600 p-1 rounded hover:bg-slate-50 transition-colors shadow-sm cursor-pointer shrink-0' aria-label={isFilterOpen2 ? "Tutup filter" : "Buka filter"}>
+              <button
+                className='bg-white text-blue-600 p-1 rounded hover:bg-slate-50 transition-colors shadow-sm cursor-pointer shrink-0'
+                aria-label={isFilterOpen2 ? 'Tutup filter' : 'Buka filter'}
+              >
                 <ChevronDown
                   size={16}
                   strokeWidth={2.5}
                   onClick={() => setIsFilterOpen2(!isFilterOpen2)}
-                  className={`transition-transform duration-200 ${isFilterOpen2 ? "rotate-180" : ""}`}
+                  className={`transition-transform duration-200 ${isFilterOpen2 ? 'rotate-180' : ''}`}
                 />
               </button>
             </div>
@@ -964,7 +1446,7 @@ export default function TrackingBroadcastPage() {
               <div className='flex flex-col sm:flex-row gap-3 w-full'>
                 {/* Card Kiri: Total Unik No HP */}
                 <div className='shrink-0 md:w-auto w-full'>
-                  <div className='flex items-center gap-3 bg-white border border-gray-200 rounded-lg shadow-sm px-4 py-3 h-full min-w-[200px]'>
+                  <div className='flex items-center gap-3 bg-white border border-gray-200 rounded-lg shadow-sm px-3 sm:px-4 py-3 h-full min-w-0 sm:min-w-[200px]'>
                     <div className='rounded-full flex items-center justify-center text-white shrink-0 w-9 h-9 bg-gradient-to-br from-green-500 to-teal-600'>
                       <PhoneCallIcon
                         size={14}
@@ -1001,11 +1483,10 @@ export default function TrackingBroadcastPage() {
                         Distribusi Status WA
                       </span>
                     </div>
-                    <div className='flex flex-wrap gap-1.5'>
-
+                    <div className='grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap gap-1.5'>
                       {/* Terkirim (1C) */}
                       <button
-                        onClick={() => handleFilterByStatus('Terkirim(1C)')}
+                        onClick={() => handleFilterByStatus('Terkirim (1C)')}
                         className='cursor-pointer hover:bg-slate-400 hover:rounded-2xl'
                       >
                         <div className='flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-full px-3 py-0.5'>
@@ -1013,13 +1494,15 @@ export default function TrackingBroadcastPage() {
                           <span className='text-[10px] text-slate-600 font-medium whitespace-nowrap'>
                             Terkirim (1C)
                           </span>
-                          <span className='text-[10px] font-bold text-slate-700 ml-0.5'>{statusWaSummary.terkirim}</span>
+                          <span className='text-[10px] font-bold text-slate-700 ml-0.5'>
+                            {statusWaSummary.terkirim}
+                          </span>
                         </div>
                       </button>
 
                       {/* Diterima (2C) */}
                       <button
-                        onClick={() => handleFilterByStatus('Diterima(2C)')}
+                        onClick={() => handleFilterByStatus('Diterima (2C)')}
                         className='cursor-pointer hover:bg-blue-400 hover:rounded-2xl'
                       >
                         <div className='flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full px-2.5 py-0.5'>
@@ -1027,13 +1510,20 @@ export default function TrackingBroadcastPage() {
                           <span className='text-[10px] text-blue-700 font-medium whitespace-nowrap'>
                             Diterima (2C)
                           </span>
-                          <span className='text-[10px] font-bold text-blue-800 ml-0.5' id='statDiterima'>{statusWaSummary.diterima}</span>
+                          <span
+                            className='text-[10px] font-bold text-blue-800 ml-0.5'
+                            id='statDiterima'
+                          >
+                            {statusWaSummary.diterima}
+                          </span>
                         </div>
                       </button>
 
                       {/* Dibaca - Belum Respons */}
                       <button
-                        onClick={() => handleFilterByStatus('Dibaca - Belum Respons')}
+                        onClick={() =>
+                          handleFilterByStatus('Dibaca - Belum Respons')
+                        }
                         className='cursor-pointer hover:bg-yellow-400 hover:rounded-2xl'
                       >
                         <div className='flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded-full px-2.5 py-0.5'>
@@ -1041,13 +1531,20 @@ export default function TrackingBroadcastPage() {
                           <span className='text-[10px] text-yellow-700 font-medium whitespace-nowrap'>
                             Dibaca - Belum Respons
                           </span>
-                          <span className='text-[10px] font-bold text-yellow-800 ml-0.5' id='statBelumRespons'>{statusWaSummary.belumRespon}</span>
+                          <span
+                            className='text-[10px] font-bold text-yellow-800 ml-0.5'
+                            id='statBelumRespons'
+                          >
+                            {statusWaSummary.belumRespon}
+                          </span>
                         </div>
                       </button>
 
                       {/* Dibaca - Respons Positif */}
                       <button
-                        onClick={() => handleFilterByStatus('Dibaca - Respons - Positif')}
+                        onClick={() =>
+                          handleFilterByStatus('Dibaca - Respons Positif')
+                        }
                         className='cursor-pointer hover:bg-green-500 hover:rounded-2xl'
                       >
                         <div className='flex items-center gap-1 bg-green-50 border border-green-200 rounded-full px-2.5 py-0.5'>
@@ -1055,13 +1552,20 @@ export default function TrackingBroadcastPage() {
                           <span className='text-[10px] text-green-700 font-medium whitespace-nowrap'>
                             Dibaca - Respons Positif
                           </span>
-                          <span className='text-[10px] font-bold text-green-800 ml-0.5' id='statResponsPositif'>{statusWaSummary.positif}</span>
+                          <span
+                            className='text-[10px] font-bold text-green-800 ml-0.5'
+                            id='statResponsPositif'
+                          >
+                            {statusWaSummary.positif}
+                          </span>
                         </div>
                       </button>
 
                       {/* Dibaca - Respon Netral */}
                       <button
-                        onClick={() => handleFilterByStatus('Dibaca - Respons - Netral')}
+                        onClick={() =>
+                          handleFilterByStatus('Dibaca - Respons Netral')
+                        }
                         className='cursor-pointer hover:bg-green-700 hover:rounded-2xl'
                       >
                         <div className='flex items-center gap-1 bg-green-50 border border-green-200 rounded-full px-2.5 py-0.5'>
@@ -1069,7 +1573,12 @@ export default function TrackingBroadcastPage() {
                           <span className='text-[10px] text-green-700 font-medium whitespace-nowrap'>
                             Dibaca - Respons Netral
                           </span>
-                          <span className='text-[10px] font-bold text-green-800 ml-0.5' id='statResponsPositif'>{statusWaSummary.netral}</span>
+                          <span
+                            className='text-[10px] font-bold text-green-800 ml-0.5'
+                            id='statResponsPositif'
+                          >
+                            {statusWaSummary.netral}
+                          </span>
                         </div>
                       </button>
 
@@ -1083,33 +1592,50 @@ export default function TrackingBroadcastPage() {
                           <span className='text-[10px] text-purple-700 font-medium whitespace-nowrap'>
                             Aktif Broadcast
                           </span>
-                          <span className='text-[10px] font-bold text-purple-800 ml-0.5' id='statAktif'>{statusWaSummary.aktif}</span>
+                          <span
+                            className='text-[10px] font-bold text-purple-800 ml-0.5'
+                            id='statAktif'
+                          >
+                            {statusWaSummary.aktif}
+                          </span>
                         </div>
                       </button>
 
                       {/* Total angka */}
                       <button
                         onClick={() => handleFilterByStatus('Total')}
-                        className='cursor-pointer hover:bg-orange-400 hover:rounded-2xl'>
+                        className='cursor-pointer hover:bg-orange-400 hover:rounded-2xl'
+                      >
                         <div className='flex items-center gap-1 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-0.5'>
                           <span className='w-2 h-2 rounded-full bg-orange-400 shrink-0'></span>
                           <span className='text-[10px] text-orange-700 font-medium whitespace-nowrap'>
                             Total
                           </span>
-                          <span className='text-[10px] font-bold text-orange-700 ml-0.5' id='statTotal'>{statusWaSummary.total}</span>
+                          <span
+                            className='text-[10px] font-bold text-orange-700 ml-0.5'
+                            id='statTotal'
+                          >
+                            {statusWaSummary.total}
+                          </span>
                         </div>
                       </button>
 
                       {/* Kosong */}
                       <button
                         onClick={() => handleFilterByStatus('')}
-                        className='cursor-pointer hover:bg-amber-400 hover:rounded-2xl'>
+                        className='cursor-pointer hover:bg-amber-400 hover:rounded-2xl'
+                      >
                         <div className='flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-0.5'>
                           <span className='w-2 h-2 rounded-full bg-amber-400 shrink-0'></span>
                           <span className='text-[10px] text-amber-700 font-medium whitespace-nowrap'>
                             (Kosong)
                           </span>
-                          <span className='text-[10px] font-bold text-amber-800 ml-0.5' id='statKosong'>{statusWaSummary.kosong}</span>
+                          <span
+                            className='text-[10px] font-bold text-amber-800 ml-0.5'
+                            id='statKosong'
+                          >
+                            {statusWaSummary.kosong}
+                          </span>
                         </div>
                       </button>
                     </div>
@@ -1155,7 +1681,12 @@ export default function TrackingBroadcastPage() {
                       id='statProvinsiTotal'
                       className='font-semibold text-blue-700'
                     >
-                      {loadingRows ? '...' : (stats?.provinsi_kota.reduce((acc, row) => acc + row.unik, 0) ?? 0)}
+                      {loadingRows
+                        ? '...'
+                        : (stats?.provinsi_kota.reduce(
+                            (acc, row) => acc + row.unik,
+                            0,
+                          ) ?? 0)}
                     </span>
                     <span>total</span>
                   </div>
@@ -1185,51 +1716,59 @@ export default function TrackingBroadcastPage() {
                     >
                       {loadingRows ? (
                         <tr>
-                          <td colSpan={4} className='px-3 py-4 text-center text-[10px] text-slate-400'>
+                          <td
+                            colSpan={4}
+                            className='px-3 py-4 text-center text-[10px] text-slate-400'
+                          >
                             Memuat data...
                           </td>
                         </tr>
                       ) : (stats?.provinsi_kota ?? []).length === 0 ? (
                         <tr>
-                          <td colSpan={4} className='px-3 py-4 text-center text-[10px] text-slate-400'>
+                          <td
+                            colSpan={4}
+                            className='px-3 py-4 text-center text-[10px] text-slate-400'
+                          >
                             Tidak ada data
                           </td>
                         </tr>
-                      ) : (stats?.provinsi_kota ?? []).map((row) => (
-                        <tr
-                          key={row.no}
-                          onClick={() => {
-                            setProvinsi([row.provinsi])
-                            setKota([row.kota])
-                            setPage(1)
-                            setSelected(null)
-                          }}
-                          className='hover:bg-blue-50/50 transition-colors cursor-pointer'
-                        >
-                          <td className='px-2 py-1.5 text-[10px] text-slate-400'>
-                            {row.no}
-                          </td>
-                          <td className='px-2 py-1.5 text-[10px] text-slate-700 font-medium'>
-                            {row.provinsi}
-                          </td>
-                          <td className='px-2 py-1.5 text-[10px] text-slate-600'>
-                            <div className='flex items-center gap-1.5'>
-                              <span>{row.kota}</span>
-                              <div className='flex-1 min-w-[36px] bg-blue-100 rounded-full h-[4px] overflow-hidden'>
-                                <div
-                                  className='bg-blue-500 h-full rounded-full'
-                                  style={{ width: `${row.pct}%` }}
-                                />
+                      ) : (
+                        (stats?.provinsi_kota ?? []).map((row) => (
+                          <tr
+                            key={row.no}
+                            onClick={() => {
+                              setProvinsi([row.provinsi])
+                              setKota([row.kota])
+                              setPage(1)
+                              setSelected(null)
+                            }}
+                            className='hover:bg-blue-50/50 transition-colors cursor-pointer'
+                          >
+                            <td className='px-2 py-1.5 text-[10px] text-slate-400'>
+                              {row.no}
+                            </td>
+                            <td className='px-2 py-1.5 text-[10px] text-slate-700 font-medium'>
+                              {row.provinsi}
+                            </td>
+                            <td className='px-2 py-1.5 text-[10px] text-slate-600'>
+                              <div className='flex items-center gap-1.5'>
+                                <span>{row.kota}</span>
+                                <div className='flex-1 min-w-[36px] bg-blue-100 rounded-full h-[4px] overflow-hidden'>
+                                  <div
+                                    className='bg-blue-500 h-full rounded-full'
+                                    style={{ width: `${row.pct}%` }}
+                                  />
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className='px-2 py-1.5 text-right'>
-                            <span className='inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
-                              {row.unik}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className='px-2 py-1.5 text-right'>
+                              <span className='inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
+                                {row.unik}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1256,17 +1795,18 @@ export default function TrackingBroadcastPage() {
                     </span>
                   </div>
                   <div className='flex items-center gap-1 text-[10px] text-slate-500'>
-                    <span
-                      className='font-semibold text-amber-700'
-                    >
+                    <span className='font-semibold text-amber-700'>
                       {loadingRows ? '...' : (stats?.per_sales?.length ?? 0)}
                     </span>
                     <span>sales</span>
                     <span className='mx-0.5 text-slate-300'>|</span>
-                    <span
-                      className='font-semibold text-amber-700'
-                    >
-                      {loadingRows ? '...' : (stats?.per_sales?.reduce((acc, r) => acc + r.unik, 0) ?? 0)}
+                    <span className='font-semibold text-amber-700'>
+                      {loadingRows
+                        ? '...'
+                        : (stats?.per_sales?.reduce(
+                            (acc, r) => acc + r.unik,
+                            0,
+                          ) ?? 0)}
                     </span>
                     <span>total</span>
                   </div>
@@ -1287,58 +1827,65 @@ export default function TrackingBroadcastPage() {
                         </th>
                       </tr>
                     </thead>
-                    <tbody
-                      className='divide-y divide-amber-100/60'
-                    >
+                    <tbody className='divide-y divide-amber-100/60'>
                       {loadingRows ? (
                         <tr>
-                          <td colSpan={3} className='px-3 py-4 text-center text-[10px] text-slate-400'>
+                          <td
+                            colSpan={3}
+                            className='px-3 py-4 text-center text-[10px] text-slate-400'
+                          >
                             Memuat data...
                           </td>
                         </tr>
                       ) : (stats?.per_sales ?? []).length === 0 ? (
                         <tr>
-                          <td colSpan={3} className='px-3 py-4 text-center text-[10px] text-slate-400'>
+                          <td
+                            colSpan={3}
+                            className='px-3 py-4 text-center text-[10px] text-slate-400'
+                          >
                             Tidak ada data
                           </td>
                         </tr>
-                      ) : (stats?.per_sales ?? []).map((row) => (
-                        <tr
-                          key={row.no}
-                          onClick={() => {
-                            setToSales([row.ke_sales ?? ''])
-                            setPage(1)
-                            setSelected(null)
-                          }}
-                          className='hover:bg-amber-50/60 transition-colors cursor-pointer'
-                        >
-                          <td className='px-3 py-2 text-[10px] text-slate-400'>
-                            {row.no}
-                          </td>
-                          <td className='px-3 py-2 text-[10px] text-slate-700 font-medium'>
-                            {/* ✅ Tampilkan "(Belum Diteruskan)" jika ke_sales null */}
-                            {row.ke_sales ?? '(Belum Diteruskan)'}
-                          </td>
-                          <td className='px-3 py-2 text-right'>
-                            <div className='flex items-center gap-2 justify-end'>
-                              <div className='flex-1 min-w-[40px] max-w-[140px] bg-gray-200 rounded-full h-[5px] overflow-hidden'>
-                                <div
-                                  className='h-full rounded-full'
-                                  style={{
-                                    width: `${row.pct}%`,
-                                    background: row.ke_sales === '(Belum Diteruskan)'
-                                      ? 'linear-gradient(90deg, #9CA3AF, #6B7280)'
-                                      : 'linear-gradient(90deg, #F59E0B, #D97706)',
-                                  }}
-                                />
+                      ) : (
+                        (stats?.per_sales ?? []).map((row) => (
+                          <tr
+                            key={row.no}
+                            onClick={() => {
+                              setToSales([row.ke_sales ?? ''])
+                              setPage(1)
+                              setSelected(null)
+                            }}
+                            className='hover:bg-amber-50/60 transition-colors cursor-pointer'
+                          >
+                            <td className='px-3 py-2 text-[10px] text-slate-400'>
+                              {row.no}
+                            </td>
+                            <td className='px-3 py-2 text-[10px] text-slate-700 font-medium'>
+                              {/* ✅ Tampilkan "(Belum Diteruskan)" jika ke_sales null */}
+                              {row.ke_sales ?? '(Belum Diteruskan)'}
+                            </td>
+                            <td className='px-3 py-2 text-right'>
+                              <div className='flex items-center gap-2 justify-end'>
+                                <div className='flex-1 min-w-[40px] max-w-[140px] bg-gray-200 rounded-full h-[5px] overflow-hidden'>
+                                  <div
+                                    className='h-full rounded-full'
+                                    style={{
+                                      width: `${row.pct}%`,
+                                      background:
+                                        row.ke_sales === '(Belum Diteruskan)'
+                                          ? 'linear-gradient(90deg, #9CA3AF, #6B7280)'
+                                          : 'linear-gradient(90deg, #F59E0B, #D97706)',
+                                    }}
+                                  />
+                                </div>
+                                <span className='inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white shadow-sm'>
+                                  {row.unik}
+                                </span>
                               </div>
-                              <span className='inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white shadow-sm'>
-                                {row.unik}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1357,9 +1904,17 @@ export default function TrackingBroadcastPage() {
                   disabled={isSending}
                   className='inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
                 >
-                  {isSending
-                    ? <><span className='w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin' /> Mengirim...</>
-                    : <><Send size={11} strokeWidth={2.5} /> Kirim ({selectedIds.length}) Data</>}
+                  {isSending ? (
+                    <>
+                      <span className='w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin' />{' '}
+                      Mengirim...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={11} strokeWidth={2.5} /> Kirim (
+                      {selectedIds.length}) Data
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => setSelectedIds([])}
@@ -1369,22 +1924,23 @@ export default function TrackingBroadcastPage() {
                 </button>
               </div>
             )}
-            <div className='overflow-x-auto'>
-              <table className='min-w-full text-left border-collapse'>
+            <div className='overflow-x-auto -mx-0 sm:mx-0'>
+              <table className='min-w-[900px] sm:min-w-full text-left border-collapse'>
                 {/* Header */}
                 <thead className='sticky top-0 z-10'>
                   <tr className='bg-[#1a2c4e] text-white'>
                     {[
-                      { label: "NO" },
-                      { label: "👁 LIHAT" },
-                      { label: "🏢 PERUSAHAAN" },
-                      { label: "📦 PRODUK" },
-                      { label: "📍 INFO LOKASI" },
-                      { label: "👤 KONTAK PIC" },
-                      { label: "💬 STATUS WA" },
-                      { label: "📝 DETAIL UPDATE" },
-                      { label: "➡ KE SALES" },
-                      { label: "⚙" },
+                      { label: 'NO' },
+                      { label: '👁 LIHAT' },
+                      { label: '🏢 PERUSAHAAN' },
+                      { label: '📦 PRODUK' },
+                      { label: '📍 INFO LOKASI' },
+                      { label: '👤 NAMA PIC' },
+                      { label: '👤 KONTAK PIC' },
+                      { label: '💬 STATUS WA' },
+                      { label: '📝 DETAIL UPDATE' },
+                      { label: '➡ KE SALES' },
+                      { label: '⚙' },
                     ].map((h) => (
                       <th
                         key={h.label}
@@ -1398,7 +1954,12 @@ export default function TrackingBroadcastPage() {
                       <input
                         type='checkbox'
                         onChange={handleSelectAll}
-                        checked={selectedIds.length === rows.length && rows.length > 0}
+                        checked={
+                          rows.filter((r) => r.tipe === 'WhatsApp').length >
+                            0 &&
+                          selectedIds.length ===
+                            rows.filter((r) => r.tipe === 'WhatsApp').length
+                        }
                         className='w-3.5 h-3.5 accent-blue-500 cursor-pointer'
                       />
                     </th>
@@ -1407,7 +1968,10 @@ export default function TrackingBroadcastPage() {
                 <tbody className='divide-y divide-gray-300 bg-white'>
                   {loadingRows ? (
                     <tr>
-                      <td colSpan={11} className='px-6 py-8 text-center text-[10px] text-gray-500'>
+                      <td
+                        colSpan={11}
+                        className='px-6 py-8 text-center text-[10px] text-gray-500'
+                      >
                         <div className='flex justify-center items-center gap-2'>
                           <span className='w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin'></span>
                           <span>Memuat Data...</span>
@@ -1416,257 +1980,441 @@ export default function TrackingBroadcastPage() {
                     </tr>
                   ) : rows.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className='px-6 py-8 text-center text-[10px] text-gray-500'>
+                      <td
+                        colSpan={11}
+                        className='px-6 py-8 text-center text-[10px] text-gray-500'
+                      >
                         Tidak ada data
                       </td>
                     </tr>
-                  ) : rows.map((row, i) => {
-                    const active = selected?._id === row._id;
-                    return (
-                      <React.Fragment key={row._id}>
-                        <tr
-                          key={row.kode + i}
-                          className={cn(
-                            'hover:bg-blue-50/50 transition-colors cursor-pointer border-b border-gray-200',
-                            selectedIds.includes(row._id) ? 'bg-blue-50' : ''
-                          )}
-                        >
-                          <td className='whitespace-nowrap px-5.5 py-2 text-[10px] text-slate-500'>
-                            {(safePage - 1) * pageSize + i + 1}
-                          </td>
-                          <td className='px-4 py-2'>
-                            <div className='flex items-center gap-1.5'>
+                  ) : (
+                    rows.map((row, i) => {
+                      console.log('tipe:', row.tipe)
+                      const active = selected?._id === row._id
+                      return (
+                        <React.Fragment key={row._id}>
+                          <tr
+                            key={row.kode + i}
+                            className={cn(
+                              'hover:bg-blue-50/50 transition-colors cursor-pointer border-b border-gray-200',
+                              selectedIds.includes(row._id) ? 'bg-blue-50' : '',
+                            )}
+                          >
+                            <td className='whitespace-nowrap px-5.5 py-2 text-[10px] text-slate-500'>
+                              {(safePage - 1) * pageSize + i + 1}
+                            </td>
+                            <td className='px-4 py-2'>
+                              <div className='flex items-center gap-1.5'>
+                                <button
+                                  title='Lihat Detail'
+                                  onClick={() =>
+                                    setSelected(
+                                      selected?._id === row._id ? null : row,
+                                    )
+                                  }
+                                  className={cn(
+                                    'inline-flex items-center justify-center w-6 h-6 rounded-md transition-all duration-150 cursor-pointer',
+                                    selected?._id === row._id
+                                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-300'
+                                      : 'bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white',
+                                  )}
+                                >
+                                  <EyeIcon size={12} strokeWidth={2.2} />
+                                </button>
+                                <button
+                                  title='Chat Whatsapp'
+                                  onClick={() => handleWhatsAppClick(row.telp)}
+                                  className={cn(
+                                    'inline-flex items-center justify-center w-6 h-6 rounded-md transition-all duration-150 cursor-pointer',
+                                    selected?._id === row._id
+                                      ? 'bg-green-600 text-white shadow-sm shadow-blue-300'
+                                      : 'bg-blue-100 text-green-600 hover:bg-green-600 hover:text-white',
+                                  )}
+                                >
+                                  <PhoneCallIcon size={12} strokeWidth={2.2} />
+                                </button>
+                              </div>
+                            </td>
+                            <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-700 font-medium'>
+                              {row.nama_perusahaan}
+                            </td>
+                            <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-600'>
+                              {row.produk}
+                            </td>
+                            <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-600'>
+                              {row.kota}, {row.provinsi}
+                            </td>
+                            <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-600'>
                               <button
-                                title='Lihat Detail'
-                                onClick={() => setSelected(selected?._id === row._id ? null : row)}
-                                className={cn(
-                                  'inline-flex items-center justify-center w-6 h-6 rounded-md transition-all duration-150 cursor-pointer',
-                                  selected?._id === row._id
-                                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-300'
-                                    : 'bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white'
-                                )}
+                                title='Edit Nama PIC'
+                                onClick={() => handleEditClick(row)}
+                                className='flex items-center gap-1.5 group text-left hover:text-blue-600 transition-colors'
                               >
-                                <EyeIcon size={12} strokeWidth={2.2} />
+                                <PencilIcon
+                                  size={10}
+                                  strokeWidth={2}
+                                  className='shrink-0 text-slate-400 group-hover:text-blue-500'
+                                />
+                                <span className={row.pic ? 'text-slate-700 font-medium' : 'text-slate-300 italic'}>
+                                  {row.pic || 'Tambah PIC'}
+                                </span>
                               </button>
+                            </td>
+                            <td className='px-2 py-2 text-[10px] text-gray-700'>
+                              <div className='flex flex-col gap-0.5'>
+                                <span className='flex items-center gap-1 text-slate-500'>
+                                  <Phone
+                                    size={9}
+                                    strokeWidth={2}
+                                    className='shrink-0'
+                                  />
+                                  {row.telp || '-'}
+                                </span>
+                              </div>
+                            </td>
+                            {/* STATUS WA */}
+                            <td className='px-1 py-1 text-[10px] text-slate-600'>
+                              <SearchableSelect
+                                value={row.status_wa || ''}
+                                onChange={(val: string) => {
+                                  updateRowStatusWa(row._id, val)
+                                  // Reset detail_update saat status berubah
+                                  updateRowDetailUpdate(row._id, '')
+                                }}
+                                options={getStatusOptionsForRow(row.status_wa)}
+                                className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-40 sm:w-57 h-12 cursor-pointer'
+                                placeholder='Pilih Status...'
+                              />
+                            </td>
+                            {/* DETAIL UPDATE — difilter berdasarkan status_wa yang dipilih */}
+                            <td className='px-1 py-1 text-[10px] text-slate-600'>
+                              <SearchableSelect
+                                value={row.detail_update || ''}
+                                onChange={(val: string) =>
+                                  updateRowDetailUpdate(row._id, val)
+                                }
+                                isDisabled={!row.status_wa}
+                                options={(() => {
+                                  const base = getDetailOptions(
+                                    row.status_wa || '',
+                                  )
+                                  if (
+                                    row.detail_update &&
+                                    !base.some(
+                                      (o) => o.value === row.detail_update,
+                                    )
+                                  ) {
+                                    return [
+                                      ...base,
+                                      {
+                                        value: row.detail_update,
+                                        label: row.detail_update,
+                                      },
+                                    ]
+                                  }
+                                  return base
+                                })()}
+                                className='text-[10px] border border-gray-300 rounded-lg bg-white text-gray-700 w-40 sm:w-57 h-12 cursor-pointer'
+                                placeholder='Pilih Detail...'
+                              />
+                            </td>
+                            <td className='px-2 sm:px-5 py-3 text-[10px] text-slate-600'>
+                              <select
+                                value={row.ke_sales || ''}
+                                onChange={(e) =>
+                                  updateRowKeSales(row._id, e.target.value)
+                                }
+                                className='text-[10px] border border-gray-300 rounded-lg px-2 sm:px-4 py-3 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 w-36 sm:w-45 h-12 cursor-pointer'
+                              >
+                                <option value=''>- Pilih Sales -</option>
+                                <option value='Arie Muhamad Fajar'>
+                                  Arie Muhamad Fajar
+                                </option>
+                                <option value='Beffry Rizkana'>
+                                  Beffry Rizkana
+                                </option>
+                                <option value='Ferrie Ferdinal'>
+                                  Ferrie Ferdinal
+                                </option>
+                              </select>
+                            </td>
+                            <td className='py-2 px-3'>
                               <button
-                                title='Chat Whatsapp'
-                                onClick={() => handleWhatsAppClick(row.telp)}
-                                className={cn(
-                                  'inline-flex items-center justify-center w-6 h-6 rounded-md transition-all duration-150 cursor-pointer',
-                                  selected?._id === row._id
-                                    ? 'bg-green-600 text-white shadow-sm shadow-blue-300'
-                                    : 'bg-blue-100 text-green-600 hover:bg-green-600 hover:text-white'
-                                )}
+                                title='Kirim ke database'
+                                onClick={() => handleSendRow(row)}
+                                disabled={sendingRows.has(row._id)}
+                                className='inline-flex items-center justify-center w-8 h-7 rounded bg-blue-700 hover:bg-blue-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed'
                               >
-                                <PhoneCallIcon size={12} strokeWidth={2.2} />
+                                {sendingRows.has(row._id) ? (
+                                  <span className='w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin' />
+                                ) : (
+                                  <Send
+                                    size={12}
+                                    strokeWidth={2}
+                                    className='text-white'
+                                  />
+                                )}
                               </button>
-                            </div>
-                          </td>
-                          <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-700 font-medium'>
-                            {row.nama_perusahaan}
-                          </td>
-                          <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-600'>
-                            {row.produk}
-                          </td>
-                          <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-600'>
-                            {row.kota}, {row.provinsi}
-                          </td>
-                          <td className='px-2 py-2 text-[10px] text-gray-700'>
-                            <div className='flex flex-col gap-0.5'>
-                              <span className='font-semibold text-slate-800'>
-                                {row.pic || '-'}
-                                {row.jabatan ? ` (${row.jabatan})` : ''}
-                              </span>
-                              <span className='flex items-center gap-1 text-slate-500'>
-                                <Phone size={9} strokeWidth={2} className='shrink-0' />
-                                {row.telp || '-'}
-                              </span>
-                            </div>
-                          </td>
-                          <td className='px-1 py-1 w-12 text-[10px] text-slate-600'>
-                            <select
-                              value={row.status_wa || ''}
-                              onChange={(e) => updateRowStatusWa(row._id, e.target.value)}
-                              className='text-[10px] border border-gray-300 rounded-lg px-5 py-3 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 w-57 h-12 cursor-pointer'
-                            >
-                              <option value=''>- Pilih Status -</option>
-                              <option value='Terkirim(1C)'>Terkirim(1C)</option>
-                              <option value='Diterima(2C)'>Diterima(2C)</option>
-                              <option value='Dibaca - Belum Respons'>Dibaca - Belum Respons</option>
-                              <option value='Dibaca - Respons - Positif'>Dibaca - Respons - Positif</option>
-                              <option value='Dibaca - Respons - Netral'>Dibaca - Respons - Netral</option>
-                              <option value='Dibaca - Respons - Negatif'>Dibaca - Respons - Negatif</option>
-                              <option value='Aktif Progres'>Aktif Progres</option>
-                            </select>
-                          </td>
-                          <td className='px-1 py-1 w-12 text-[10px] text-slate-600'>
-                            <select
-                              value={row.detail_update || ''}
-                              onChange={(e) => updateRowDetailUpdate(row._id, e.target.value)}
-                              className='text-[10px] border text-wrap border-gray-300 rounded-lg px-1 py-1 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 w-57 h-12 cursor-pointer'
-                            >
-                              {detailOptions.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className='px-5 py-3 text-[10px] text-slate-600'>
-                            <select
-                              value={row.ke_sales || ''}
-                              onChange={(e) => updateRowKeSales(row._id, e.target.value)}
-                              className='text-[10px] border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 w-45 h-12 cursor-pointer'
-                            >
-                              <option value=''>- Pilih Sales -</option>
-                              <option value='Arie Muhamad Fajar'>Arie Muhamad Fajar</option>
-                              <option value='Beffry Rizkana'>Beffry Rizkana</option>
-                              <option value='Ferrie Ferdinal'>Ferrie Ferdinal</option>
-                            </select>
-                          </td>
-                          <td className='py-2 px-3'>
-                            <button
-                              title='Kirim ke database'
-                              onClick={() => handleSendRow(row)}
-                              disabled={sendingRows.has(row._id)}
-                              className='inline-flex items-center justify-center w-8 h-7 rounded bg-blue-700 hover:bg-blue-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed'
-                            >
-                              {sendingRows.has(row._id)
-                                ? <span className='w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin' />
-                                : <Send size={12} strokeWidth={2} className='text-white' />}
-                            </button>
-                          </td>
-                          {/* Checkbox per baris — kolom paling kanan */}
-                          <td className='px-3 py-2 text-center'>
-                            <input
-                              type='checkbox'
-                              checked={selectedIds.includes(row._id)}
-                              onChange={() => handleSelectedOne(row._id)}
-                              className='w-3.5 h-3.5 accent-blue-500 cursor-pointer'
-                            />
-                          </td>
-                        </tr>
-                        {active && (
-                          <tr className='bg-blue-50/20'>
-                            <td colSpan={11} className='px-4 py-3 border-b border-blue-100'>
-                              <div className='rounded-xl bg-white shadow-sm ring-1 ring-blue-100 overflow-hidden'>
-                                {/* ── Header bar ── */}
-                                <div className='flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-blue-50 to-white border-b border-blue-100'>
-                                  <div className='flex items-center gap-2'>
-                                    <span className='grid h-5.5 w-4.5 place-items-center rounded-xl bg-blue-600 text-white text-[9px]'>ℹ</span>
-                                    <span className='text-[12px] font-extrabold text-blue-700 tracking-tight'>Detail Informasi Lengkap</span>
-                                  </div>
-                                </div>
-
-                                {/* ── Main 3-column grid ── */}
-                                <div className='grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 px-5 py-4'>
-
-                                  {/* COL 1 */}
-                                  <div className='flex flex-col gap-2.5'>
-                                    <DetailItem icon='📅' label='Tanggal Input' value={selected.sumber_date} />
-                                    <DetailItem icon='👤' label='Penginput' value={selected.penginput} />
-                                    <DetailItem icon='🏷' label='Jenis Entitas' value={selected.jenis_entitas} />
-                                    <DetailItem icon='🔖' label='Segmentasi' value={selected.segmentasi} />
-                                    <DetailItem icon='🏭' label='Bidang Usaha' value={selected.bidang_perusahaan} />
+                            </td>
+                            {/* Checkbox per baris — kolom paling kanan */}
+                            <td className='px-3 py-2 text-center'>
+                              <input
+                                type='checkbox'
+                                checked={selectedIds.includes(row._id)}
+                                onChange={() => handleSelectedOne(row._id)}
+                                className='w-3.5 h-3.5 accent-blue-500 cursor-pointer'
+                              />
+                            </td>
+                          </tr>
+                          {active && (
+                            <tr className='bg-blue-50/20'>
+                              <td
+                                colSpan={11}
+                                className='px-4 py-3 border-b border-blue-100'
+                              >
+                                <div className='rounded-xl bg-white shadow-sm ring-1 ring-blue-100 overflow-hidden'>
+                                  {/* ── Header bar ── */}
+                                  <div className='flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-blue-50 to-white border-b border-blue-100'>
+                                    <div className='flex items-center gap-2'>
+                                      <span className='grid h-5.5 w-4.5 place-items-center rounded-xl bg-blue-600 text-white text-[9px]'>
+                                        ℹ
+                                      </span>
+                                      <span className='text-[12px] font-extrabold text-blue-700 tracking-tight'>
+                                        Detail Informasi Lengkap
+                                      </span>
+                                    </div>
                                   </div>
 
-                                  {/* COL 2 */}
-                                  <div className='flex flex-col gap-2.5'>
-                                    <DetailItem icon='📂' label='Sumber Data' value={selected.sumber_date} />
-                                    <DetailItem icon='📎' label='Sumber Lain' value={selected.sumber_lain} />
-                                    <DetailItem icon='👑' label='Brand Owner' value={selected.brand_owner} />
-                                    <DetailItem icon='✉️' label='Email PIC' value={selected.email} />
-                                    <DetailItem icon='🕒' label='Tanggal Update' value={selected.updated_at} />
-                                  </div>
+                                  {/* ── Main 3-column grid ── */}
+                                  <div className='grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 px-5 py-4'>
+                                    {/* COL 1 */}
+                                    <div className='flex flex-col gap-2.5'>
+                                      <DetailItem
+                                        icon='📅'
+                                        label='Tanggal Input'
+                                        value={
+                                          selected.created_at
+                                            ? new Date(selected.created_at)
+                                                .toLocaleDateString('sv-SE', {
+                                                  day: '2-digit',
+                                                  month: '2-digit',
+                                                  year: 'numeric',
+                                                  hour: '2-digit',
+                                                  minute: '2-digit',
+                                                  second: '2-digit',
+                                                  hour12: false,
+                                                })
+                                                .replace('pukul', '')
+                                                .replace(' ', ' ')
+                                                .trim()
+                                            : '-'
+                                        }
+                                      />
+                                      <DetailItem
+                                        icon='👤'
+                                        label='Penginput'
+                                        value={selected.requestor}
+                                      />
+                                      <DetailItem
+                                        icon='🏷'
+                                        label='Jenis Entitas'
+                                        value={selected.segmen}
+                                      />
+                                      <DetailItem
+                                        icon='🔖'
+                                        label='Segmentasi'
+                                        value={selected.segmentasi}
+                                      />
+                                      <DetailItem
+                                        icon='🏭'
+                                        label='Bidang Usaha'
+                                        value={selected.bidang_perusahaan}
+                                      />
+                                    </div>
 
-                                  {/* COL 3 */}
-                                  <div className='flex flex-col gap-2.5'>
-                                    {/* Keterangan Update — Riwayat Revisi Terbaru */}
-                                    <div className='flex items-start gap-1.5 min-w-0 col-span-1'>
-                                      <span className='mt-[1px] shrink-0 text-[11px] leading-none'>📝</span>
-                                      <div className='flex flex-col min-w-0'>
-                                        <span className='text-[9.5px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-1'>Keterangan Update:</span>
-                                        {loadingRevision ? (
-                                          <span className='text-[10px] text-slate-400 italic'>Memuat riwayat...</span>
-                                        ) : !latestRevision || !latestRevision.found ? (
-                                          <span className='text-[10px] text-slate-300 italic'>Belum ada riwayat revisi</span>
-                                        ) : (
-                                          <div className='flex flex-col gap-1'>
-                                            <span className='text-[10px] text-slate-600 font-medium'>
-                                              Direvisi oleh <span className='text-blue-600 font-bold'>{latestRevision.revised_by}</span>
-                                              {latestRevision.revised_at && (
-                                                <> pada {new Date(latestRevision.revised_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</>
-                                              )}
+                                    {/* COL 2 */}
+                                    <div className='flex flex-col gap-2.5'>
+                                      <DetailItem
+                                        icon='📂'
+                                        label='Sumber Data'
+                                        value={selected.sumber_data}
+                                      />
+                                      <DetailItem
+                                        icon='📎'
+                                        label='Sumber Lain'
+                                        value={
+                                          selected.sumber_data ===
+                                          'Sales Internal'
+                                            ? selected.sales_internal
+                                            : '-'
+                                        }
+                                      />
+                                      <DetailItem
+                                        icon='👑'
+                                        label='Brand Owner'
+                                        value={selected.brand_owner}
+                                      />
+                                      <DetailItem
+                                        icon='✉️'
+                                        label='Email PIC'
+                                        value={selected.email}
+                                      />
+                                      <DetailItem
+                                        icon='🕒'
+                                        label='Tanggal Update'
+                                        value={selected.updated_at}
+                                      />
+                                    </div>
+
+                                    {/* COL 3 */}
+                                    <div className='flex flex-col gap-2.5'>
+                                      {/* Keterangan Update — Riwayat Revisi Terbaru */}
+                                      <div className='flex items-start gap-1.5 min-w-0 col-span-1'>
+                                        <span className='mt-[1px] shrink-0 text-[11px] leading-none'>
+                                          📝
+                                        </span>
+                                        <div className='flex flex-col min-w-0'>
+                                          <span className='text-[9.5px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-1'>
+                                            Keterangan Update:
+                                          </span>
+                                          {loadingRevision ? (
+                                            <span className='text-[10px] text-slate-400 italic'>
+                                              Memuat riwayat...
                                             </span>
-                                            {latestRevision.changed_fields && latestRevision.changed_fields.length > 0 && (
-                                              <div className='flex flex-col gap-0.5 mt-0.5'>
-                                                {latestRevision.changed_fields.map((cf, i) => (
-                                                  <div key={i} className='text-[9.5px] text-slate-600 leading-snug'>
-                                                    <span className='font-semibold text-slate-500'>{cf.field}:</span>{' '}
-                                                    <span className='line-through text-red-400'>{cf.oldValue || '-'}</span>
-                                                    {' → '}
-                                                    <span className='text-green-600 font-semibold'>{cf.newValue || '-'}</span>
+                                          ) : !latestRevision ||
+                                            !latestRevision.found ? (
+                                            <span className='text-[10px] text-slate-300 italic'>
+                                              Belum ada riwayat revisi
+                                            </span>
+                                          ) : (
+                                            <div className='flex flex-col gap-1'>
+                                              <span className='text-[10px] text-slate-600 font-medium'>
+                                                Direvisi oleh{' '}
+                                                <span className='text-blue-600 font-bold'>
+                                                  {latestRevision.revised_by}
+                                                </span>
+                                                {latestRevision.revised_at && (
+                                                  <>
+                                                    {' '}
+                                                    pada{' '}
+                                                    {new Date(
+                                                      latestRevision.revised_at,
+                                                    ).toLocaleDateString(
+                                                      'id-ID',
+                                                      {
+                                                        day: '2-digit',
+                                                        month: 'short',
+                                                        year: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                      },
+                                                    )}
+                                                  </>
+                                                )}
+                                              </span>
+                                              {latestRevision.changed_fields &&
+                                                latestRevision.changed_fields
+                                                  .length > 0 && (
+                                                  <div className='flex flex-col gap-0.5 mt-0.5'>
+                                                    {latestRevision.changed_fields.map(
+                                                      (cf, i) => (
+                                                        <div
+                                                          key={i}
+                                                          className='text-[9.5px] text-slate-600 leading-snug'
+                                                        >
+                                                          <span className='font-semibold text-slate-500'>
+                                                            {cf.field}:
+                                                          </span>{' '}
+                                                          <span className='line-through text-red-400'>
+                                                            {cf.oldValue || '-'}
+                                                          </span>
+                                                          {' → '}
+                                                          <span className='text-green-600 font-semibold'>
+                                                            {cf.newValue || '-'}
+                                                          </span>
+                                                        </div>
+                                                      ),
+                                                    )}
                                                   </div>
-                                                ))}
+                                                )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <DetailItem
+                                        icon='📆'
+                                        label='Bulan Data'
+                                        value={formatBulanData(
+                                          selected.created_at,
+                                        )}
+                                      />
+                                      {selected.alamat &&
+                                        selected.alamat.trim() !== '' && (
+                                          <div className='border-4 shadow-sm bg-gray-100 rounded-lg border-gray-100 px-3 py-3'>
+                                            <div className='flex items-start gap-2'>
+                                              <span className='text-[11px] mt-0.5'>
+                                                📍
+                                              </span>
+                                              <div>
+                                                <span className='text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5'>
+                                                  Alamat Lengkap:
+                                                </span>
+                                                <span className='text-[10.5px] text-slate-700 font-medium'>
+                                                  {selected.alamat}
+                                                </span>
                                               </div>
-                                            )}
+                                            </div>
                                           </div>
                                         )}
-                                      </div>
                                     </div>
-                                    <DetailItem icon='📆' label='Bulan Data' value={selected.bulan_data} />
-                                    {selected.alamat && selected.alamat.trim() !== '' && (
-                                      <div className='border-4 shadow-sm bg-gray-100 rounded-lg border-gray-100 px-3 py-3'>
+                                  </div>
+
+                                  {/* ── Alamat full width ── */}
+                                  {selected.produk &&
+                                    selected.produk.trim() !== '' && (
+                                      <div className='border-t border-gray-200 px-5 py-3'>
                                         <div className='flex items-start gap-2'>
-                                          <span className='text-[11px] mt-0.5'>📍</span>
+                                          <span className='text-[11px] mt-0.5'></span>
                                           <div>
-                                            <span className='text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5'>Alamat Lengkap:</span>
-                                            <span className='text-[10.5px] text-slate-700 font-medium'>{selected.alamat}</span>
+                                            <span className='text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5'>
+                                              Produk Relevan
+                                            </span>
+                                            <span className='border rounded-sm border-gray-300 py-1 px-1.5 text-[10.5px] text-slate-700 font-medium'>
+                                              📦
+                                              {selected.merek_tayang &&
+                                              selected.merek_tayang.trim() !==
+                                                ''
+                                                ? `${selected.produk} / ${selected.merek_tayang}`
+                                                : selected.produk}
+                                            </span>
                                           </div>
                                         </div>
                                       </div>
                                     )}
-                                  </div>
                                 </div>
-
-                                {/* ── Alamat full width ── */}
-                                {selected.produk && selected.produk.trim() !== '' && (
-                                  <div className='border-t border-gray-200 px-5 py-3'>
-                                    <div className='flex items-start gap-2'>
-                                      <span className='text-[11px] mt-0.5'></span>
-                                      <div>
-                                        <span className='text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5'>Produk Relevan</span>
-                                        <span className='border rounded-sm border-gray-300 py-1 px-1.5 text-[10.5px] text-slate-700 font-medium'>📦
-                                          {selected.merek_tayang && selected.merek_tayang.trim() !== ''
-                                            ? `${selected.produk} / ${selected.merek_tayang}`
-                                            : selected.produk}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      )
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
-          <section className='mt-6 flex flex-col gap-3 rounded-2xl bg-white px-6 py-4 shadow-sm ring-1 ring-blue-100 md:flex-row md:items-center md:justify-between'>
+          <section className='mt-4 sm:mt-6 flex flex-col gap-3 rounded-2xl bg-white px-3 sm:px-6 py-3 sm:py-4 shadow-sm ring-1 ring-blue-100 md:flex-row md:items-center md:justify-between'>
             <div className='text-sm text-gray-500 font-medium'>
               <p className='font-medium text-gray-700'>
                 Showing <strong>{showingFrom}</strong> to{' '}
-                <strong>{showingTo}</strong> of <strong>{total}</strong>{' '}
-                entries
+                <strong>{showingTo}</strong> of <strong>{total}</strong> entries
               </p>
-              <div className='flex flex-wrap items-center gap-3'>
+              <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
                 <select
                   value={pageSize}
                   onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setPage(1);
+                    setPageSize(Number(e.target.value))
+                    setPage(1)
                   }}
                   className='h-10 rounder-xl border border-blue-100 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
                 >
@@ -1675,47 +2423,332 @@ export default function TrackingBroadcastPage() {
                   <option value={50}>50 / Halaman</option>
                   <option value={100}>100 / Halaman</option>
                 </select>
-                <div className='flex items-center gap-2'>
-                  <PageBtn onClick={() => gotoPage(1)} ariaLabel="First">
+                <div className='flex items-center gap-1 sm:gap-2 flex-wrap'>
+                  <PageBtn onClick={() => gotoPage(1)} ariaLabel='First'>
                     ⏮
                   </PageBtn>
-                  <PageBtn onClick={() => gotoPage(page - 1)} ariaLabel="Previous">
+                  <PageBtn
+                    onClick={() => gotoPage(page - 1)}
+                    ariaLabel='Previous'
+                  >
                     ◀
                   </PageBtn>
 
                   {getPageWindow(safePage, totalPages, 5).map((p) => (
                     <button
                       key={p}
-                      type="button"
+                      type='button'
                       onClick={() => gotoPage(p)}
                       aria-label={p.toString()}
-                      className="grid h-10 w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40"
+                      className='grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40 text-xs sm:text-sm'
                     >
                       {p}
                     </button>
                   ))}
 
-                  <PageBtn onClick={() => gotoPage(page + 1)} ariaLabel="Next">
+                  <PageBtn onClick={() => gotoPage(page + 1)} ariaLabel='Next'>
                     ▶
                   </PageBtn>
-                  <PageBtn onClick={() => gotoPage(totalPages)} ariaLabel="Last">
+                  <PageBtn
+                    onClick={() => gotoPage(totalPages)}
+                    ariaLabel='Last'
+                  >
                     ⏭
                   </PageBtn>
-
                 </div>
               </div>
             </div>
           </section>
           {/* Legend Footer */}
           <div className='flex flex-wrap items-center mt-4 gap-2 sm:gap-4 px-3 sm:px-4 py-2 bg-gray-50 border-b border-gray-200 text-[9px] sm:text-[10px] text-gray-500 rounded-lg lg:rounded-none'>
-            <span className='flex items-center gap-1'><span className='inline-flex w-3 h-3 rounded-sm bg-[#0DCAF0]'></span><strong>DATA_WA</strong></span>
-            <span className='flex items-center gap-1'><span className='inline-flex w-3 h-3 rounded-full bg-blue-500'></span><strong>👁</strong> detail</span>
-            <span className='flex items-center gap-1'><span className='inline-flex w-3 h-3 rounded-sm bg-gray-300'></span><strong>☑</strong> massal</span>
-            <span className='flex items-center gap-1'><span className='inline-flex px-1.5 py-0.5 rounded-sm bg-green-500 text-white font-bold text-[9px]'>STATUS</span></span>
-            <span className='flex items-center gap-1'><span className='inline-flex px-1.5 py-0.5 rounded-sm bg-yellow-400 text-white font-bold text-[9px]'>SALES</span></span>
+            <span className='flex items-center gap-1'>
+              <span className='inline-flex w-3 h-3 rounded-sm bg-[#0DCAF0]'></span>
+              <strong>DATA_WA</strong>
+            </span>
+            <span className='flex items-center gap-1'>
+              <span className='inline-flex w-3 h-3 rounded-full bg-blue-500'></span>
+              <strong>👁</strong> detail
+            </span>
+            <span className='flex items-center gap-1'>
+              <span className='inline-flex w-3 h-3 rounded-sm bg-gray-300'></span>
+              <strong>☑</strong> massal
+            </span>
+            <span className='flex items-center gap-1'>
+              <span className='inline-flex px-1.5 py-0.5 rounded-sm bg-green-500 text-white font-bold text-[9px]'>
+                STATUS
+              </span>
+            </span>
+            <span className='flex items-center gap-1'>
+              <span className='inline-flex px-1.5 py-0.5 rounded-sm bg-yellow-400 text-white font-bold text-[9px]'>
+                SALES
+              </span>
+            </span>
           </div>
         </div>
       </div>
+
+      {/* export modals */}
+      {showExportModal && (
+        <div className='fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm'>
+          <div className='bg-white rounded-2xl shadow-2xl w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto'>
+            {/* Header */}
+            <div className='flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-white rounded-t-2xl'>
+              <div className='flex items-center gap-2'>
+                <div className='grid h-8 w-8 place-items-center rounded-lg bg-green-600 text-white'>
+                  <Download size={16} />
+                </div>
+                <div>
+                  <h3 className='text-[15px] font-extrabold text-gray-800'>
+                    Export Data
+                  </h3>
+                  <p className='text-[10px] text-slate-500'>
+                    Pilih rentang tanggal dan kolom yang ingin di-export
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className='grid h-8 w-8 place-items-center rounded-lg hover:bg-gray-100 transition-colors'
+              >
+                <X size={18} className='text-gray-500' />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className='px-6 py-4 space-y-5'>
+              {/* Export Mode Selection */}
+              <div>
+                <label className='text-xs font-bold text-gray-700 uppercase tracking-wider block mb-2'>
+                  🎯 Pilih Mode Export
+                </label>
+                <div className='grid grid-cols-3 gap-2'>
+                  {[
+                    {
+                      id: 'all',
+                      label: 'Semua Data',
+                      desc: 'Tarik seluruh data',
+                      icon: '📦',
+                    },
+                    {
+                      id: 'date',
+                      label: 'By Tanggal',
+                      desc: 'Sesuai rentang tanggal',
+                      icon: '📅',
+                    },
+                    {
+                      id: 'pagination',
+                      label: 'By Halaman',
+                      desc: `Halaman ${safePage} aktif`,
+                      icon: '📄',
+                    },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type='button'
+                      onClick={() => setExportMode(m.id as typeof exportMode)}
+                      className={cn(
+                        'flex flex-col items-center gap-1 px-2 py-3 rounded-xl border-2 text-center transition-all',
+                        exportMode === m.id
+                          ? 'border-green-500 bg-green-50 text-green-800'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-green-300',
+                      )}
+                    >
+                      <span className='text-lg'>{m.icon}</span>
+                      <span className='text-[11px] font-bold'>{m.label}</span>
+                      <span className='text-[9px] text-slate-400'>
+                        {m.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Date Range */}
+              {exportMode === 'date' && (
+                <div>
+                  <label className='text-xs font-bold text-gray-700 uppercase tracking-wider block mb-2'>
+                    📅 Rentang Tanggal Export
+                  </label>
+                  <div className='flex items-center gap-2'>
+                    <input
+                      type='date'
+                      value={exportStartDate}
+                      onChange={(e) => setExportStartDate(e.target.value)}
+                      onClick={(e) => {
+                        if ('showPicker' in HTMLInputElement.prototype) {
+                          e.currentTarget.showPicker()
+                        }
+                      }}
+                      className='flex-1 text-sm h-10 px-3 border border-gray-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400'
+                    />
+                    <span className='text-gray-400 font-semibold text-sm'>
+                      —
+                    </span>
+                    <input
+                      type='date'
+                      value={exportEndDate}
+                      onChange={(e) => setExportEndDate(e.target.value)}
+                      onClick={(e) => {
+                        if ('showPicker' in HTMLInputElement.prototype) {
+                          e.currentTarget.showPicker()
+                        }
+                      }}
+                      className='flex-1 text-sm h-10 px-3 border border-gray-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400'
+                    />
+                  </div>
+                  <p className='text-[10px] text-slate-400 mt-1'>
+                    Pilih minimal salah satu tanggal (mulai atau akhir)
+                  </p>
+                </div>
+              )}
+
+              {exportMode === 'pagination' && (
+                <div className='px-3 py-2.5 rounded-xl bg-blue-50 border border-blue-100 text-[11px] text-blue-700'>
+                  ℹ️ Akan export <strong>{rows.length} data</strong> yang sedang
+                  tampil di halaman <strong>{safePage}</strong> ({pageSize}{' '}
+                  data/halaman).
+                </div>
+              )}
+
+              {exportMode === 'all' && (
+                <div className='px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-100 text-[11px] text-amber-700'>
+                  ⚠️ Akan tarik <strong>seluruh data</strong> tanpa batasan
+                  tanggal. Filter kategori (Bulan/Produk/dll) yang aktif tetap
+                  berlaku.
+                </div>
+              )}
+
+              {/* Field Selection */}
+              <div>
+                <div className='flex items-center justify-between mb-2'>
+                  <label className='text-xs font-bold text-gray-700 uppercase tracking-wider'>
+                    📋 Pilih Kolom Export
+                  </label>
+                  <div className='flex items-center gap-2'>
+                    <button
+                      type='button'
+                      onClick={() =>
+                        setExportFields(
+                          new Set(EXPORT_FIELDS.map((f) => f.key)),
+                        )
+                      }
+                      className='text-[10px] font-semibold text-green-600 hover:text-green-800 px-2 py-0.5 rounded hover:bg-green-50'
+                    >
+                      ✓ Pilih Semua
+                    </button>
+                    <span className='text-gray-300'>|</span>
+                    <button
+                      type='button'
+                      onClick={() => setExportFields(new Set())}
+                      className='text-[10px] font-semibold text-red-500 hover:text-red-700 px-2 py-0.5 rounded hover:bg-red-50'
+                    >
+                      ✕ Hapus Semua
+                    </button>
+                  </div>
+                </div>
+                <div className='grid grid-cols-2 gap-1.5 max-h-[280px] overflow-y-auto p-3 rounded-xl border border-gray-100 bg-gray-50/50'>
+                  {EXPORT_FIELDS.map((f) => {
+                    const checked = exportFields.has(f.key)
+                    return (
+                      <label
+                        key={f.key}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all text-[12px]',
+                          checked
+                            ? 'bg-green-50 ring-1 ring-green-200 text-green-800 font-semibold'
+                            : 'bg-white ring-1 ring-gray-100 text-gray-600 hover:ring-green-200 hover:bg-green-50/30',
+                        )}
+                      >
+                        <input
+                          type='checkbox'
+                          checked={checked}
+                          onChange={() => {
+                            setExportFields((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(f.key)) {
+                                next.delete(f.key)
+                              } else {
+                                next.add(f.key)
+                              }
+                              return next
+                            })
+                          }}
+                          className='accent-green-600 w-3.5 h-3.5 shrink-0'
+                        />
+                        {f.label}
+                      </label>
+                    )
+                  })}
+                </div>
+                <p className='text-[10px] text-slate-400 mt-1.5'>
+                  {exportFields.size} dari {EXPORT_FIELDS.length} kolom dipilih
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className='flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl'>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className='h-10 px-5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors'
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleExport}
+                disabled={exporting || exportFields.size === 0}
+                className={cn(
+                  'h-10 px-6 rounded-xl text-sm font-bold text-white shadow-sm transition-colors flex items-center gap-2',
+                  exporting || exportFields.size === 0
+                    ? 'bg-green-400 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700',
+                )}
+              >
+                {exporting ? (
+                  <>
+                    <span className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
+                    Mengexport...
+                  </>
+                ) : (
+                  <>
+                    <Download size={16} />
+                    Export Excel
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleExportToSheets}
+                disabled={googleSheetsLoading || exportFields.size === 0}
+                className={cn(
+                  'h-10 px-6 rounded-xl text-sm font-bold text-white shadow-sm transition-colors flex items-center gap-2',
+                  googleSheetsLoading || exportFields.size === 0
+                    ? 'bg-blue-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700',
+                )}
+                title='Create a new Google Sheet with the data'
+              >
+                {googleSheetsLoading ? (
+                  <>
+                    <span className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <span>📊</span>
+                    Google Sheets
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <EditModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        rowId={selectedRow?._id ?? ''}
+        pic={selectedRow?.pic ?? ''}
+        onSave={handleSavePic}
+      />
     </div>
   )
 }
@@ -1725,18 +2758,18 @@ function PageBtn({
   onClick,
   ariaLabel,
 }: {
-  children: React.ReactNode;
-  onClick: () => void;
-  ariaLabel: string;
+  children: React.ReactNode
+  onClick: () => void
+  ariaLabel: string
 }) {
   return (
     <button
-      type="button"
+      type='button'
       onClick={onClick}
       aria-label={ariaLabel}
-      className="grid h-10 w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40"
+      className='grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-xl border border-blue-100 bg-white text-gray-700 hover:bg-blue-50/40 text-xs sm:text-sm'
     >
       {children}
     </button>
-  );
+  )
 }

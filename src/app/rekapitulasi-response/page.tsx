@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "@/components/session/SessionProvider";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import * as XLSX from "xlsx";
+import { loadXLSX } from "@/lib/xlsx-loader";
 import ExportExcelModal, {
   ExportColumn,
   ExportScope,
@@ -66,18 +66,20 @@ type EProcRow = {
   }[];
 };
 
-function fmtDate(d: string | Date) {
+function fmtDate(d: string | Date | undefined | null) {
+  if (!d) return "-";
   const dt = typeof d === "string" ? new Date(d) : d;
-  if (Number.isNaN(dt.getTime())) return "-";
+  if (!dt || Number.isNaN(dt.getTime())) return "-";
   const dd = String(dt.getDate()).padStart(2, "0");
   const mm = String(dt.getMonth() + 1).padStart(2, "0");
   const yyyy = dt.getFullYear();
   return `${dd}-${mm}-${yyyy}`;
 }
 
-function fmtDateTime(d: string | Date) {
+function fmtDateTime(d: string | Date | undefined | null) {
+  if (!d) return "-";
   const dt = typeof d === "string" ? new Date(d) : d;
-  if (Number.isNaN(dt.getTime())) return "-";
+  if (!dt || Number.isNaN(dt.getTime())) return "-";
   const dd = String(dt.getDate()).padStart(2, "0");
   const mm = String(dt.getMonth() + 1).padStart(2, "0");
   const yyyy = dt.getFullYear();
@@ -223,7 +225,8 @@ export default function RekapitulasiResponsePage() {
     { id: "itemPerusahaan", label: "Item: Perusahaan Admin" },
   ];
 
-  const handleExport = async (selectedCols: string[], scope: ExportScope) => {
+  async function handleExport(selectedCols: string[], scope: ExportScope) {
+    const XLSX = await loadXLSX()
     setIsExporting(true);
     try {
       // For Response, 'filtered' contains all data since apiListTaken fetches taken mode data.

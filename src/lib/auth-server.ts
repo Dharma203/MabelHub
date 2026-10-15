@@ -38,7 +38,7 @@ export function assertAdminOrSuperadmin(req: Request) {
   const auth = assertLoggedIn(req);
   if (!auth.ok) return auth;
 
-  if (auth.session.role !== "SUPERADMIN" && auth.session.role !== "ADMIN") {
+  if (auth.session.role !== "SUPERADMIN" && auth.session.role !== "ADMIN" && auth.session.role !== "ADMIN SALES") {
     return { ok: false as const, status: 403, error: "ADMIN/SUPERADMIN only" };
   }
   return auth;
@@ -48,11 +48,11 @@ export function assertLeaderOrSales(req: Request) {
   const auth = assertLoggedIn(req);
   if (!auth.ok) return auth;
 
-  if (auth.session.role !== "LEADER" && auth.session.role !== "SALES") {
+  if (auth.session.role !== "LEADER" && auth.session.role !== "SALES" && auth.session.role !== "ADMIN SALES") {
     return {
       ok: false as const,
       status: 403,
-      error: "LEADER/SALES only",
+      error: "LEADER/SALES/ADMIN SALES only",
     };
   }
   return auth;

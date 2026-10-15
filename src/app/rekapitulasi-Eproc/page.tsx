@@ -8,7 +8,7 @@ import HistoryEprocModal, {
   EProcHistoryItem,
 } from "@/components/modals/HistoryEprocModal";
 import { useSession } from "@/components/session/SessionProvider";
-import * as XLSX from "xlsx";
+import { loadXLSX } from "@/lib/xlsx-loader";
 import ExportExcelModal, {
   ExportColumn,
   ExportScope,
@@ -249,6 +249,10 @@ export default function RekapitulasiEProcurementPage() {
     return val;
   }
   function getTindakLanjutValue(r: EProcDoc) {
+    if (getStatusUsulan(r) === "Cancel") {
+      return "Cancel";
+    }
+
     if (r.tindakLanjut === "Lanjut" || r.tindakLanjut === "Cancel") {
       return r.tindakLanjut;
     }
@@ -340,6 +344,8 @@ export default function RekapitulasiEProcurementPage() {
     startDate,
     endDate,
     searchId,
+    getDisplayStatusAkhir,
+    getTindakLanjutValue,
   ]);
 
   // pagination derived
@@ -349,7 +355,7 @@ export default function RekapitulasiEProcurementPage() {
 
   useEffect(() => {
     if (page !== safePage) setPage(safePage);
-  }, [totalPages]);
+  }, [totalPages, page, safePage]);
 
   const pageItems = useMemo(() => {
     const start = (safePage - 1) * limit;
@@ -372,10 +378,21 @@ export default function RekapitulasiEProcurementPage() {
     if (!laporTargetId) return;
 
     if (laporSelectedValue === "") {
-      // user clicked kembali ke lapor
-      // kita boleh lanjut save value empty string.
+      if (!laporCatatan.trim()) {
+        alert("Catatan wajib diisi!");
+        return;
+      }
     } else if (!laporSelectedValue) {
       alert("Pilih Tindak Lanjut terlebih dahulu!");
+      return;
+    }
+
+    if (
+      (laporSelectedValue === "Lanjut" || laporSelectedValue === "Cancel") &&
+      laporStatusReqSales === "Alasan lainnya" &&
+      !laporCatatan.trim()
+    ) {
+      alert("Catatan wajib diisi jika memilih Alasan lainnya!");
       return;
     }
 
@@ -446,7 +463,8 @@ export default function RekapitulasiEProcurementPage() {
     },
   ];
 
-  const handleExport = async (selectedCols: string[], scope: ExportScope) => {
+  async function handleExport(selectedCols: string[], scope: ExportScope) {
+    const XLSX = await loadXLSX()
     setIsExporting(true);
     try {
       const dataToProcess = scope === "page" ? pageItems : filtered;
@@ -651,7 +669,7 @@ export default function RekapitulasiEProcurementPage() {
                     console.log("EXPORT BUTTON CLICKED");
                     setIsExportModalOpen(true);
                   }}
-                  className="z-50 relative rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm ring-1 ring-green-700 hover:bg-green-700 transition whitespace-nowrap"
+                  className="relative rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm ring-1 ring-green-700 hover:bg-green-700 transition whitespace-nowrap"
                 >
                   Export Excel
                 </button>
@@ -711,6 +729,11 @@ export default function RekapitulasiEProcurementPage() {
                       setStartDate(e.target.value);
                       setPage(1);
                     }}
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
                     className="h-10 w-full rounded-xl bg-white px-4 text-sm ring-1 ring-blue-200 outline-blue-300"
                   />
                 </div>
@@ -726,6 +749,11 @@ export default function RekapitulasiEProcurementPage() {
                     onChange={(e) => {
                       setEndDate(e.target.value);
                       setPage(1);
+                    }}
+                    onClick={(e) => {
+                      if('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
                     }}
                     className="h-10 w-full rounded-xl bg-white px-4 text-sm ring-1 ring-blue-200 outline-blue-300"
                   />
@@ -929,6 +957,16 @@ export default function RekapitulasiEProcurementPage() {
                           <td className="px-3 py-2">
                             {(() => {
                               const tVal = getTindakLanjutValue(r);
+                              if (getStatusUsulan(r) === "Cancel") {
+                                return (
+                                  <button
+                                    disabled
+                                    className="rounded bg-red-100 px-3 py-1 text-xs font-bold text-red-700 opacity-60 cursor-not-allowed"
+                                  >
+                                    Cancel
+                                  </button>
+                                );
+                              }
                               if (tVal === "Lapor") {
                                 return (
                                   <button
@@ -1041,6 +1079,16 @@ export default function RekapitulasiEProcurementPage() {
                             <div className="shrink-0 ml-2">
                               {(() => {
                                 const tVal = getTindakLanjutValue(r);
+                                if (getStatusUsulan(r) === "Cancel") {
+                                  return (
+                                    <button
+                                      disabled
+                                      className="rounded bg-red-100 px-3 py-1.5 text-xs font-bold text-red-700 ring-1 ring-red-200/50 opacity-60 cursor-not-allowed"
+                                    >
+                                      Cancel
+                                    </button>
+                                  );
+                                }
                                 if (tVal === "Lapor") {
                                   return (
                                     <button
@@ -1885,7 +1933,7 @@ export default function RekapitulasiEProcurementPage() {
 
               <div>
                 <label className="block text-sm font-bold text-blue-900 mb-1">
-                  Catatan
+                  Catatan {(laporStatusReqSales === "Alasan lainnya" || laporSelectedValue === "") && <span className="text-red-500">*</span>}
                 </label>
                 <textarea
                   rows={4}

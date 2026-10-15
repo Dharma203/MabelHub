@@ -16,7 +16,10 @@ type ParamKey =
   | "kegiatan"
   | "perusahaan"
   | "status_akhir"
-  | "status_keputusan";
+  | "status_keputusan"
+  | "lokasi"
+  | "entity"
+  | "sub_kategori";
 
 function norm(v: string) {
   return String(v ?? "").trim();
@@ -46,6 +49,9 @@ async function ensureDoc() {
     perusahaan: [],
     status_akhir: [],
     status_keputusan: [],
+    lokasi: [],
+    entity: [],
+    sub_kategori: [],
     updatedAt: new Date(),
   });
 
@@ -69,7 +75,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ data: created });
   }
 
-  return NextResponse.json({ data: doc });
+  // Ensure all expected fields exist (handles documents created before new fields were added)
+  const defaults: Record<string, any[]> = {
+    kota_kabupaten: [], klpd: [], ring: [], segmen: [],
+    posisi: [], status_kunjungan: [], kegiatan: [], perusahaan: [],
+    status_akhir: [], status_keputusan: [], lokasi: [], entity: [], sub_kategori: [],
+  };
+  const safeDoc = { ...defaults, ...doc };
+
+  return NextResponse.json({ data: safeDoc });
 }
 
 export async function POST(req: Request) {
@@ -88,6 +102,9 @@ export async function POST(req: Request) {
     "perusahaan",
     "status_akhir",
     "status_keputusan",
+    "lokasi",
+    "entity",
+    "sub_kategori",
   ];
 
   if (body.bulk) {
@@ -159,6 +176,9 @@ export async function DELETE(req: Request) {
     "perusahaan",
     "status_akhir",
     "status_keputusan",
+    "lokasi",
+    "entity",
+    "sub_kategori",
   ];
   if (!allowed.includes(key)) return bad("key tidak valid");
 

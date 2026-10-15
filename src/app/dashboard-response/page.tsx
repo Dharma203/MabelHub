@@ -93,6 +93,7 @@ type Summary = {
 };
 
 const renderActiveShape = (props: any) => {
+  if (!props || !props.payload) return null;
   const RADIAN = Math.PI / 180;
   const {
     cx,
@@ -176,9 +177,10 @@ const renderActiveShape = (props: any) => {
   );
 };
 
-function fmtDate(d: string | Date) {
+function fmtDate(d: string | Date | undefined | null) {
+  if (!d) return "-";
   const dt = typeof d === "string" ? new Date(d) : d;
-  if (Number.isNaN(dt.getTime())) return "-";
+  if (!dt || Number.isNaN(dt.getTime())) return "-";
   const dd = String(dt.getDate()).padStart(2, "0");
   const mm = String(dt.getMonth() + 1).padStart(2, "0");
   const yyyy = dt.getFullYear();

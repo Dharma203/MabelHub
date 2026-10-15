@@ -4,8 +4,9 @@ import React, { useMemo, useState, useEffect } from "react";
 
 import { useSession } from "@/components/session/SessionProvider";
 import { useRouter } from "next/navigation";
-import * as XLSX from "xlsx";
+import { loadXLSX } from "@/lib/xlsx-loader";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import { Toast } from "@/components/Toast";
 
 type TeamMember = {
   userId: string;
@@ -91,17 +92,39 @@ export default function EProcurementRequestPage() {
   // ✅ assignee options (team members or all users)
   const [assigneeOptions, setAssigneeOptions] = useState<TeamMember[]>([]);
   const [assignedToUserId, setAssignedToUserId] = useState(""); // "" = self
-
+  const [statusAkhir, setStatusAkhir] = useState("");
+  const [statusUsulan, setStatusUsulan] = useState("");
   const [requestor, setRequestor] = useState("");
   const [pemohon, setPemohon] = useState("");
   const [segmen, setSegmen] = useState<string>("");
   const [deadline, setDeadline] = useState<string>("");
-  const [lokasi, setLokasi] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+
+  const deadlineWarning = useMemo(() => {
+    if (!deadline) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dlDate = new Date(deadline);
+    dlDate.setHours(0, 0, 0, 0);
+    if (isNaN(dlDate.getTime())) return null;
+    const diffTime = dlDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays < 3) {
+      return "Deadline usulan minimal 3 hari dari hari ini.";
+    }
+    return null;
+  }, [deadline]);
+  const [lokasi, setLokasi] = useState<string[]>([]);
+  const [entity, setEntity] = useState<string[]>([]);
+  const [produk, setProduk] = useState<string[]>([]);
   const [catatanHeader, setCatatanHeader] = useState("");
 
   // Parameter API
+  const [paramLokasi, setParamLokasi] = useState<string[]>([]);
   const [paramRing, setParamRing] = useState<string[]>([]);
   const [paramSegmen, setParamSegmen] = useState<string[]>([]);
+  const [paramEntity, setParamEntity] = useState<string[]>([]);
+  const [paramSubKategori, setParamSubKategori] = useState<string[]>([]);
   useEffect(() => {
     fetch("/api/parameters")
       .then((res) => res.json())
@@ -110,9 +133,12 @@ export default function EProcurementRequestPage() {
         if (d) {
           setParamRing(d.ring || []);
           setParamSegmen(d.segmen || []);
+          setParamLokasi(d.kota_kabupaten || []);
+          setParamEntity(d.entity || []);
+          setParamSubKategori(d.sub_kategori || []);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const [selectedRing, setSelectedRing] = useState("");
@@ -149,11 +175,13 @@ export default function EProcurementRequestPage() {
   const [openUpload, setOpenUpload] = useState(false);
   const [revisiId, setRevisiId] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canPickAssignee =
     user?.role === "LEADER" ||
     user?.role === "SUPERADMIN" ||
-    user?.role === "ADMIN";
+    user?.role === "ADMIN" ||
+    user?.role === "ADMIN SALES";
 
   // Prefill requestor untuk non-leader/superadmin (dan tetap bisa edit manual)
   useEffect(() => {
@@ -200,7 +228,11 @@ export default function EProcurementRequestPage() {
         }
 
         // SUPERADMIN/ADMIN: all sales + leader
-        if (user.role === "SUPERADMIN" || user.role === "ADMIN") {
+        if (
+          user.role === "SUPERADMIN" ||
+          user.role === "ADMIN" ||
+          user.role === "ADMIN SALES"
+        ) {
           const res = await fetch("/api/users", { cache: "no-store" });
           const j = await res.json().catch(() => ({}));
           const arr = pickArray(j);
@@ -271,7 +303,7 @@ export default function EProcurementRequestPage() {
   }
 
   const removeItem = (id: string) => {
-    setItems((prev) => prev.map((x) => (x.id === id ? { ...x, qty: 0 } : x)));
+    setItems((prev) => prev.filter((x) => x.id !== id));
   };
 
   const updateItem = <K extends keyof ProductItem>(
@@ -297,14 +329,16 @@ export default function EProcurementRequestPage() {
       if (!revisiId.trim()) return alert("Masukkan Request ID");
       const data = await apiLoadEProc(revisiId.trim());
 
+      setStatusAkhir(data.statusAkhir ?? data.statusAkhir ?? "");
+      setStatusUsulan(data.statusUsulan ?? data.statusUsulan ?? "");
       setRequestor(data.header?.requestor ?? data.requestor ?? "");
       setPemohon(data.header?.pemohon ?? data.pemohon ?? "");
       setSegmen((data.header?.segmen ?? data.segmen ?? "") as string);
       setDeadline(
         data.header?.deadlineUsulan ??
-          data.deadlineUsulan ??
-          data.header?.deadline ??
-          "",
+        data.deadlineUsulan ??
+        data.header?.deadline ??
+        "",
       );
       setLokasi(data.header?.lokasi ?? data.lokasi ?? "");
       setCatatanHeader(data.header?.catatanHeader ?? data.catatan ?? "");
@@ -325,12 +359,12 @@ export default function EProcurementRequestPage() {
     setUploadFile(f)
   }
 
-  const handleSubmitUpload = () => {
+   async function handleSubmitUpload() {
+    const XLSX = await loadXLSX()
     if (!uploadFile) {
       alert("Pilih file Excel terlebih dahulu");
       return;
     }
-
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -378,14 +412,50 @@ export default function EProcurementRequestPage() {
   };
 
   const handleKirim = async () => {
+    if (!deadline) {
+      alert("Deadline usulan wajib diisi!");
+      return;
+    }
+    if (deadlineWarning) {
+      alert(deadlineWarning);
+      return;
+    }
+
+    // Validasi kelengkapan data produk
+    const hasActiveItem = items.some((it) => it.qty > 0);
+    if (!hasActiveItem) {
+      alert("Minimal harus ada 1 produk.");
+      return;
+    }
+
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.qty > 0) {
+        if (
+          !String(it.merek).trim() ||
+          !String(it.subKategori).trim() ||
+          !it.qty ||
+          !String(it.spesifikasi).trim() ||
+          it.paguPerItem === "" ||
+          it.hargaTayang === "" ||
+          !String(it.linkInaproc).trim() ||
+          !String(it.linkEcom).trim()
+        ) {
+          alert(`Data produk ke-${i + 1} belum lengkap. Harap isi semua kolom (Merek, SubKategori, Qty, Spesifikasi, Pagu, Harga, Link Inaproc, Link Ecom).`);
+          return;
+        }
+      }
+    }
+
     try {
+      setIsSubmitting(true);
       const payload = {
         header: {
           requestor,
-          pemohon,
+          pemohon: entity[0] || "",
           segmen,
           deadline,
-          lokasi,
+          lokasi: lokasi[0] || "",
           catatanHeader,
           assignedToUserId: canPickAssignee ? assignedToUserId : "",
         },
@@ -394,13 +464,14 @@ export default function EProcurementRequestPage() {
 
       if (infoId && infoId !== "REQ-") {
         await apiUpdateEProc(infoId, payload);
-        alert("Revisi tersimpan ✅");
+        setToast("Request berhasil diperbarui!");
+
       } else {
         const created = await apiCreateEProc(payload);
-        setInfoId(created.requestId);
-        alert(`Request terkirim ✅ ID: ${created.requestId}`);
+        setToast(`Request berhasil diajukan! REQ ID: ${created.infoId}`);
       }
     } catch (e: any) {
+      setIsSubmitting(false);
       alert(e?.message ?? "Gagal kirim");
     }
   };
@@ -408,7 +479,7 @@ export default function EProcurementRequestPage() {
   return (
     <div className="min-h-screen bg-blue-50">
       <div className="flex">
-        
+
 
         <div className="flex-1 p-6 ">
           <div className="px-3 pt-2 pb-2">
@@ -416,7 +487,7 @@ export default function EProcurementRequestPage() {
               E-PROCUREMENT
             </h1>
             <div className="text-sm ml-4 mt-2 text-slate-500 font-medium">
-             Ajukan Request dan Kelola Permintaan Pengadaan.
+              Ajukan Request dan Kelola Permintaan Pengadaan.
             </div>
             <div className="w-full px-6 py-3"></div>
           </div>
@@ -466,10 +537,15 @@ export default function EProcurementRequestPage() {
                 <label className='text-sm font-semibold text-blue-600'>
                   PEMOHON (ENTITY)
                 </label>
-                <input
-                  value={pemohon}
-                  onChange={(e) => setPemohon(e.target.value)}
-                  className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                <SearchableSelect
+                  value={entity[0] || ""}
+                  onChange={(val: string) => setEntity([val])}
+                  options={[
+                    { value: "", label: "-- Pilih Entity --" },
+                    ...paramEntity.map((l) => ({ value: l, label: l })),
+                  ]}
+                  className="mt-1 border-0 bg-white"
+                  placeholder="Pilih Entity..."
                 />
               </div>
 
@@ -527,19 +603,39 @@ export default function EProcurementRequestPage() {
                     type='date'
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
-                    className='h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-12 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                    onClick={(e) => {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        e.currentTarget.showPicker();
+                      }
+                    }}
+                    className={cn(
+                      'h-12 w-full rounded-xl border px-4 pr-12 text-sm outline-none focus:ring-2 cursor-pointer',
+                      deadlineWarning
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                        : 'border-gray-200 focus:ring-blue-200'
+                    )}
                   />
                 </div>
+                {deadlineWarning && (
+                  <p className="mt-1 text-xs text-red-500 font-semibold">
+                    ⚠️ {deadlineWarning}
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className='text-sm font-semibold text-blue-600'>
                   LOKASI
                 </label>
-                <input
-                  value={lokasi}
-                  onChange={(e) => setLokasi(e.target.value)}
-                  className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                <SearchableSelect
+                  value={lokasi[0] || ""}
+                  onChange={(val: string) => setLokasi([val])}
+                  options={[
+                    { value: "", label: "-- Pilih Lokasi --" },
+                    ...paramLokasi.map((l) => ({ value: l, label: l })),
+                  ]}
+                  className="mt-1 border-0 bg-white"
+                  placeholder="Pilih Lokasi..."
                 />
               </div>
 
@@ -625,6 +721,7 @@ export default function EProcurementRequestPage() {
                       </label>
                       <input
                         disabled={it.qty === 0}
+                        required
                         value={it.merek}
                         onChange={(e) =>
                           updateItem(it.id, 'merek', e.target.value)
@@ -633,17 +730,21 @@ export default function EProcurementRequestPage() {
                       />
                     </div>
 
-                    <div className='md:col-span-4'>
+                    <div className='md:col-span-4 '>
                       <label className='text-sm font-semibold text-blue-600'>
                         SUB-KATEGORI
                       </label>
-                      <input
-                        disabled={it.qty === 0}
+                      <SearchableSelect
+                        isDisabled={it.qty === 0}
+                        required
                         value={it.subKategori}
-                        onChange={(e) =>
-                          updateItem(it.id, 'subKategori', e.target.value)
-                        }
-                        className='mt-2 h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-blue-200'
+                        onChange={(val: string) => updateItem(it.id, 'subKategori', val)}
+                        options={[
+                          { value: "", label: "-- Pilih Produk --" },
+                          ...paramSubKategori.map((l) => ({ value: l, label: l })),
+                        ]}
+                        className="mt-2 border-0 bg-white"
+                        placeholder="Pilih Produk..."
                       />
                     </div>
 
@@ -654,6 +755,7 @@ export default function EProcurementRequestPage() {
                       <input
                         type="number"
                         min={0}
+                        required
                         disabled={it.qty === 0}
                         value={it.qty}
                         onChange={(e) => {
@@ -670,6 +772,7 @@ export default function EProcurementRequestPage() {
                       SPESIFIKASI DETAIL
                     </label>
                     <textarea
+                      required
                       disabled={it.qty === 0}
                       value={it.spesifikasi}
                       onChange={(e) =>
@@ -686,6 +789,7 @@ export default function EProcurementRequestPage() {
                         PAGU PER ITEM
                       </label>
                       <input
+                        required
                         disabled={it.qty === 0}
                         type="number"
                         value={it.paguPerItem}
@@ -705,6 +809,7 @@ export default function EProcurementRequestPage() {
                         HARGA TAYANG
                       </label>
                       <input
+                        required
                         disabled={it.qty === 0}
                         type="number"
                         min={0}
@@ -725,6 +830,7 @@ export default function EProcurementRequestPage() {
                         LINK INAPROC
                       </label>
                       <input
+                        required
                         disabled={it.qty === 0}
                         value={it.linkInaproc}
                         onChange={(e) =>
@@ -739,6 +845,7 @@ export default function EProcurementRequestPage() {
                         LINK E-COM
                       </label>
                       <input
+                        required
                         disabled={it.qty === 0}
                         value={it.linkEcom}
                         onChange={(e) =>
@@ -765,16 +872,43 @@ export default function EProcurementRequestPage() {
               <div className="md:col-span-8 flex w-full justify-end gap-4">
                 <button
                   onClick={addItem}
-                  className="inline-flex h-14 items-center gap-2 rounded-full bg-blue-600 px-6 text-md font-extrabold text-gray-50 shadow-sm hover:bg-blue-700"
+                  className="inline-flex h-14 items-center gap-2 rounded-full bg-blue-600 px-5 text-md font-extrabold text-gray-50 shadow-sm hover:bg-blue-700"
                 >
                   <span className="text-lg leading-none"></span> TAMBAH PRODUK
                 </button>
 
                 <button
                   onClick={handleKirim}
-                  className="h-14 rounded-full bg-green-600 px-32 text-md font-extrabold tracking-wide text-gray-50 shadow-sm hover:bg-green-700"
+                  disabled={isSubmitting}
+                  className="inline-flex h-14 items-center justify-center rounded-full bg-green-600 px-20 text-md font-extrabold tracking-wide text-gray-50 shadow-sm hover:bg-green-700 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  KIRIM REQUEST
+                  {isSubmitting ? (
+                    <>
+                      <svg
+                        className="mr-3 h-5 w-5 animate-spin text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      MENGIRIM...
+                    </>
+                  ) : (
+                    "KIRIM REQUEST"
+                  )}
                 </button>
               </div>
             </div>
@@ -864,6 +998,16 @@ export default function EProcurementRequestPage() {
               </div>
             </div>
           </div>
+        )}
+        {toast && (
+          <Toast
+            message={toast}
+            duration={2500}
+            onDone={() => {
+              setToast(null);
+              window.location.reload(); // reload setelah toast hilang
+            }}
+          />
         )}
       </div>
     </div>

@@ -1,194 +1,542 @@
-export type Role = "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES";
+export type Role =
+  | 'SUPERADMIN'
+  | 'ADMIN'
+  | 'LEADER'
+  | 'SALES'
+  | 'TELEMARKETING'
+  | 'ADMIN SALES'
 
 export type MenuItem = {
-  label: string;
-  href: string;
-  icon: string;
-};
+  label: string
+  href: string
+  icon: string
+}
 
 export type MenuSection = {
-  title: string;
-  icon: string;
-  items: MenuItem[];
-};
+  title: string
+  icon: string
+  items: MenuItem[]
+}
 
 export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
   SUPERADMIN: [
     {
-      title: "TELEMARKETING",
-      icon: "Bot",
+      title: 'TELEMARKETING',
+      icon: 'Bot',
       items: [
-        { label: "Input Database", href: "/input-database", icon: "Bot"},
-        { label: "Tracking Database", href: "/tracking-database", icon: "Database"},
-        { label: "Tracking Broadcast", href: "/tracking-broadcast", icon: "MessageCircleCode"},
-        { label: "Tindak Lanjut Sales", href: "/tindak-lanjut-sales", icon: "User"},
-        { label: "Report Progres", href: "/report-progres", icon: "FileText"},
-      ]
-    },
-    {
-      title: "VISIT",
-      icon: "CalendarCheck",
-      items: [
-        { label: "Dashboard Visit", href: "/dashboard-request", icon: "LayoutDashboard" },
-        { label: "Plan Activity", href: "/plan-activity", icon: "MapPin" },
-        { label: "Tracking Visit", href: "/rekapitulasi-visit", icon: "BarChart3" },
+        { label: 'Input Database', href: '/input-database', icon: 'Bot' },
+        {
+          label: 'Tracking Database',
+          href: '/tracking-database',
+          icon: 'Database',
+        },
+        {
+          label: 'Tracking Broadcast',
+          href: '/tracking-broadcast',
+          icon: 'MessageCircleCode',
+        },
+        { label: 'Tracking Call', href: '/tracking-call', icon: 'Phone' },
+        { label: 'Report Progres', href: '/report-progres', icon: 'FileText' },
       ],
     },
     {
-      title: "PRODUCT HUB",
-      icon: "Package",
+      title: 'SUMMARIZE',
+      icon: 'Book',
       items: [
-        { label: "Data Produk", href: "/produk", icon: "CheckSquare" },
+        {
+          label: 'Tracking Summary Database',
+          href: '/tracking-summary',
+          icon: 'BookIcon',
+        },
       ],
     },
     {
-      title: "E-PROCUREMENT",
-      icon: "ShoppingCart",
+      title: 'MONITORING',
+      icon: 'Command',
       items: [
-        { label: "Form E-Procurement", href: "/e-procurement", icon: "FilePlus" },
-        { label: "Tracking E-Procurement", href: "/rekapitulasi-Eproc", icon: "PieChart" },
+        {
+          label: 'Instansi No Phone',
+          href: '/monitoring-leader',
+          icon: 'Phone',
+        },
       ],
     },
     {
-      title: "ADMIN",
-      icon: "UserCog",
+      title: 'SALES',
+      icon: 'User',
       items: [
-        { label: "Dashboard Admin", href: "/dashboard-response", icon: "CheckSquare" },
-        { label: "Request E-Procurement", href: "/e-procurement-response", icon: "ClipboardList" },
-        { label: "Tracking Admin", href: "/rekapitulasi-response", icon: "BarChart" },
+        { label: 'Validasi Sales', href: '/validasi-sales', icon: 'User' },
+        {
+          label: 'Sales Report System',
+          href: '/sales-report-system',
+          icon: 'FileText',
+        },
       ],
     },
     {
-      title: "INSTANSI",
-      icon: "Building2",
+      title: 'VISIT',
+      icon: 'CalendarCheck',
       items: [
-        { label: "Daftar Instansi", href: "/instansi", icon: "Building2" },
-        { label: "Tambah Instansi", href: "/tambah-instansi", icon: "PlusSquare" },
+        {
+          label: 'Dashboard Visit',
+          href: '/dashboard-request',
+          icon: 'LayoutDashboard',
+        },
+        { label: 'Plan Activity', href: '/plan-activity', icon: 'MapPin' },
+        {
+          label: 'Visit Dashboard',
+          href: '/rekapitulasi-visit',
+          icon: 'BarChart3',
+        },
+        {
+          label: 'Tracking Satuan Kerja',
+          href: '/tracking-satker',
+          icon: 'Building2',
+        },
+        {
+          label: 'Tracking Visit B2G',
+          href: '/tracking-b2g',
+          icon: 'Building',
+        },
+        {
+          label: 'Tracking Visit B2B',
+          href: '/tracking-b2b',
+          icon: 'Building',
+        },
       ],
     },
     {
-      title: "KONTRAK",
-      icon: "FileSignature",
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
+        {
+          label: 'Database Tracking',
+          href: '/database-tracking',
+          icon: 'Database',
+        },
+      ],
+    },
+    {
+      title: 'PRODUCT HUB',
+      icon: 'Package',
+      items: [{ label: 'Data Produk', href: '/produk', icon: 'CheckSquare' }],
+    },
+    {
+      title: 'MONITORING',
+      icon: 'Command',
+      items: [
+        {
+          label: 'Instansi No Phone',
+          href: '/monitoring-leader',
+          icon: 'Phone',
+        },
+      ],
+    },
+    {
+      title: 'E-PROCUREMENT',
+      icon: 'ShoppingCart',
+      items: [
+        {
+          label: 'Form E-Procurement',
+          href: '/e-procurement',
+          icon: 'FilePlus',
+        },
+        {
+          label: 'Tracking E-Procurement',
+          href: '/rekapitulasi-Eproc',
+          icon: 'PieChart',
+        },
+      ],
+    },
+    {
+      title: 'ADMIN',
+      icon: 'UserCog',
+      items: [
+        {
+          label: 'Dashboard Admin',
+          href: '/dashboard-response',
+          icon: 'CheckSquare',
+        },
+        {
+          label: 'Request E-Procurement',
+          href: '/e-procurement-response',
+          icon: 'ClipboardList',
+        },
+        {
+          label: 'Tracking Admin',
+          href: '/rekapitulasi-response',
+          icon: 'BarChart',
+        },
+      ],
+    },
+    {
+      title: 'INSTANSI',
+      icon: 'Building2',
+      items: [
+        { label: 'Daftar Instansi', href: '/instansi', icon: 'Building2' },
+        {
+          label: 'Tambah Instansi',
+          href: '/tambah-instansi',
+          icon: 'PlusSquare',
+        },
+      ],
+    },
+    {
+      title: 'KONTRAK',
+      icon: 'FileSignature',
       items: [],
     },
     {
-      title: "FINANCE",
-      icon: "Banknote",
+      title: 'FINANCE',
+      icon: 'Banknote',
       items: [],
     },
     {
-      title: "MANAJEMEN",
-      icon: "ShieldCheck",
+      title: 'MANAJEMEN',
+      icon: 'ShieldCheck',
       items: [
-        { label: "Add User", href: "/add-user", icon: "UserPlus" },
-        { label: "Teams", href: "/teams", icon: "Users" },
-        { label: "Parameter", href: "/parameters", icon: "Settings" },
+        { label: 'Add User', href: '/add-user', icon: 'UserPlus' },
+        { label: 'Teams', href: '/teams', icon: 'Users' },
+        { label: 'Parameter', href: '/parameters', icon: 'Settings' },
+      ],
+    },
+  ],
+
+  TELEMARKETING: [
+    {
+      title: 'TELEMARKETING',
+      icon: 'Bot',
+      items: [
+        { label: 'Input Database', href: '/input-database', icon: 'Bot' },
+        {
+          label: 'Tracking Database',
+          href: '/tracking-database',
+          icon: 'Database',
+        },
+        {
+          label: 'Tracking Broadcast',
+          href: '/tracking-broadcast',
+          icon: 'MessageCircleCode',
+        },
+        { label: 'Tracking Call', href: '/tracking-call', icon: 'Phone' },
+        { label: 'Report Progres', href: '/report-progres', icon: 'FileText' },
+      ],
+    },
+    {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
       ],
     },
   ],
 
   ADMIN: [
+    // {
+    //   title: "VISIT",
+    //   icon: "CalendarCheck",
+    //   items: [
+    //     { label: "Dashboard Visit", href: "/dashboard-request", icon: "LayoutDashboard" },
+    //     { label: "Plan Activity", href: "/plan-activity", icon: "MapPin" },
+    //   ],
+    // },
+    // {
+    //   title: "PRODUCT",
+    //   icon: "Package",
+    //   items: [
+    //   ],
+    // },
     {
-      title: "TELEMARKETING",
-      icon: "Bot",
+      title: 'E-PROCUREMENT',
+      icon: 'ShoppingCart',
       items: [
-        { label: "Input Database", href: "/input-database", icon: "Bot"},
-        { label: "Tracking Database", href: "/tracking-database", icon: "Database"},
-        { label: "Tracking Broadcast", href: "/tracking-broadcast", icon: "MessageCircleCode"},
-        { label: "Report Progres", href: "/report-progres", icon: "FileText"},
-      ]
-    },
-    {
-      title: "VISIT",
-      icon: "CalendarCheck",
-      items: [
-        { label: "Dashboard Visit", href: "/dashboard-request", icon: "LayoutDashboard" },
-        { label: "Plan Activity", href: "/plan-activity", icon: "MapPin" },
+        {
+          label: 'Form E-Procurement',
+          href: '/e-procurement',
+          icon: 'FilePlus',
+        },
       ],
     },
     {
-      title: "PRODUCT",
-      icon: "Package",
+      title: 'ADMIN',
+      icon: 'UserCog',
       items: [
+        {
+          label: 'Dashboard Admin',
+          href: '/dashboard-response',
+          icon: 'CheckSquare',
+        },
+        {
+          label: 'Request E-Procurement',
+          href: '/e-procurement-response',
+          icon: 'ClipboardList',
+        },
+        {
+          label: 'Tracking Admin',
+          href: '/rekapitulasi-response',
+          icon: 'BarChart',
+        },
       ],
     },
+    // {
+    //   title: "INSTANSI",
+    //   icon: "Building2",
+    //   items: [
+    //     { label: "Daftar Instansi", href: "/instansi", icon: "Building2" },
+    //     { label: "Tambah Instansi", href: "/tambah-instansi", icon: "PlusSquare" },
+    //   ],
+    // },
     {
-      title: "E-PROCUREMENT",
-      icon: "ShoppingCart",
-      items: [
-        { label: "Form E-Procurement", href: "/e-procurement", icon: "FilePlus" },
-      ],
-    },
-    {
-      title: "ADMIN",
-      icon: "UserCog",
-      items: [
-        { label: "Dashboard Admin", href: "/dashboard-response", icon: "CheckSquare" },
-        { label: "Request E-Procurement", href: "/e-procurement-response", icon: "ClipboardList" },
-        { label: "Tracking Admin", href: "/rekapitulasi-response", icon: "BarChart" },
-      ],
-    },
-    {
-      title: "INSTANSI",
-      icon: "Building2",
-      items: [
-        { label: "Daftar Instansi", href: "/instansi", icon: "Building2" },
-        { label: "Tambah Instansi", href: "/tambah-instansi", icon: "PlusSquare" },
-      ],
-    },
-    {
-      title: "KONTRAK",
-      icon: "FileSignature",
+      title: 'KONTRAK',
+      icon: 'FileSignature',
       items: [],
     },
     {
-      title: "FINANCE",
-      icon: "Banknote",
+      title: 'FINANCE',
+      icon: 'Banknote',
       items: [],
     },
   ],
 
   LEADER: [
     {
-      title: "VISIT",
-      icon: "CalendarCheck",
+      title: 'VISIT',
+      icon: 'CalendarCheck',
       items: [
-        { label: "Dashboard Visit", href: "/dashboard-request", icon: "LayoutDashboard" },
-        { label: "Plan Activity", href: "/plan-activity", icon: "MapPin" },
-        { label: "Tracking Visit", href: "/rekapitulasi-visit", icon: "BarChart3" },
+        {
+          label: 'Dashboard Visit',
+          href: '/dashboard-request',
+          icon: 'LayoutDashboard',
+        },
+        { label: 'Plan Activity', href: '/plan-activity', icon: 'MapPin' },
+        {
+          label: 'Visit Dashboard',
+          href: '/rekapitulasi-visit',
+          icon: 'BarChart3',
+        },
+        {
+          label: 'Tracking Satuan Kerja',
+          href: '/tracking-satker',
+          icon: 'Building2',
+        },
+        {
+          label: 'Tracking Visit B2G',
+          href: '/tracking-b2g',
+          icon: 'Building',
+        },
+        {
+          label: 'Tracking Visit B2B',
+          href: '/tracking-b2b',
+          icon: 'Building',
+        },
       ],
     },
     {
-      title: "E-PROCUREMENT",
-      icon: "ShoppingCart",
+      title: 'SALES',
+      icon: 'User',
       items: [
-        { label: "Form E-Procurement", href: "/e-procurement", icon: "FilePlus" },
-        { label: "Tracking E-Procurement", href: "/rekapitulasi-Eproc", icon: "PieChart" },
+        { label: 'Validasi Sales', href: '/validasi-sales', icon: 'User' },
+        {
+          label: 'Sales Report System',
+          href: '/sales-report-system',
+          icon: 'FileText',
+        },
+      ],
+    },
+    {
+      title: 'MONITORING',
+      icon: 'Dashboard',
+      items: [
+        {
+          label: 'Instansi No Phone',
+          href: '/monitoring-leader',
+          icon: 'Phone',
+        },
+      ],
+    },
+    {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
+        {
+          label: 'Database Tracking',
+          href: '/database-tracking',
+          icon: 'Database',
+        },
+      ],
+    },
+    {
+      title: 'E-PROCUREMENT',
+      icon: 'ShoppingCart',
+      items: [
+        {
+          label: 'Form E-Procurement',
+          href: '/e-procurement',
+          icon: 'FilePlus',
+        },
+        {
+          label: 'Tracking E-Procurement',
+          href: '/rekapitulasi-Eproc',
+          icon: 'PieChart',
+        },
       ],
     },
   ],
 
   SALES: [
     {
-      title: "VISIT",
-      icon: "CalendarCheck",
+      title: 'VISIT',
+      icon: 'CalendarCheck',
       items: [
-        { label: "Dashboard Visit", href: "/dashboard-request", icon: "LayoutDashboard" },
-        { label: "Plan Activity", href: "/plan-activity", icon: "MapPin" },
-        { label: "Tracking Visit", href: "/rekapitulasi-visit", icon: "BarChart3" },
+        {
+          label: 'Dashboard Visit',
+          href: '/dashboard-request',
+          icon: 'LayoutDashboard',
+        },
+        { label: 'Plan Activity', href: '/plan-activity', icon: 'MapPin' },
+        {
+          label: 'Visit Dashboard',
+          href: '/rekapitulasi-visit',
+          icon: 'BarChart3',
+        },
+        {
+          label: 'Tracking Satuan Kerja',
+          href: '/tracking-satker',
+          icon: 'Building2',
+        },
+        {
+          label: 'Tracking Visit B2G',
+          href: '/tracking-b2g',
+          icon: 'Building',
+        },
+        {
+          label: 'Tracking Visit B2B',
+          href: '/tracking-b2b',
+          icon: 'Building',
+        },
       ],
     },
     {
-      title: "E-PROCUREMENT",
-      icon: "ShoppingCart",
+      title: 'DATABASE',
+      icon: 'Database',
       items: [
-        { label: "Form E-Procurement", href: "/e-procurement", icon: "FilePlus" },
-        { label: "Tracking E-Procurement", href: "/rekapitulasi-Eproc", icon: "PieChart" },
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
+        {
+          label: 'Database Tracking',
+          href: '/database-tracking',
+          icon: 'Database',
+        },
+      ],
+    },
+    {
+      title: 'E-PROCUREMENT',
+      icon: 'ShoppingCart',
+      items: [
+        {
+          label: 'Form E-Procurement',
+          href: '/e-procurement',
+          icon: 'FilePlus',
+        },
+        {
+          label: 'Tracking E-Procurement',
+          href: '/rekapitulasi-Eproc',
+          icon: 'PieChart',
+        },
       ],
     },
   ],
-};
+
+  'ADMIN SALES': [
+    {
+      title: 'VISIT',
+      icon: 'CalendarCheck',
+      items: [
+        {
+          label: 'Dashboard Visit',
+          href: '/dashboard-request',
+          icon: 'LayoutDashboard',
+        },
+        { label: 'Plan Activity', href: '/plan-activity', icon: 'MapPin' },
+        {
+          label: 'Visit Dashboard',
+          href: '/rekapitulasi-visit',
+          icon: 'BarChart3',
+        },
+        {
+          label: 'Sales Report System',
+          href: '/sales-report-system',
+          icon: 'FileText',
+        },
+        {
+          label: 'Tracking Satuan Kerja',
+          href: '/tracking-satker',
+          icon: 'Building2',
+        },
+        {
+          label: 'Tracking Visit B2G',
+          href: '/tracking-b2g',
+          icon: 'Building',
+        },
+        {
+          label: 'Tracking Visit B2B',
+          href: '/tracking-b2b',
+          icon: 'Building',
+        },
+      ],
+    },
+    {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
+        {
+          label: 'Database Tracking',
+          href: '/database-tracking',
+          icon: 'Database',
+        },
+      ],
+    },
+    {
+      title: 'E-PROCUREMENT',
+      icon: 'ShoppingCart',
+      items: [
+        {
+          label: 'Form E-Procurement',
+          href: '/e-procurement',
+          icon: 'FilePlus',
+        },
+        {
+          label: 'Tracking E-Procurement',
+          href: '/rekapitulasi-Eproc',
+          icon: 'PieChart',
+        },
+      ],
+    },
+  ],
+}
 
 export function getMenuByRole(role: Role): MenuSection[] {
-  return MENUS_BY_ROLE[role] ?? [];
+  return MENUS_BY_ROLE[role] ?? []
 }

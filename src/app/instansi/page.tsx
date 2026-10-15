@@ -11,6 +11,7 @@ import { Search, Clock, Building2, Pen, Trash2,
 ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight} from "lucide-react";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import ConfirmModal from "@/components/modals/ConfirmModal";
+import { normalizeRing } from "@/lib/ring";
 
 type Company = {
   _id: string;
@@ -199,7 +200,7 @@ function SolidButton({
 }
 
 function StatusPill({ value }: { value?: string }) {
-  const v = (value || "-").toUpperCase();
+  const v = normalizeRing(value) || "-";
   const isB2G =
     v.includes("RING 1") || v.includes("RING 2") || v.includes("RING 3");
   const isB2B = v.includes("RING 4");
@@ -500,13 +501,18 @@ export default function InstansiPage() {
                   </button>
                   <button
                     onClick={openPendingModal}
-                    className="flex h-10 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-orange-600 shadow-sm ring-1 ring-gray-300 hover:bg-gray-100"
+                    className="relative flex h-10 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-orange-600 shadow-sm ring-1 ring-gray-300 hover:bg-gray-100 transition-colors"
                   >
                     <Clock className="w-5 h-4" />
                     REQUEST PENDING
                     {pendingCount > 0 && (
-                      <span className="absolute -right-2 -top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white ring-2 ring-white shadow-sm">
-                        {pendingCount > 99 ? "99+" : pendingCount}
+                      <span className="absolute -right-2 -top-2 flex h-6 items-center justify-center">
+                        {/* Outer pulsing glow ring */}
+                        <span className="absolute inset-0 rounded-full bg-red-500/40 animate-ping" />
+                        {/* Actual Badge */}
+                        <span className={`relative flex h-6 ${pendingCount > 9 ? "px-2 min-w-[24px]" : "w-6"} items-center justify-center rounded-full bg-gradient-to-tr from-red-600 via-red-500 to-red-500 text-[10px] font-black text-white shadow-[0_2px_8px_rgba(239,68,68,0.5)] select-none leading-none tracking-tight`}>
+                          {pendingCount > 99 ? "99+" : pendingCount}
+                        </span>
                       </span>
                     )}
                   </button>
@@ -572,7 +578,7 @@ export default function InstansiPage() {
                     }}
                     options={[
                       { value: "ALL", label: "Semua Ring" },
-                      ...segmenOptions.map((x) => ({ value: x, label: x })),
+                      ...segmenOptions.map((x) => ({ value: normalizeRing(x), label: normalizeRing(x) })).filter((x) => x.value),
                     ]}
                     className="h-11 border-0"
                   />
@@ -581,7 +587,7 @@ export default function InstansiPage() {
             </div>
 
             {/* Table */}
-            <div className="mt-6 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200">
+            <div className="mt-6 lg:overflow-hidden lg:rounded-2xl lg:bg-white lg:shadow-sm lg:ring-1 lg:ring-gray-200">
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm text-left block lg:table">
                   <thead className="bg-blue-100 border-b border-gray-200 hidden lg:table-header-group">
@@ -609,7 +615,7 @@ export default function InstansiPage() {
                     </tr>
                   </thead>
 
-                  <tbody className="divide-y divide-gray-300">
+                  <tbody className="divide-y-0 lg:divide-y lg:divide-gray-300 block lg:table-row-group">
                     {loading ? (
                       <tr>
                         <td
@@ -626,62 +632,62 @@ export default function InstansiPage() {
                       resp.items.map((c) => (
                         <tr
                           key={c._id}
-                          className="hover:bg-gray-50/50 transition-colors group block lg:table-row border-b border-gray-200 lg:border-0 mb-4 lg:mb-0 pb-4 lg:pb-0"
+                          className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-5 block lg:table-row hover:bg-gray-50/50 transition-colors lg:border-0 lg:border-b lg:border-gray-200 lg:rounded-none lg:shadow-none lg:p-0 lg:mb-0"
                         >
-                          <td className="whitespace-nowrap px-6 py-2 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
+                          <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px]">Kota/Kab</span>
                             <span className="truncate max-w-[200px] lg:max-w-none text-right lg:text-left">{c.kota_kab ?? "-"}</span>
                           </td>
-                          <td className="whitespace-nowrap px-6 py-2 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
+                          <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px]">KLPD</span>
                             <span className="truncate max-w-[200px] lg:max-w-none text-right lg:text-left">{c.klpd ?? "-"}</span>
                           </td>
-                          <td className="whitespace-nowrap px-6 py-2 lg:py-4 font-bold flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
+                          <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 font-bold flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px] font-normal">Institusi Kerja</span>
                             <span className="truncate max-w-[200px] lg:max-w-none text-right lg:text-left">{c.institusi_kerja ?? "-"}</span>
                           </td>
-                          <td className="whitespace-nowrap px-6 py-2 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
+                          <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px]">Satuan Kerja</span>
                             <span className="truncate max-w-[200px] lg:max-w-none text-right lg:text-left">{c.satuan_kerja ?? "-"}</span>
                           </td>
-                          <td className="whitespace-nowrap px-6 py-2 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
+                          <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px]">Kode Dinas</span>
                             <span className="truncate max-w-[200px] lg:max-w-none text-right lg:text-left">{c.kode_dinas ?? "-"}</span>
                           </td>
-                          <td className="whitespace-nowrap px-6 py-2 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
+                          <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px]">Nama PIC</span>
                             <span className="truncate max-w-[200px] lg:max-w-none text-right lg:text-left">{c.pic_default?.nama ?? "-"}</span>
                           </td>
-                          <td className="whitespace-nowrap px-6 py-2 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
+                          <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px]">No. HP PIC</span>
                             <span className="truncate max-w-[200px] lg:max-w-none text-right lg:text-left">{c.pic_default?.no_telp ?? "-"}</span>
                           </td>
-                          <td className="whitespace-nowrap px-6 py-2 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
+                          <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px]">Jabatan PIC</span>
                             <span className="truncate max-w-[200px] lg:max-w-none text-right lg:text-left">{c.pic_default?.jabatan ?? "-"}</span>
                           </td>
-                          <td className="whitespace-nowrap px-6 py-2 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
+                          <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 flex justify-between lg:table-cell border-b border-dashed border-gray-200 lg:border-0">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px]">Role PIC</span>
                             <span className="truncate max-w-[200px] lg:max-w-none text-right lg:text-left">{c.pic_default?.role ?? "-"}</span>
                           </td>
-                          <td className="whitespace-nowrap px-6 py-2 lg:py-4 text-center flex justify-between lg:table-cell items-center border-b border-dashed border-gray-200 lg:border-0">
+                          <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 text-center flex justify-between lg:table-cell items-center border-b border-dashed border-gray-200 lg:border-0">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px]">Status Ring</span>
                             <StatusPill value={c.status_ring} />
                           </td>
 
-                          <td className="whitespace-nowrap px-6 py-2 lg:py-4 text-center flex justify-between lg:table-cell items-center">
+                          <td className="whitespace-nowrap px-0 py-2.5 lg:px-6 lg:py-4 text-center flex justify-between lg:table-cell items-center">
                             <span className="lg:hidden font-bold text-gray-500 uppercase text-[10px]">Aksi</span>
                             <div className="flex items-center justify-center gap-2">
-                            <button
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-black/70 hover:text-blue-600 hover:bg-blue-50 transition-all mx-auto"
-                              title="History"
-                              onClick={() => {
-                                setActiveCompany(c);
-                                setOpenHistory(true);
-                              }}
-                            >
-                            <Clock className="w-5 h-4" />
-                            </button>
+                              <button
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-black/70 hover:text-blue-600 hover:bg-blue-50 transition-all mx-auto"
+                                title="History"
+                                onClick={() => {
+                                  setActiveCompany(c);
+                                  setOpenHistory(true);
+                                }}
+                              >
+                                <Clock className="w-5 h-4" />
+                              </button>
                               <button
                                 className="flex h-8 w-8 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 ring-1 ring-inset ring-transparent hover:ring-blue-100"
                                 title="Edit"
@@ -721,7 +727,7 @@ export default function InstansiPage() {
               </div>
 
               {/* Pagination Bar */}
-              <div className="flex flex-col gap-4 border-t border-gray-100 bg-gray-50/50 px-6 py-4 md:flex-row md:items-center md:justify-between">
+              <div className="mt-4 flex flex-col gap-4 rounded-xl border border-gray-200 bg-white px-4 py-4 md:mt-0 md:rounded-none md:border-0 md:border-t md:border-gray-100 md:bg-gray-50/50 md:px-6 md:flex-row md:items-center md:justify-between">
                 <div className="text-sm text-gray-500">
                   Menampilkan{" "}
                   <b className="text-gray-900">{(page - 1) * limit + 1}</b> -{" "}

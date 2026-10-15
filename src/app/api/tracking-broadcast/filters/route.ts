@@ -1,6 +1,23 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 
+/**
+ * Normaliza status_wa: konversi en-dash (–) / em-dash (—) → hyphen (-),
+ * trim spasi berlebih, dan mapping alias ke nilai canonical.
+ */
+function normalizeStatusWa(val: string): string {
+    if (!val) return ''
+    let s = val
+        .replace(/[\u2013\u2014]/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim()
+    if (s === '-') return ''
+    const aliases: Record<string, string> = {
+        'Aktif Broadcast': 'Aktif Progres',
+    }
+    return aliases[s] ?? s
+}
+
 export async function GET() {
     try {
         const client = await clientPromise;
@@ -9,11 +26,12 @@ export async function GET() {
         // bulan, perusahaan, produk, provinsi, kota → dari input_database (sumber data utama)
         const inputCol = db.collection("input_database");
 
-        const [produk, perusahaan, provinsi, kota] = await Promise.all([
+        const [produk, perusahaan, provinsi, kota, pic] = await Promise.all([
             inputCol.distinct("produk_relevan", { produk_relevan: { $nin: ["", null] } }),
             inputCol.distinct("nama_perusahaan", { nama_perusahaan: { $nin: ["", null] } }),
             inputCol.distinct("provinsi", { provinsi: { $nin: ["", null] } }),
             inputCol.distinct("kota", { kota: { $nin: ["", null] } }),
+            inputCol.distinct("nama", { nama: { $nin: ["", null] } }),
         ]);
 
         // Ekstrak bulan unik dari code_input (format: PREFIX-DDMMYY-COUNTER)
@@ -59,14 +77,20 @@ export async function GET() {
             broadcastCol.distinct("ke_sales", { ke_sales: { $nin: ["", null] } }),
         ]);
 
+        // Normalize DB values to eliminate en-dash/em-dash duplicates
+        const normalizedStatusWaDb = statusWaDb
+            .map(s => normalizeStatusWa(s))
+            .filter(s => s !== '');
+
         // Merge dengan pilihan default supaya tetap muncul walau tracking_broadcast masih kosong
         const defaultStatusWa = [
-            "Terkirim(1C)",
-            "Diterima(2C)",
+            "Nomor Invalid",
+            "Terkirim (1C)",
+            "Diterima (2C)",
             "Dibaca - Belum Respons",
-            "Dibaca - Respons - Positif",
-            "Dibaca - Respons - Netral",
-            "Dibaca - Respons - Negatif",
+            "Dibaca - Respons Positif",
+            "Dibaca - Respons Netral",
+            "Dibaca - Respons Negatif",
             "Aktif Progres",
         ];
         const defaultKeSales = [
@@ -75,7 +99,7 @@ export async function GET() {
             "Ferrie Ferdinal",
         ];
 
-        const status_wa = [...new Set([...defaultStatusWa, ...statusWaDb])].sort();
+        const status_wa = [...new Set([...defaultStatusWa, ...normalizedStatusWaDb])].sort();
         const ke_sales = [...new Set([...defaultKeSales, ...keSalesDb])].sort();
 
         return NextResponse.json({
@@ -84,6 +108,7 @@ export async function GET() {
             perusahaan: perusahaan.sort(),
             provinsi: provinsi.sort(),
             kota: kota.sort(),
+            pic: pic.sort(),
             status_wa,
             ke_sales,
         });

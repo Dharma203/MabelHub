@@ -1,37 +1,64 @@
 import { NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
+import { assertAdminOrSuperadmin } from "@/lib/auth-server";
 
 export async function POST(
   req: Request,
-  ctx: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  // 1. Authentication + Authorization
+  const auth = assertAdminOrSuperadmin(req);
+
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.status }
+    );
+  }
+
+  // 2. Ambil ID request
+  const { id } = await params;
+
+  if (!id) {
+    return NextResponse.json(
+      { error: "Request ID is required" },
+      { status: 400 }
+    );
+  }
+
   try {
-    const { id } = await ctx.params;
-
-    if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ ok: false, message: "Invalid id" }, { status: 400 });
-    }
-
-    const body = await req.json();
-
+    // 3. Akses database HANYA setelah user lolos auth
     const client = await clientPromise;
-    const db = client.db(process.env.MONGODB_DB || "MabelHub");
+    const db = client.db("MabelHub");
 
-    await db.collection("company_requests").updateOne(
-      { _id: new ObjectId(id), status: "PENDING" },
+    const result = await db.collection("company_requests").updateOne(
+      { id: id },
       {
         $set: {
           status: "REJECTED",
-          reject_reason: body.reject_reason || "",
           rejected_at: new Date(),
+          rejected_by: auth.session.userId,
         },
       }
     );
 
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    console.error("reject error:", e);
-    return NextResponse.json({ ok: false, message: e?.message }, { status: 500 });
+    if (result.matchedCount === 0) {
+      return NextResponse.json(
+        { error: "Company request not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Company request rejected",
+    });
+  } catch (error) {
+    console.error("[POST /api/company-requests/[id]/reject]", error);
+
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 export type SessionUser = {
   _id: string;
   userId: string;
-  role: "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES";
+  role: "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES" | "ADMIN SALES";
   username: string;
   fullName: string;
 };

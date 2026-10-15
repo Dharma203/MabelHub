@@ -42,6 +42,8 @@ export default function SearchableSelect({
       placeholder={placeholder}
       isClearable={isClearable}
       isSearchable
+      menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+      menuPosition="fixed"
       styles={{
         control: (base, state) => ({
           ...base,
@@ -74,7 +76,7 @@ export default function SearchableSelect({
           ...base,
           borderRadius: "0.5rem", // Tailwind rounded-lg
           overflow: "hidden",
-          zIndex: 50,
+          zIndex: 9999,
         }),
       }}
       {...rest}

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 
 type ProductItem = {
@@ -23,6 +23,7 @@ type EProcDoc = {
   requestor: string;
   pemohon: string;
   lokasi: string;
+  statusUsulan: string;
   segmen: string;
   deadlineUsulan: string;
   tanggalSubmit: string;
@@ -101,34 +102,33 @@ async function getUserLite(db: any, userId: string) {
 
 export async function GET(
   req: Request,
-  ctx: { params: { requestId: string } | Promise<{ requestId: string }> },
+  { params } : { params: Promise<{ requestId : string}>}
 ) {
   const auth = assertLoggedIn(req);
   if (!auth.ok)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { requestId } = await getParams(ctx);
+  const { requestId } = await params;
   const rid = decodeURIComponent(requestId);
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   const col = db.collection<EProcDoc>("eproc_requests");
 
   const doc = await col.findOne({ requestId: rid }, { projection: { _id: 0 } });
   if (!doc) {
-    return NextResponse.json(
-      { error: "Request tidak ditemukan" },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: "Request tidak ditemukan" }, { status: 404 });
   }
 
   if (!canAccess(auth.session, doc)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
-  if (doc.takenByAdminId) {
+  // ✅ Satu-satunya kondisi yang mengunci revisi
+  const statusAkhirNow = (doc.statusAkhir || "").trim().toLowerCase();
+  if (statusAkhirNow === "rilis kontrak") {
     return NextResponse.json(
-      { error: "Request sudah diambil admin, tidak bisa direvisi" },
+      { error: "Request sudah rilis kontrak, tidak bisa direvisi" },
       { status: 409 },
     );
   }
@@ -153,13 +153,13 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  ctx: { params: { requestId: string } | Promise<{ requestId: string }> },
+  { params } : { params: Promise<{ requestId : string}>}
 ) {
   const auth = assertLoggedIn(req);
   if (!auth.ok)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { requestId } = await getParams(ctx);
+  const { requestId } = await params;
   const rid = decodeURIComponent(requestId);
 
   const body = await req.json().catch(() => ({}));
@@ -180,8 +180,36 @@ export async function PUT(
     );
   }
 
+  if (!deadlineUsulan) {
+    return NextResponse.json(
+      { error: "Deadline usulan wajib diisi" },
+      { status: 400 },
+    );
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dlDate = new Date(deadlineUsulan);
+  dlDate.setHours(0, 0, 0, 0);
+
+  if (isNaN(dlDate.getTime())) {
+    return NextResponse.json(
+      { error: "Format deadline tidak valid" },
+      { status: 400 },
+    );
+  }
+
+  const diffTime = dlDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  if (diffDays < 3) {
+    return NextResponse.json(
+      { error: "Deadline usulan minimal 3 hari dari hari ini" },
+      { status: 400 },
+    );
+  }
+
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   const col = db.collection<EProcDoc>("eproc_requests");
 
   const existing = await col.findOne(
@@ -199,9 +227,11 @@ export async function PUT(
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
-  if (existing.takenByAdminId) {
+
+  const statusAkhirNow = (existing.statusAkhir || "").trim().toLowerCase();
+  if (statusAkhirNow === "rilis kontrak") {
     return NextResponse.json(
-      { error: "Request sudah diambil admin, tidak bisa direvisi" },
+      { error: "Request sudah rilis kontrak, tidak bisa di edit" },
       { status: 409 },
     );
   }
@@ -348,7 +378,6 @@ export async function PUT(
   const rawResult = await col.findOneAndUpdate(
     {
       requestId: rid,
-      takenByAdminId: null,
     },
     updateDoc,
     {

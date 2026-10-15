@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 
@@ -57,6 +57,7 @@ type EProcDoc = {
   takenByAdminId: string | null;
   takenByAdminName: string | null;
   takenAt: Date | null;
+  statusUsulan: string | null;
 
   perusahaan?: string;
   catatanAdmin?: string; // TBD: will be obsoleted, kept for old data compat
@@ -132,38 +133,51 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const mode = (searchParams.get("mode") ?? "takeable").toLowerCase();
+
+  // ✅ Ambil parameter dengan validation
+  const statusUsulan = (searchParams.get("statusUsulan") ?? "").toLowerCase();
+  const statusAkhir = (searchParams.get("statusAkhir") ?? "").toLowerCase();
+
+  const validStatusUsulan = ["masuk", "proses", "done", "hold", "cancel"];
+  const validStatusAkhir = ["barang terkirim ke user", "terbit bast"];
+  // const mode = (searchParams.get("mode") ?? "takeable").toLowerCase();
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   await ensureIndexes(db);
 
   const col = db.collection<EProcDoc>("eproc_requests");
   const filter: any = {};
-
-  if (mode === "takeable") {
-    filter.takenByAdminId = null;
-  } else if (mode === "taken") {
-    filter.takenByAdminId = { $ne: null };
-  } else if (mode === "mine") {
-    // ✅ mine = createdBy OR assignedTo
-    filter.$or = [
-      { "createdBy.userId": auth.session.userId },
-      { "assignedTo.userId": auth.session.userId },
-    ];
-  } else if (mode === "all") {
-    // untuk halaman rekapitulasi & dashboard response
-    // SUPERADMIN & ADMIN: lihat semua e-proc
-    if (auth.session.role !== "SUPERADMIN" && auth.session.role !== "ADMIN") {
-      // Sales/Leader sees only their own or assigned
-      filter.$or = [
-        { "createdBy.userId": auth.session.userId },
-        { "assignedTo.userId": auth.session.userId },
-      ];
-    }
-  } else {
-    filter.takenByAdminId = null;
+  if (validStatusUsulan.includes(statusUsulan)) {
+    filter.statusUsulan = { $regex: `^${statusUsulan}$`, $options: "i" }; // case-insensitive
   }
+
+  if (validStatusAkhir.includes(statusAkhir)) {
+    filter.statusAkhir = { $regex: `^${statusAkhir}$`, $options: "i" }; // case-insensitive
+  }
+  // if (mode === "takeable") {
+  //   filter.takenByAdminId = null;
+  // } else if (mode === "taken") {
+  //   filter.takenByAdminId = { $ne: null };
+  // } else if (mode === "mine") {
+  //   // ✅ mine = createdBy OR assignedTo
+  //   filter.$or = [
+  //     { "createdBy.userId": auth.session.userId },
+  //     { "assignedTo.userId": auth.session.userId },
+  //   ];
+  // } else if (mode === "all") {
+  // //   // untuk halaman rekapitulasi & dashboard response
+  // //   // SUPERADMIN & ADMIN: lihat semua e-proc
+  //   if (auth.session.role !== "SUPERADMIN" && auth.session.role !== "ADMIN") {
+  //     // Sales/Leader sees only their own or assigned
+  //     filter.$or = [
+  //       { "createdBy.userId": auth.session.userId },
+  //       { "assignedTo.userId": auth.session.userId },
+  //     ];
+  //   }
+  // } else {
+  //   filter.takenByAdminId = null;
+  // }
 
   const items = await col
     .find(filter, { projection: { _id: 0 } })
@@ -186,7 +200,8 @@ export async function POST(req: Request) {
     session.role !== "SALES" &&
     session.role !== "LEADER" &&
     session.role !== "SUPERADMIN" &&
-    session.role !== "ADMIN"
+    session.role !== "ADMIN" &&
+    session.role !== "ADMIN SALES"
   ) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
@@ -214,8 +229,36 @@ export async function POST(req: Request) {
     );
   }
 
+  if (!deadlineUsulan) {
+    return NextResponse.json(
+      { error: "Deadline usulan wajib diisi" },
+      { status: 400 },
+    );
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dlDate = new Date(deadlineUsulan);
+  dlDate.setHours(0, 0, 0, 0);
+
+  if (isNaN(dlDate.getTime())) {
+    return NextResponse.json(
+      { error: "Format deadline tidak valid" },
+      { status: 400 },
+    );
+  }
+
+  const diffTime = dlDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  if (diffDays < 3) {
+    return NextResponse.json(
+      { error: "Deadline usulan minimal 3 hari dari hari ini" },
+      { status: 400 },
+    );
+  }
+
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   await ensureIndexes(db);
 
   // =========================
@@ -241,7 +284,11 @@ export async function POST(req: Request) {
       }
     }
 
-    if (session.role === "SUPERADMIN" || session.role === "ADMIN") {
+    if (
+      session.role === "SUPERADMIN" ||
+      session.role === "ADMIN" ||
+      session.role === "ADMIN SALES"
+    ) {
       if (assignedToUserIdRaw !== session.userId) {
         const u = await getUserLite(db, assignedToUserIdRaw);
         if (!u)
@@ -278,6 +325,7 @@ export async function POST(req: Request) {
     requestor,
     pemohon,
     lokasi,
+    statusUsulan: "masuk",
     segmen,
     deadlineUsulan: deadlineUsulan || "",
     tanggalSubmit: now.toISOString(),
@@ -303,6 +351,5 @@ export async function POST(req: Request) {
   };
 
   await db.collection<EProcDoc>("eproc_requests").insertOne(doc);
-
   return NextResponse.json({ data: doc }, { status: 201 });
 }

@@ -150,9 +150,14 @@ export default function Sidebar() {
         ? "Admin"
         : role === "LEADER"
           ? "Leader"
-          : "Sales";
+          : role === "TELEMARKETING"
+            ? "Telemarketing"
+            : role === "ADMIN SALES"
+            ? "Admin Sales"
+            : "Sales";
 
   const isActive = (href: string) => {
+    if (!href) return false;
     const [basePath, query] = href.split("?");
     // Check if the current pathname matches the basePath
     if (pathname !== basePath && !pathname.startsWith(basePath + "/")) {
@@ -170,7 +175,7 @@ export default function Sidebar() {
   };
 
   const isSectionActive = (section: MenuSection) =>
-    section.items.some(item => isActive(item.href));
+    section.items.some(item => !!item.href && isActive(item.href));
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.targetTouches[0].clientX;

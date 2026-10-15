@@ -43,8 +43,10 @@ export async function GET(
       segmentasi: first.segmentasi,
       produkRelevan: first.produk_relevan,
       merekTayang: first.merek_tayang,
+      merekLainnya: first.merek_lainnya,
       brandOwner: first.brand_owner,
       sumberData: first.sumber_data,
+      salesInternal: first.sales_internal,
       linkProduk: first.link_produk,
       linkToko: first.link_toko,
     }

@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
-
-function getDbName() {
-  return process.env.MONGODB_DB || "MabelHub";
-}
 
 function toStringId(doc: any) {
   if (!doc) return doc;
@@ -126,6 +122,8 @@ export async function PUT(
       note,
     });
   }
+
+  
 
   return NextResponse.json({
     data: { ...updatedDoc, _id: String((updatedDoc as any)._id) },

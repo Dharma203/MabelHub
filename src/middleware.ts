@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/", "/api/auth/login"];
+const PUBLIC_PATHS = ["/", "/api/auth/login", "/api/download"];
+
+// Pola untuk mencocokkan file statis di folder public (gambar, ikon, dokumen, dll.)
+const PUBLIC_FILE_PATTERN = /\.(?:png|jpg|jpeg|gif|svg|webp|ico|xlsx|xls|csv)$/i;
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -10,7 +13,8 @@ export function middleware(req: NextRequest) {
   if (
     PUBLIC_PATHS.includes(pathname) ||
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon")
+    pathname.startsWith("/favicon") ||
+    PUBLIC_FILE_PATTERN.test(pathname)
   ) {
     return NextResponse.next();
   }

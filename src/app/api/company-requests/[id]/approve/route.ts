@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 
 export async function POST(
@@ -23,7 +23,7 @@ export async function POST(
     }
 
     const client = await clientPromise;
-    const db = client.db(process.env.MONGODB_DB || "MabelHub");
+    const db = client.db(getDbName());
 
     const reqCol = db.collection("company_requests");
     const compCol = db.collection("companies");

@@ -30,7 +30,14 @@ export async function GET(req: Request) {
         const distinct = await col.distinct("code_input", {
             code_input: { $regex: pattern }
         })
+        const namaPerusahaanArr = searchParams.getAll("namaPerusahaan");
 
+        const matchStage: Record<string, any> = {};
+        if (namaPerusahaanArr.length > 0) {
+            matchStage["nama_perusahaan"] = { $in: namaPerusahaanArr };
+        }
+
+        
         const next = distinct.length + 1
         const counter = String(next).padStart(4, '0')
 
@@ -75,8 +82,10 @@ export async function POST(req: Request) {
             segmentasi: header.segmentasi || "",
             produk_relevan: header.produkRelevan || "",
             merek_tayang: header.merekTayang || "",
+            merek_lainnya: header.merekLainnya || "",
             brand_owner: header.brandOwner || "",
             sumber_data: header.sumberData || "",
+            sales_internal: header.salesInternal || "",
             link_produk: header.linkProduk || "",
             link_toko: header.linkToko || "",
             // Data kontak
@@ -156,8 +165,10 @@ export async function PUT(req: Request) {
             segmentasi: header.segmentasi || "",
             produk_relevan: header.produkRelevan || "",
             merek_tayang: header.merekTayang || "",
+            merek_lainnya: header.merekLainnya || "",
             brand_owner: header.brandOwner || "",
             sumber_data: header.sumberData || "",
+            sales_internal: header.salesInternal || "",
             link_produk: header.linkProduk || "",
             link_toko: header.linkToko || "",
             // Data kontak (dari item, bukan header)
