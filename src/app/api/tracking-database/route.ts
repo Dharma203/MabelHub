@@ -224,7 +224,7 @@ export async function GET(req: NextRequest) {
             unik: { $sum: 1 },
           },
         },
-        { $sort: { '_id.provinsi': 1, '_id.kota': 1 } },
+        { $sort: { unik: -1, '_id.provinsi': -1, '_id.kota': -1 } },
       ])
       .toArray()
 
@@ -269,7 +269,7 @@ export async function GET(req: NextRequest) {
             unik: { $sum: 1 },
           },
         },
-        { $sort: { '_id.provinsi': 1, '_id.kota': 1 } },
+        { $sort: { unik: -1, '_id.provinsi': -1, '_id.kota': -1 } },
       ])
       .toArray()
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
 
 type EProcDoc = {
@@ -15,18 +15,18 @@ async function getParams<T>(ctx: { params: T | Promise<T> }) {
 
 export async function POST(
   req: Request,
-  ctx: { params: { requestId: string } | Promise<{ requestId: string }> },
+  { params } : { params: Promise<{ requestId : string}>}
 ) {
   const auth = assertAdminOrSuperadmin(req);
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
-  const { requestId } = await getParams(ctx);
+  const { requestId } = await params;
   const rid = decodeURIComponent(requestId);
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
 
   const now = new Date();
 

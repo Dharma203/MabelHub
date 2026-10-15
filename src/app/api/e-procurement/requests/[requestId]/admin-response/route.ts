@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 
 async function getParams<T>(ctx: { params: T | Promise<T> }) {
@@ -8,7 +8,7 @@ async function getParams<T>(ctx: { params: T | Promise<T> }) {
 
 export async function PUT(
   req: Request,
-  ctx: { params: { requestId: string } | Promise<{ requestId: string }> },
+  { params } : { params: Promise<{ requestId : string}>}
 ) {
   const auth = assertLoggedIn(req);
   if (!auth.ok)
@@ -19,7 +19,7 @@ export async function PUT(
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
-  const { requestId } = await getParams(ctx);
+  const { requestId } = await params;
   const rid = decodeURIComponent(requestId);
 
   const body = await req.json().catch(() => ({}));
@@ -44,7 +44,7 @@ export async function PUT(
   const incomingItems = Array.isArray(body.items) ? body.items : [];
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   const col = db.collection("eproc_requests");
 
   const existing = await col.findOne({ requestId: rid });

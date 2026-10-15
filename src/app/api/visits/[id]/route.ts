@@ -1,38 +1,16 @@
 import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
-import clientPromise from '@/lib/mongodb'
+import clientPromise, { getDbName } from '@/lib/mongodb'
 import { assertLoggedIn } from '@/lib/auth-server'
-
-type TeamDoc = {
-  leaderId: string // string ObjectId user
-  memberIds: string[] // string ObjectId user
-}
-
-async function getLeaderAllowedUserIds(db: any, leaderId: string) {
-  const team = (await db
-    .collection('teams')
-    .findOne({ leaderId })) as TeamDoc | null
-
-  const ids = [leaderId, ...(team?.memberIds ?? [])]
-  return Array.from(new Set(ids))
-}
-
-async function getUserLiteById(db: any, userId: string) {
-  if (!ObjectId.isValid(userId)) return null
-  const u = await db
-    .collection('users')
-    .findOne(
-      { _id: new ObjectId(userId) },
-      { projection: { _id: 1, role: 1, username: 1, fullName: 1 } },
-    )
-  if (!u) return null
-  return {
-    userId: String(u._id),
-    role: String(u.role || ''),
-    username: String(u.username || ''),
-    fullName: String(u.fullName || ''),
-  }
-}
+import { getLeaderAllowedUserIds, getUserLiteById } from '@/lib/visit-auth'
+import {
+  getConsecutiveMissingPhoneCount,
+  isPhoneFilled,
+  isVisitedStatus,
+  recomputeAlert,
+} from '@/lib/missing-phone-alert'
+import { writeFile, mkdir } from 'fs/promises'
+import path from 'path'
 
 function isAdminRole(role: string) {
   return role === 'ADMIN' || role === 'SUPERADMIN'
@@ -43,7 +21,9 @@ function isAdminRole(role: string) {
  * Returns true if the doc has no user_id AND the nama_sales matches the user's fullName.
  */
 function isLegacyOwner(doc: any, fullName: string | null): boolean {
-  const namaSales = String(doc.nama_sales || '').trim().toLowerCase()
+  const namaSales = String(doc.nama_sales || '')
+    .trim()
+    .toLowerCase()
   const name = (fullName || '').trim().toLowerCase()
   return name !== '' && namaSales === name
 }
@@ -52,7 +32,11 @@ function isLegacyOwner(doc: any, fullName: string | null): boolean {
  * Check if a legacy doc belongs to any of the given user IDs,
  * by resolving their fullNames and matching against nama_sales.
  */
-async function isLegacyTeamOwner(db: any, doc: any, userIds: string[]): Promise<boolean> {
+async function isLegacyTeamOwner(
+  db: any,
+  doc: any,
+  userIds: string[],
+): Promise<boolean> {
   for (const uid of userIds) {
     const u = await getUserLiteById(db, uid)
     if (u?.fullName && isLegacyOwner(doc, u.fullName)) {
@@ -157,7 +141,7 @@ export async function GET(
   }
 
   const client = await clientPromise
-  const db = client.db(process.env.MONGODB_DB || 'MabelHub')
+  const db = client.db(getDbName())
   const col = db.collection('VisitActivity')
 
   const doc = await col.findOne({ _id: new ObjectId(id) })
@@ -190,7 +174,7 @@ export async function GET(
       }
     } else {
       // Legacy doc: check if nama_sales matches any team member
-      if (!await isLegacyTeamOwner(db, doc, allowed)) {
+      if (!(await isLegacyTeamOwner(db, doc, allowed))) {
         return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
       }
     }
@@ -258,7 +242,7 @@ export async function PUT(
       }
     } else {
       // Legacy doc: check if nama_sales matches any team member
-      if (!await isLegacyTeamOwner(db, existingDoc, allowed)) {
+      if (!(await isLegacyTeamOwner(db, existingDoc, allowed))) {
         return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
       }
     }
@@ -270,6 +254,76 @@ export async function PUT(
   // PATCH SANITIZE
   // =========================
   const patch = pickAllowedPatch(body)
+  const targetStatus =
+    patch.reschedule_date && String(patch.reschedule_date).trim() !== ''
+      ? 'Not Visited'
+      : patch.status_visit ?? existingDoc.status_visit
+  const targetPhone =
+    patch.pic_phone !== undefined ? patch.pic_phone : existingDoc.pic_phone
+  const alertOwnerId = String(
+    existingDoc.user_id ||
+      (session.role === 'SALES' ? session.userId : ''),
+  )
+  const targetSatker = String(
+    patch.satuan_kerja ?? existingDoc.satuan_kerja ?? '',
+  )
+  const streakInputsChanged = [
+    'status_visit',
+    'pic_phone',
+    'satuan_kerja',
+    'visit_date',
+  ].some(
+    (field) =>
+      patch[field] !== undefined &&
+      String(patch[field] ?? '') !== String(existingDoc[field] ?? ''),
+  )
+
+  if (
+    alertOwnerId &&
+    isVisitedStatus(targetStatus) &&
+    !isPhoneFilled(targetPhone) &&
+    targetSatker &&
+    streakInputsChanged
+  ) {
+    const currentStreak = await getConsecutiveMissingPhoneCount(
+      db,
+      alertOwnerId,
+      targetSatker,
+      new ObjectId(id),
+    )
+    if (currentStreak >= 5) {
+      return NextResponse.json(
+        {
+          error:
+            'Nomor telepon wajib diisi setelah 5 kunjungan berturut-turut tanpa nomor telepon.',
+        },
+        { status: 400 },
+      )
+    }
+  }
+
+  // Convert base64 visit_image to a file in /uploads/
+  if (patch.visit_image && typeof patch.visit_image === 'string') {
+    const imgStr = patch.visit_image as string
+    // Match data:image/xxx;base64,... pattern (may have URL prefix)
+    const b64Match = imgStr.match(/data:image\/([a-zA-Z0-9]+);base64,(.+)$/)
+    if (b64Match) {
+      try {
+        const ext =
+          b64Match[1] === 'jpeg' || b64Match[1] === 'jpg' ? 'jpeg' : b64Match[1]
+        const base64Data = b64Match[2]
+        const buffer = Buffer.from(base64Data, 'base64')
+        const filename = `visit_${Date.now()}.${ext}`
+        const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
+        await mkdir(uploadsDir, { recursive: true })
+        await writeFile(path.join(uploadsDir, filename), buffer)
+        patch.visit_image = `/uploads/${filename}`
+      } catch (err) {
+        console.error('Failed to save visit image as file:', err)
+        // Keep as-is if file save fails
+      }
+    }
+  }
 
   // Otomatis kalkulasi status_market berdasarkan kegiatan_status yang dikirim,
   // atau jika tidak dikirim (tapi field lain mungkin diisi) kita abaikan jika tdk ada di patch
@@ -393,6 +447,22 @@ export async function PUT(
     return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 })
   }
 
+  const alertUserId = String(
+    doc.user_id || (session.role === 'SALES' ? session.userId : ''),
+  )
+  const oldSatker = String(existingDoc.satuan_kerja || '')
+  const newSatker = String(doc.satuan_kerja || '')
+  if (
+    alertUserId &&
+    (isVisitedStatus(existingDoc.status_visit) ||
+      isVisitedStatus(doc.status_visit))
+  ) {
+    if (oldSatker && oldSatker !== newSatker) {
+      await recomputeAlert(db, alertUserId, oldSatker)
+    }
+    if (newSatker) await recomputeAlert(db, alertUserId, newSatker)
+  }
+
   return NextResponse.json({
     data: { ...doc, _id: String((doc as any)._id) },
   })
@@ -419,7 +489,7 @@ export async function DELETE(
 
   const existing = await col.findOne(
     { _id: new ObjectId(id) },
-    { projection: { user_id: 1 } },
+    { projection: { user_id: 1, satuan_kerja: 1, status_visit: 1 } },
   )
   if (!existing) {
     return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 })
@@ -451,7 +521,7 @@ export async function DELETE(
       }
     } else {
       // Legacy doc: check if nama_sales matches any team member
-      if (!await isLegacyTeamOwner(db, existing, allowed)) {
+      if (!(await isLegacyTeamOwner(db, existing, allowed))) {
         return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
       }
     }
@@ -462,6 +532,16 @@ export async function DELETE(
   const del = await col.deleteOne({ _id: new ObjectId(id) })
   if (del.deletedCount === 0) {
     return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 })
+  }
+
+  const alertUserId = String((existing as any).user_id || '')
+  const satuanKerja = String((existing as any).satuan_kerja || '')
+  if (
+    alertUserId &&
+    satuanKerja &&
+    isVisitedStatus((existing as any).status_visit)
+  ) {
+    await recomputeAlert(db, alertUserId, satuanKerja)
   }
 
   return NextResponse.json({ ok: true })

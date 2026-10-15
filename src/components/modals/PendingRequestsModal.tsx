@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { normalizeRing } from "@/lib/ring";
 
 function clsx(...v: Array<string | false | undefined | null>) {
   return v.filter(Boolean).join(" ");
@@ -62,7 +63,7 @@ function Modal({
 }
 
 function StatusPill({ value }: { value?: string }) {
-  const v = (value || "-").toUpperCase();
+  const v = normalizeRing(value) || "-";
   const isB2G =
     v.includes("RING 1") ||
     v.includes("RING 2") ||

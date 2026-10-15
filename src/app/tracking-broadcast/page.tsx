@@ -22,13 +22,15 @@ import {
   Download,
 } from 'lucide-react'
 import SearchableSelect from '@/components/ui/SearchableSelect'
+import EditModal from '@/components/modals/EditModal'
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import React from 'react'
 import {
   listStatusByUpdate,
   getDetailOptions,
 } from '@/data/statusupdatebroadcast'
-import * as XLSX from 'xlsx'
+import { loadXLSX } from '@/lib/xlsx-loader'
+import { useExportToSheets } from '@/hooks/useExportToSheets'
 
 type StatusWaSummary = {
   terkirim: number
@@ -155,7 +157,7 @@ type ExportField = {
 const EXPORT_FIELDS: ExportField[] = [
   { key: 'created_at', label: 'Tanggal Input' },
   { key: 'kode', label: 'Kode' },
-  { key: 'penginput', label: 'Penginput' },
+  { key: 'requestor', label: 'Penginput' },
   { key: 'nama_perusahaan', label: 'Nama Perusahaan' },
   { key: 'segmen', label: 'Segmen' },
   { key: 'segmentasi', label: 'Segmentasi' },
@@ -171,7 +173,6 @@ const EXPORT_FIELDS: ExportField[] = [
   { key: 'sumber_lain', label: 'Sumber Lain' },
   { key: 'sales_internal', label: 'Sales Internal' },
   { key: 'merek_tayang', label: 'Merek Tayang' },
-  { key: 'sumber_lain', label: 'Sumber Lain' },
   { key: 'brand_owner', label: 'Brand Owner' },
   { key: 'email', label: 'Email' },
   { key: 'link_produk', label: 'Link Produk' },
@@ -363,6 +364,7 @@ export default function TrackingBroadcastPage() {
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     )
   }
+  
   const handleFilterByStatus = (status: string) => {
     setStatusWa((prev) =>
       prev.includes(status)
@@ -453,6 +455,39 @@ export default function TrackingBroadcastPage() {
   )
   const [exporting, setExporting] = useState(false)
 
+  // Google Sheets export
+  const { exportToSheets, loading: googleSheetsLoading } = useExportToSheets()
+
+  // helper modal – edit PIC
+  const [selectedRow, setSelectedRow] = useState<BroadCastRow | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleEditClick = (row: BroadCastRow) => {
+    setSelectedRow(row);
+    setIsModalOpen(true);
+  }
+
+  const handleSavePic = async (rowId: string, newPic: string) => {
+    try {
+      const res = await fetch('/api/tracking-broadcast', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: rowId, pic: newPic }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error || 'Gagal menyimpan PIC')
+      }
+      // Update tampilan tabel secara lokal tanpa refetch
+      setRows((prev) =>
+        prev.map((r) => (r._id === rowId ? { ...r, pic: newPic } : r))
+      )
+      setIsModalOpen(false)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan PIC')
+    }
+  };
+
   // filter value - multi-select arrays
   const [bulan, setBulan] = useState<string[]>([])
   const [perusahaan, setPerusahaan] = useState<string[]>([])
@@ -462,14 +497,11 @@ export default function TrackingBroadcastPage() {
   const [statusWa, setStatusWa] = useState<string[]>([])
   const [toSales, setToSales] = useState<string[]>([])
   const [namaPic, setNamaPic] = useState<string[]>([])
-  const [merekTayang, setMerekTayang] = useState<string[]>([])
-  const [tipe, setTipe] = useState<string[]>([])
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
   // data - statistik & analitik
-  const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<ApiStats | null>(null)
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
@@ -898,7 +930,8 @@ export default function TrackingBroadcastPage() {
     setPage(Math.min(Math.max(1, p), Math.max(1, totalPages)))
 
   // export handler
-  const handleExport = async () => {
+  async function handleExport() {
+    const XLSX = await loadXLSX()
     // Validasi mode 'date' wajib isi tanggal
     if (exportMode === 'date' && !exportStartDate && !exportEndDate) {
       alert('Silakan pilih minimal salah satu tanggal (mulai atau akhir)')
@@ -914,32 +947,28 @@ export default function TrackingBroadcastPage() {
         allRows = rows
       } else {
         const qs = new URLSearchParams()
-        qs.set('limit', '999999')
-        qs.set('page', 'max')
+        qs.set('limit', '50000')
+        qs.set('page', '1')
+        qs.set('export', 'true')
 
         // Filter kategori tetap dipakai di semua mode (bulan, produk, dst)
         bulan.forEach((v) => qs.append('bulan', v))
         produk.forEach((v) => qs.append('produk', v))
-        merekTayang.forEach((v) => qs.append('merek_tayang', v))
         perusahaan.forEach((v) => qs.append('perusahaan', v))
         provinsi.forEach((v) => qs.append('provinsi', v))
         kota.forEach((v) => qs.append('kota', v))
-        tipe.forEach((v) => qs.append('tipe', v))
-
-        const formatDisplayDate = (dateStr: string) => {
-          const d = new Date(dateStr)
-          return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' })
-        }
+        statusWa.forEach((v) => qs.append('status_wa', v))
+        toSales.forEach((v) => qs.append('ke_sales', v))
+        namaPic.forEach((v) => qs.append('pic', v))
 
         if (exportMode === 'date') {
-          // Mode by tanggal: wajib pakai tanggal dari modal export
-          if (exportStartDate)
-            qs.set('startDate', formatDisplayDate(exportStartDate))
-          if (exportEndDate) qs.set('endDate', formatDisplayDate(exportEndDate))
+          // Mode by tanggal: pakai tanggal dari modal export (format YYYY-MM-DD)
+          if (exportStartDate) qs.set('startDate', exportStartDate)
+          if (exportEndDate) qs.set('endDate', exportEndDate)
         }
         // Mode 'all': tidak set startDate/endDate sama sekali → tarik semua data
 
-        const res = await fetch(`/api/tracking-database?${qs.toString()}`, {
+        const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -950,7 +979,7 @@ export default function TrackingBroadcastPage() {
         alert('Tidak ada data untuk di-export')
         return
       }
-
+      console.log(allRows[0])
       const selectedFields = EXPORT_FIELDS.filter((f) =>
         exportFields.has(f.key),
       )
@@ -992,6 +1021,96 @@ export default function TrackingBroadcastPage() {
       setShowExportModal(false)
     } catch (e: any) {
       alert(e?.message ?? 'Gagal export data')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportToSheets = async () => {
+    if (exportMode === 'date' && !exportStartDate && !exportEndDate) {
+      alert('Silakan pilih minimal salah satu tanggal (mulai atau akhir)')
+      return
+    }
+
+    setExporting(true)
+    try {
+      let allRows: BroadCastRow[] = []
+
+      if (exportMode === 'pagination') {
+        allRows = rows
+      } else {
+        const qs = new URLSearchParams()
+        qs.set('limit', '50000')
+        qs.set('page', '1')
+        qs.set('export', 'true')
+
+        bulan.forEach((v) => qs.append('bulan', v))
+        produk.forEach((v) => qs.append('produk', v))
+        perusahaan.forEach((v) => qs.append('perusahaan', v))
+        provinsi.forEach((v) => qs.append('provinsi', v))
+        kota.forEach((v) => qs.append('kota', v))
+        statusWa.forEach((v) => qs.append('status_wa', v))
+        toSales.forEach((v) => qs.append('ke_sales', v))
+        namaPic.forEach((v) => qs.append('pic', v))
+
+        if (exportMode === 'date') {
+          if (exportStartDate) qs.set('startDate', exportStartDate)
+          if (exportEndDate) qs.set('endDate', exportEndDate)
+        }
+
+        const res = await fetch(`/api/tracking-broadcast?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        const json = await res.json().catch(() => ({}))
+        allRows = Array.isArray(json?.items) ? json.items : []
+      }
+
+      if (allRows.length === 0) {
+        alert('Tidak ada data untuk di-export')
+        return
+      }
+
+      const selectedFields = EXPORT_FIELDS.filter((f) =>
+        exportFields.has(f.key),
+      )
+      const headers = ['No', ...selectedFields.map((f) => f.label)]
+      const sheetRows = allRows.map((row, idx) => {
+        const rowData: (string | number | boolean | null)[] = [idx + 1]
+        selectedFields.forEach((f) => {
+          let val = row[f.key] ?? ''
+          if ((f.key === 'created_at' || f.key === 'updated_at') && val) {
+            try {
+              const d = new Date(val as string)
+              if (!isNaN(d.getTime())) {
+                const yyyy = d.getFullYear()
+                const mm = String(d.getMonth() + 1).padStart(2, '0')
+                const dd = String(d.getDate()).padStart(2, '0')
+                val = `${yyyy}-${mm}-${dd}`
+              }
+            } catch (err) {
+              if (err) {
+                alert('gagal export')
+                return
+              }
+            }
+          }
+          rowData.push(val)
+        })
+        return rowData
+      })
+
+      const modeLabel =
+        exportMode === 'all'
+          ? 'Semua'
+          : exportMode === 'date'
+            ? 'ByTanggal'
+            : `Hal${safePage}`
+      const title = `TrackingBroadcast_${modeLabel}`
+
+      await exportToSheets(title, headers, sheetRows)
+      setShowExportModal(false)
+    } catch (e: any) {
+      alert(e?.message ?? 'Gagal export ke Google Sheets')
     } finally {
       setExporting(false)
     }
@@ -1926,7 +2045,20 @@ export default function TrackingBroadcastPage() {
                               {row.kota}, {row.provinsi}
                             </td>
                             <td className='whitespace-nowrap px-5 py-3 text-[10px] text-slate-600'>
-                              {row.pic}
+                              <button
+                                title='Edit Nama PIC'
+                                onClick={() => handleEditClick(row)}
+                                className='flex items-center gap-1.5 group text-left hover:text-blue-600 transition-colors'
+                              >
+                                <PencilIcon
+                                  size={10}
+                                  strokeWidth={2}
+                                  className='shrink-0 text-slate-400 group-hover:text-blue-500'
+                                />
+                                <span className={row.pic ? 'text-slate-700 font-medium' : 'text-slate-300 italic'}>
+                                  {row.pic || 'Tambah PIC'}
+                                </span>
+                              </button>
                             </td>
                             <td className='px-2 py-2 text-[10px] text-gray-700'>
                               <div className='flex flex-col gap-0.5'>
@@ -2583,10 +2715,40 @@ export default function TrackingBroadcastPage() {
                   </>
                 )}
               </button>
+              <button
+                onClick={handleExportToSheets}
+                disabled={googleSheetsLoading || exportFields.size === 0}
+                className={cn(
+                  'h-10 px-6 rounded-xl text-sm font-bold text-white shadow-sm transition-colors flex items-center gap-2',
+                  googleSheetsLoading || exportFields.size === 0
+                    ? 'bg-blue-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700',
+                )}
+                title='Create a new Google Sheet with the data'
+              >
+                {googleSheetsLoading ? (
+                  <>
+                    <span className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <span>📊</span>
+                    Google Sheets
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
       )}
+      <EditModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        rowId={selectedRow?._id ?? ''}
+        pic={selectedRow?.pic ?? ''}
+        onSave={handleSavePic}
+      />
     </div>
   )
 }

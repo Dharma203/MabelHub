@@ -18,6 +18,12 @@ import { useSession } from '@/components/session/SessionProvider'
 import { useRouter } from 'next/navigation'
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import Image from 'next/image'
+import { normalizeRing } from '@/lib/ring'
+import { loadXLSX } from '@/lib/xlsx-loader'
+import ExportExcelModal, {
+  ExportColumn,
+  ExportScope,
+} from '@/components/modals/ExportExcelModal'
 
 interface StatCardProps {
   title: string
@@ -39,6 +45,8 @@ type VisitRow = {
   created_at: string
   status_market: string
   klpd: string
+  namaEntitas: string
+  jenisEntitas: string
   reschedule: string // ISO or "-"
   institusi_kerja: string
   pic_position: string
@@ -64,12 +72,27 @@ type VisitDetail = {
   created_at: string
   status_market: string
   klpd: string
+  namaEntitas: string
+  jenisEntitas: string
   institusi_kerja: string
   tindak_lanjut: string
   kegiatan_status: string
   descriptions: string
   visit_image: string | null
   reschedule: string
+}
+
+function formatDateID(iso: string) {
+  if (!iso || iso === '-') return '-'
+  try {
+    return new Date(iso).toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  } catch {
+    return iso
+  }
 }
 
 function getPageWindow(current: number, totalPages: number, size: number) {
@@ -98,7 +121,8 @@ export default function TrackingSatuanKerja() {
         user.role === 'SUPERADMIN' ||
         user.role === 'ADMIN' ||
         user.role === 'LEADER' ||
-        user.role === 'SALES'
+        user.role === 'SALES' ||
+        user.role === 'ADMIN SALES'
       if (!ok) router.replace('/')
     }
   }, [sessionLoading, user, router])
@@ -106,20 +130,25 @@ export default function TrackingSatuanKerja() {
   const [fSales, setFSales] = useState<string>('ALL')
   const [fStart, setFStart] = useState<string>('')
   const [fEnd, setFEnd] = useState<string>('')
-  const [fPhone, setFPhone] = useState<string>('')
+  const [fPhone, setFPhone] = useState<string>('ALL')
   const [fRing, setFRing] = useState<string>('ALL')
   const [fCity, setFCity] = useState<string>('ALL')
   const [fSatker, setFSatker] = useState<string>('ALL')
+  const [fNamaEntitas, setFNamaEntitas] = useState<string>('ALL')
 
   //   dropdown meta
   const [salesOptions, setSalesOptions] = useState<string[]>([])
   const [cityOptions, setCityOptions] = useState<string[]>([])
   const [satkerOptions, setSatkerOptions] = useState<string[]>([])
-  const [phoneOptions, setPhoneOptions] = useState<string[]>([])
+  const [entitasOptions, setEntitasOptions] = useState<string[]>([])
 
   // pagination
   const [pageSize, setPageSize] = useState<number>(25)
   const [page, setPage] = useState<number>(1)
+
+  // export modal
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   // fetch stat
   const [statsLoading, setStatsLoading] = useState(true)
@@ -169,6 +198,7 @@ export default function TrackingSatuanKerja() {
 
   // expand row: visit dates by satker
   const [expandedSatker, setExpandedSatker] = useState<string | null>(null)
+  const [expandedEntitas, setExpanderEntitas] = useState<string | null>(null)
   const [visitDates, setVisitDates] = useState<VisitDetail[]>([])
   const [loadingVisitDates, setLoadingVisitDates] = useState(false)
 
@@ -200,11 +230,18 @@ export default function TrackingSatuanKerja() {
         setSalesOptions(Array.isArray(json?.sales) ? json.sales : [])
         setCityOptions(Array.isArray(json?.cities) ? json.cities : [])
         setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
+        setEntitasOptions([
+          ...new Set([
+            ...(Array.isArray(json?.namaEntitas) ? json.namaEntitas : []),
+            ...(Array.isArray(json?.jenisEntitas) ? json.jenisEntitas : []),
+          ]),
+        ])
       } catch {
         if (!mounted) return
         setSalesOptions([])
         setCityOptions([])
         setSatkerOptions([])
+        setEntitasOptions([])
       }
     })()
 
@@ -223,18 +260,19 @@ export default function TrackingSatuanKerja() {
         setLoadingRows(true)
 
         const params = new URLSearchParams()
+        params.set('page', String(page))
+        params.set('limit', String(pageSize))
         if (fSales !== 'ALL') params.set('sales', fSales)
         if (fStart) params.set('start', fStart)
         if (fEnd) params.set('end', fEnd)
-        if (fRing !== 'ALL') params.set('ring', fRing)
+        if (fRing !== 'ALL') params.set('ring', normalizeRing(fRing))
         if (fCity !== 'ALL') params.set('city', fCity)
         if (fSatker !== 'ALL') params.set('satker', fSatker)
+        if (fPhone !== 'ALL') params.set('pic_phone', fPhone)
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
         params.set('excludeOffice', 'true')
-        params.set('page', String(page))
-        params.set('limit', String(pageSize))
 
         const res = await fetch(`/api/visits?${params.toString()}`, {
           cache: 'no-store',
@@ -275,6 +313,7 @@ export default function TrackingSatuanKerja() {
     pageSize,
     sessionLoading,
     user,
+    fPhone,
   ])
 
   const [paramStatus, setParamStatus] = useState<string[]>([])
@@ -297,6 +336,97 @@ export default function TrackingSatuanKerja() {
     setSelected(null)
     setExpandedSatker(null)
     setPage(1)
+  }
+
+  function getEntityDisplayValue(row: Partial<VisitRow>) {
+    if (row.status_ring === 'RING 4') {
+      return row.namaEntitas || row.jenisEntitas || row.institusi_kerja || '-'
+    }
+
+    return row.satuan_kerja || row.namaEntitas || row.institusi_kerja || '-'
+  }
+
+  const exportColumns: ExportColumn[] = [
+    { id: 'rank', label: 'Rank' },
+    { id: 'nama_sales', label: 'Sales Person' },
+    { id: 'city', label: 'City' },
+    { id: 'ring', label: 'Ring' },
+    { id: 'satuan_kerja', label: 'Satuan Kerja' },
+    { id: 'pic_name', label: 'Pic Name' },
+    { id: 'pic_phone', label: 'Pic Phone' },
+    { id: 'total_visit', label: 'Total Visit' },
+    { id: 'visit_date', label: 'Tgl Kunjungan Terakhir' },
+  ]
+
+  async function handleExport(selectedCols: string[], scope: ExportScope) {
+    const XLSX = await loadXLSX()
+    setIsExporting(true)
+    try {
+      let dataToProcess: VisitRow[] = []
+
+      if (scope === 'all') {
+        const qs = new URLSearchParams()
+        qs.set('limit', '999999')
+        qs.set('page', '1')
+
+        if (fSales !== 'ALL') qs.set('sales', fSales)
+        if (fCity !== 'ALL') qs.set('city', fCity)
+        if (fRing !== 'ALL') qs.set('ring', fRing)
+        if (fSatker !== 'ALL') qs.set('satker', fSatker)
+        if (fPhone !== 'ALL') qs.set('pic_phone', fPhone)
+        if (fStart) qs.set('start', fStart)
+        if (fEnd) qs.set('end', fEnd)
+        qs.set('sortBy', sortBy)
+        qs.set('sortDir', sortDir)
+        qs.set('groupBySatker', 'true')
+        qs.set('excludeOffice', 'true')
+
+        const res = await fetch(`/api/visits?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        if (!res.ok) throw new Error('Gagal mengambil data')
+        const json = await res.json()
+        dataToProcess = Array.isArray(json?.items) ? json.items : []
+      } else {
+        dataToProcess = rows
+      }
+
+      const flattenedData = dataToProcess.map((r) => {
+        const row: any = {}
+        if (selectedCols.includes('rank')) row['Rank'] = r.rank || '-'
+        if (selectedCols.includes('nama_sales'))
+          row['Nama Sales'] = r.nama_sales || '-'
+        if (selectedCols.includes('city')) row['City'] = r.city || '-'
+        if (selectedCols.includes('ring'))
+          row['Ring'] = normalizeRing(r.status_ring) || '-'
+        if (selectedCols.includes('satuan_kerja'))
+          row['Satuan Kerja'] = getEntityDisplayValue(r)
+        if (selectedCols.includes('pic_name'))
+          row['Pic Name'] = r.pic_name || '-'
+        if (selectedCols.includes('pic_phone'))
+          row['Pic Phone'] = r.pic_phone || '-'
+        if (selectedCols.includes('total_visit'))
+          row['Total Visit'] = r.total_visit
+        if (selectedCols.includes('visit_date'))
+          row['Visit Date'] = formatDateID(r.visit_date)
+        return row
+      })
+
+      const worksheet = XLSX.utils.json_to_sheet(flattenedData)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Tracking_Satker')
+      XLSX.writeFile(
+        workbook,
+        `Rekapitulasi_Visit_${scope === 'all' ? 'All' : 'Page'}.xlsx`,
+      )
+
+      setIsExportModalOpen(false)
+    } catch (error) {
+      console.error('Failed to export excel:', error)
+      alert('gagal mengekspor data ke excel')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const handleSort = (field: string, dir: 'asc' | 'desc') => {
@@ -373,9 +503,17 @@ export default function TrackingSatuanKerja() {
           {/* TOP Bar */}
           <div className='mb-4 px-4 pt-2 pb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
             <div>
-              <h2 className='tex-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
+              <h2 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
                 Tracking Satuan Kerja
               </h2>
+            </div>
+            <div className='px-4'>
+              <button
+                onClick={() => setIsExportModalOpen(true)}
+                className='rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm ring-1 ring-green-700 hover:bg-green-700 transition'
+              >
+                Export Excel
+              </button>
             </div>
           </div>
           <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-3'>
@@ -464,22 +602,44 @@ export default function TrackingSatuanKerja() {
                 )}
               />
 
-              <FilterSelect
-                label='PIC PHONE'
-                value={fPhone}
-                onChange={(v) => onChangeFilter(setFPhone, v)}
-                options={[{ label: 'Semua Kontak', value: 'ALL' }].concat(
-                  phoneOptions.map((c) => ({ label: c, value: c })),
-                )}
-              />
+              <Field label='PIC PHONE'>
+                <SearchableSelect
+                  value={fPhone}
+                  onChange={(v) => onChangeFilter(setFPhone, v)}
+                  options={[
+                    { label: 'Semua Kontak', value: 'ALL' },
+                    { label: 'Ada Kontak', value: 'HAS_CONTACT' },
+                    { label: 'Belum Ada Kontak', value: 'NO_CONTACT' },
+                  ]}
+                />
+              </Field>
 
               <div>
                 <FilterSelect
                   label='SATUAN KERJA'
-                  value={fSatker}
-                  onChange={(v) => onChangeFilter(setFSatker, v)}
+                  value={
+                    fNamaEntitas !== 'ALL'
+                      ? fNamaEntitas
+                      : fSatker !== 'ALL'
+                        ? fSatker
+                        : 'ALL'
+                  }
+                  onChange={(v) => {
+                    if (v === 'ALL') {
+                      setFSatker('ALL')
+                      setFNamaEntitas('ALL')
+                      return
+                    }
+
+                    const matchesSatker = satkerOptions.includes(v)
+                    const matchesEntitas = entitasOptions.includes(v)
+
+                    setFSatker(matchesSatker ? v : 'ALL')
+                    setFNamaEntitas(matchesEntitas ? v : 'ALL')
+                  }}
                   options={[{ label: 'Semua Satker', value: 'ALL' }].concat(
                     satkerOptions.map((s) => ({ label: s, value: s })),
+                    entitasOptions.map((e) => ({ label: e, value: e })),
                   )}
                   full
                 />
@@ -601,7 +761,7 @@ export default function TrackingSatuanKerja() {
                               {r.city}
                             </td>
                             <td className='px-6 py-6 font-extrabold text-[#0B6AA9]'>
-                              {r.status_ring}
+                              {normalizeRing(r.status_ring) || '-'}
                             </td>
                             <td className='px-6 py-6 text-gray-900'>
                               {r.satuan_kerja}
@@ -712,6 +872,128 @@ export default function TrackingSatuanKerja() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile View */}
+            <div className='md:hidden space-y-3 p-3'>
+              {loadingRows ? (
+                <div className='py-12 text-center text-gray-500'>
+                  Loading...
+                </div>
+              ) : rows.length === 0 ? (
+                <div className='py-12 text-center text-gray-500'>
+                  Tidak ada data.
+                </div>
+              ) : (
+                rows.map((r) => {
+                  const isExpanded = expandedSatker === r.satuan_kerja
+                  return (
+                    <div
+                      key={r._id}
+                      className='rounded-xl bg-white border border-gray-100 shadow-sm'
+                    >
+                      <div className='p-4 space-y-2'>
+                        <div className='flex items-center justify-between'>
+                          <span className='inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
+                            {r.rank ?? '-'}
+                          </span>
+                          <button
+                            type='button'
+                            onClick={() => toggleExpandSatker(r.satuan_kerja)}
+                            className={cn(
+                              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all',
+                              isExpanded
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-blue-50 text-blue-700',
+                            )}
+                          >
+                            {r.total_visit ?? '-'} Visit
+                            {isExpanded ? (
+                              <ChevronUp className='w-3.5 h-3.5' />
+                            ) : (
+                              <ChevronDown className='w-3.5 h-3.5' />
+                            )}
+                          </button>
+                        </div>
+                        <div className='text-sm font-extrabold text-[#0B6AA9]'>
+                          {r.nama_sales}
+                        </div>
+                        <div className='grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700'>
+                          <div>
+                            <span className='text-gray-400'>City:</span>{' '}
+                            {r.city}
+                          </div>
+                          <div>
+                            <span className='text-gray-400'>Ring:</span>{' '}
+                            {normalizeRing(r.status_ring) || '-'}
+                          </div>
+                          <div className='col-span-2'>
+                            <span className='text-gray-400'>Satker:</span>{' '}
+                            {r.satuan_kerja}
+                          </div>
+                          <div>
+                            <span className='text-gray-400'>PIC:</span>{' '}
+                            {r.pic_name}
+                          </div>
+                          <div>
+                            <span className='text-gray-400'>Phone:</span>{' '}
+                            {r.pic_phone}
+                          </div>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className='border-t border-gray-100 p-4'>
+                          <div className='mb-2 text-xs font-extrabold text-gray-900'>
+                            Riwayat Kunjungan — {r.satuan_kerja}
+                          </div>
+                          {loadingVisitDates ? (
+                            <div className='py-4 text-center text-gray-400 text-xs'>
+                              Memuat...
+                            </div>
+                          ) : visitDates.length === 0 ? (
+                            <div className='py-4 text-center text-gray-400 text-xs'>
+                              Tidak ada data.
+                            </div>
+                          ) : (
+                            <div className='space-y-2 max-h-60 overflow-y-auto'>
+                              {visitDates.map((v) => {
+                                const sc = getStatusColor(v.status_visit)
+                                return (
+                                  <button
+                                    key={v._id}
+                                    type='button'
+                                    onClick={() => setModalVisit(v)}
+                                    className='flex items-center gap-3 w-full text-left px-3 py-2 rounded-lg border border-gray-100 hover:bg-blue-50/40 transition-all'
+                                  >
+                                    <Calendar className='w-4 h-4 text-blue-600 shrink-0' />
+                                    <div className='flex-1 min-w-0'>
+                                      <div className='text-xs font-bold text-gray-900'>
+                                        {v.visit_date}
+                                      </div>
+                                      <div className='text-[10px] text-gray-500 truncate'>
+                                        {v.nama_sales} • {v.city}
+                                      </div>
+                                    </div>
+                                    <span
+                                      className={cn(
+                                        'px-2 py-0.5 rounded-full text-[9px] font-bold uppercase',
+                                        sc.bg,
+                                        sc.text,
+                                      )}
+                                    >
+                                      {v.status_visit || '-'}
+                                    </span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </section>
 
           {/* ========== VISIT DETAIL MODAL ========== */}
@@ -768,16 +1050,39 @@ export default function TrackingSatuanKerja() {
                         value={modalVisit.nama_sales}
                       />
                       <DetailItem label='City' value={modalVisit.city} />
-                      <DetailItem label='Ring' value={modalVisit.status_ring} />
                       <DetailItem
-                        label='Satuan Kerja'
-                        value={modalVisit.satuan_kerja}
+                        label='Ring'
+                        value={normalizeRing(modalVisit.status_ring) || '-'}
                       />
                       <DetailItem label='KLPD' value={modalVisit.klpd} />
-                      <DetailItem
-                        label='Institusi Kerja'
-                        value={modalVisit.institusi_kerja}
-                      />
+                      {normalizeRing(modalVisit.status_ring) === 'RING 4' ? (
+                        <>
+                          <DetailItem
+                            label='Nama Entitas'
+                            value={
+                              modalVisit.namaEntitas || modalVisit.satuan_kerja
+                            }
+                          />
+                          <DetailItem
+                            label='Jenis Entitas'
+                            value={
+                              modalVisit.jenisEntitas ||
+                              modalVisit.institusi_kerja
+                            }
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <DetailItem
+                            label='Institusi Kerja'
+                            value={modalVisit.institusi_kerja}
+                          />
+                          <DetailItem
+                            label='Satuan Kerja'
+                            value={modalVisit.satuan_kerja}
+                          />
+                        </>
+                      )}
                       <DetailItem
                         label='PIC Name'
                         value={modalVisit.pic_name}
@@ -875,15 +1180,19 @@ export default function TrackingSatuanKerja() {
                         <div
                           className='relative w-full max-w-xs mx-auto cursor-pointer group'
                           onClick={() =>
-                            openImageFullscreen(modalVisit.visit_image!)
+                            openImageFullscreen(
+                              `/api/visits/${modalVisit._id}/image`,
+                            )
                           }
                         >
                           <Image
-                            src={modalVisit.visit_image}
+                            src={`/api/visits/${modalVisit._id}/image`}
                             alt='Bukti Kunjungan'
                             width={500}
                             height={500}
                             quality={80}
+                            unoptimized
+                            priority
                             className='w-full rounded-xl shadow-sm ring-1 ring-gray-200 group-hover:ring-blue-400 group-hover:shadow-lg transition-all'
                           />
                           <div className='absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center'>
@@ -934,6 +1243,8 @@ export default function TrackingSatuanKerja() {
                 height={500}
                 width={500}
                 quality={80}
+                unoptimized
+                priority
                 alt='Full size'
                 className='max-w-full max-h-full rounded-xl shadow-2xl object-contain'
                 onClick={(e) => e.stopPropagation()}
@@ -1001,6 +1312,13 @@ export default function TrackingSatuanKerja() {
           </section>
         </div>
       </div>
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        columns={exportColumns}
+        onExport={handleExport}
+        isLoading={isExporting}
+      />
     </div>
   )
 }
@@ -1091,6 +1409,23 @@ function DetailItem({ label, value }: { label: string; value: string }) {
       <div className='mt-1 text-sm font-semibold text-gray-900'>
         {value || '-'}
       </div>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className='space-y-2'>
+      <label className='text-sm font-bold tracking-wide text-slate-500 uppercase'>
+        {label}
+      </label>
+      {children}
     </div>
   )
 }

@@ -44,14 +44,14 @@ type ThemeColor = keyof typeof THEMES
 interface StatItem {
   label: string
   value: number
-  color?: ThemeColor // overrides the card's default color for this row only
+  color?: ThemeColor
 }
 
 interface StatCardProps {
   icon: LucideIcon
   title: string
   items: StatItem[]
-  color?: ThemeColor // default color for header + all rows
+  color?: ThemeColor
 }
 
 export default function TableCard({
@@ -85,7 +85,7 @@ export default function TableCard({
 
       <hr className='border-gray-100 mb-3.5' />
 
-      <div className='space-y-3.5'>
+      <div className='max-h-[230px] overflow-y-auto space-y-3.5'>
         {items.map((item) => {
           const rowTheme = item.color ? THEMES[item.color] : theme
           const width = maxValue > 0 ? (item.value / maxValue) * 100 : 0

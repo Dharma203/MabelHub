@@ -4,7 +4,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "DEV_SECRET_CHANGE_ME";
 
 export type SessionPayload = {
   userId: string;
-  role: "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES";
+  role: "SUPERADMIN" | "ADMIN" | "LEADER" | "SALES" | "ADMIN SALES" ;
   username: string;
   fullName: string;
 };

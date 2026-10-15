@@ -19,10 +19,15 @@ import {
   Activity,
   User2,
   UserRound,
-  BarChartBig,
   BarChart3,
 } from 'lucide-react'
 import Image from 'next/image'
+import { normalizeRing } from '@/lib/ring'
+import { loadXLSX } from '@/lib/xlsx-loader'
+import ExportExcelModal, {
+  ExportColumn,
+  ExportScope,
+} from '@/components/modals/ExportExcelModal'
 
 interface StatCardProps {
   title: string
@@ -40,7 +45,7 @@ type VisitRow = {
   city: string
   pic_name: string
   pic_phone: string
-  status_ring: 'RING 1' | 'RING 2' | 'RING 3' | 'RING 4' | string
+  status_ring: 'RING 1' | 'RING 2' | 'RING 3' | string
   created_at: string
   status_market: string
   klpd: string
@@ -104,7 +109,8 @@ export default function TrackingB2GPage() {
         user.role === 'SUPERADMIN' ||
         user.role === 'ADMIN' ||
         user.role === 'LEADER' ||
-        user.role === 'SALES'
+        user.role === 'SALES' ||
+        user.role === 'ADMIN SALES'
       if (!ok) router.replace('/')
     }
   }, [sessionLoading, user, router])
@@ -114,16 +120,22 @@ export default function TrackingB2GPage() {
   const [fSales, setFSales] = useState<string>('ALL')
   const [fStart, setFStart] = useState<string>('')
   const [fEnd, setFEnd] = useState<string>('')
-  const [fPhone, setFPhone] = useState<string>('')
+  const [fPhone, setFPhone] = useState<string>('ALL')
   const [fRing, setFRing] = useState<string>('ALL')
   const [fCity, setFCity] = useState<string>('ALL')
   const [fSatker, setFSatker] = useState<string>('ALL')
+  const [fKlpd, setFKlpd] = useState<string>('ALL')
+  const [fVisit, setFVisit] = useState<string>('ALL')
+  const [fNamaEntitas, setFNamaEntitas] = useState<string>('ALL')
 
   //   dropdown meta
   const [salesOptions, setSalesOptions] = useState<string[]>([])
   const [cityOptions, setCityOptions] = useState<string[]>([])
   const [satkerOptions, setSatkerOptions] = useState<string[]>([])
   const [phoneOptions, setPhoneOptions] = useState<string[]>([])
+  const [klpdOptions, setKlpdOptions] = useState<string[]>([])
+  const [visitOptions, setVisitOptions] = useState<string[]>([])
+  const [entitasOptions, setEntitasOptions] = useState<string[]>([])
 
   // pagination
   const [pageSize, setPageSize] = useState<number>(25)
@@ -132,11 +144,19 @@ export default function TrackingB2GPage() {
   // fetch stat
   const [statsLoading, setStatsLoading] = useState(true)
   const [totalSatuanKerja, setTotalSatuanKerja] = useState<number>(0)
+  const [byKlpd, setByKlpd] = useState<{ label: string; value: number }[]>([])
+  const [bySales, setBySales] = useState<{ label: string; value: number }[]>([])
+  const [byRing, setByRing] = useState<{ label: string; value: number }[]>([])
   const [totalVisitAll, setTotalVisitAll] = useState<number>(0)
   const [topSatker, setTopSatker] = useState<string>('-')
   const [topSatkerCount, setTopSatkerCount] = useState<number>(0)
+  const [salesAktif, setSalesAktif] = useState<number>(0)
   const [sortBy, setSortBy] = useState<string>('total_visit')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  // export modal
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -146,7 +166,7 @@ export default function TrackingB2GPage() {
       if (!user) return // middleware seharusnya redirect
       try {
         setStatsLoading(true)
-        const res = await fetch('/api/visits/stats?excludeRing4=true', {
+        const res = await fetch('/api/visits/stats?filterStatsB2G=true', {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -156,6 +176,10 @@ export default function TrackingB2GPage() {
         setTotalVisitAll(Number(json?.totalVisit) || 0)
         setTopSatker(String(json?.topSatker) || '-')
         setTopSatkerCount(Number(json?.topSatkerCount) || 0)
+        setSalesAktif(Number(json?.salesAktif) || 0)
+        setByKlpd(Array.isArray(json?.byKlpd) ? json.byKlpd : [])
+        setBySales(Array.isArray(json?.bySales) ? json.bySales : [])
+        setByRing(Array.isArray(json?.byRing) ? json.byRing : [])
       } catch {
         if (!mounted) return
         setTotalSatuanKerja(0)
@@ -199,7 +223,7 @@ export default function TrackingB2GPage() {
       if (sessionLoading) return
       if (!user) return
       try {
-        const res = await fetch('/api/visits/meta?excludeRing4=true', {
+        const res = await fetch('/api/visits/meta?filterStatsB2G=true', {
           cache: 'no-store',
         })
         const json = await res.json().catch(() => ({}))
@@ -207,12 +231,25 @@ export default function TrackingB2GPage() {
 
         setSalesOptions(Array.isArray(json?.sales) ? json.sales : [])
         setCityOptions(Array.isArray(json?.cities) ? json.cities : [])
+        setKlpdOptions(Array.isArray(json?.klpd) ? json.klpd : [])
+        setVisitOptions(
+          Array.isArray(json?.status_visit) ? json.status_visit : [],
+        )
+        setEntitasOptions([
+          ...new Set([
+            ...(Array.isArray(json?.namaEntitas) ? json.namaEntitas : []),
+            ...(Array.isArray(json?.jenisEntitas) ? json.jenisEntitas : []),
+          ]),
+        ])
         setSatkerOptions(Array.isArray(json?.satkers) ? json.satkers : [])
       } catch {
         if (!mounted) return
         setSalesOptions([])
         setCityOptions([])
+        setKlpdOptions([])
+        setVisitOptions([])
         setSatkerOptions([])
+        setEntitasOptions([])
       }
     })()
 
@@ -231,18 +268,22 @@ export default function TrackingB2GPage() {
         setLoadingRows(true)
 
         const params = new URLSearchParams()
+        params.set('page', String(page))
+        params.set('limit', String(pageSize))
         if (fSales !== 'ALL') params.set('sales', fSales)
         if (fStart) params.set('start', fStart)
         if (fEnd) params.set('end', fEnd)
-        if (fRing !== 'ALL') params.set('ring', fRing)
+        if (fRing !== 'ALL') params.set('ring', normalizeRing(fRing))
         if (fCity !== 'ALL') params.set('city', fCity)
         if (fSatker !== 'ALL') params.set('satker', fSatker)
+        if (fKlpd !== 'ALL') params.set('klpd', fKlpd)
+        if (fVisit !== 'ALL') params.set('status_visit', fVisit)
+        if (fPhone !== 'ALL') params.set('pic_phone', fPhone)
         params.set('sortBy', sortBy)
         params.set('sortDir', sortDir)
         params.set('groupBySatker', 'true')
-        params.set('excludeRing4', 'true')
-        params.set('page', String(page))
-        params.set('limit', String(pageSize))
+        params.set('excludeOffice', 'true')
+        params.set('filterStatsB2G', 'true')
 
         const res = await fetch(`/api/visits?${params.toString()}`, {
           cache: 'no-store',
@@ -277,12 +318,15 @@ export default function TrackingB2GPage() {
     fRing,
     fCity,
     fSatker,
+    fKlpd,
+    fVisit,
     sortBy,
     sortDir,
     page,
     pageSize,
     sessionLoading,
     user,
+    fPhone,
   ])
 
   const [paramStatus, setParamStatus] = useState<string[]>([])
@@ -314,6 +358,91 @@ export default function TrackingB2GPage() {
     setPage(1)
     setSelected(null)
     setExpandedSatker(null)
+  }
+
+  const exportColumns: ExportColumn[] = [
+    { id: 'rank', label: 'Rank' },
+    { id: 'nama_sales', label: 'Sales Person' },
+    { id: 'city', label: 'City' },
+    { id: 'ring', label: 'Ring' },
+    { id: 'klpd', label: 'KLPD' },
+    { id: 'institusi_kerja', label: 'Institusi Kerja' },
+    { id: 'satuan_kerja', label: 'Satuan Kerja' },
+    { id: 'pic_name', label: 'Pic Name' },
+    { id: 'pic_phone', label: 'Pic Phone' },
+    { id: 'total_visit', label: 'Total Visit' },
+  ]
+
+  async function handleExport(selectedCols: string[], scope: ExportScope) {
+    const XLSX = await loadXLSX()
+    setIsExporting(true)
+    try {
+      let dataToProcess: VisitRow[] = []
+
+      if (scope === 'all') {
+        const qs = new URLSearchParams()
+        qs.set('limit', '999999')
+        qs.set('page', '1')
+
+        if (fSales !== 'ALL') qs.set('sales', fSales)
+        if (fCity !== 'ALL') qs.set('city', fCity)
+        if (fRing !== 'ALL') qs.set('ring', fRing)
+        if (fSatker !== 'ALL') qs.set('satker', fSatker)
+        if (fKlpd !== 'ALL') qs.set('klpd', fKlpd)
+        if (fStart) qs.set('start', fStart)
+        if (fEnd) qs.set('end', fStart)
+        qs.set('sortBy', sortBy)
+        qs.set('sortDir', sortDir)
+        qs.set('groupBySatker', 'true')
+        qs.set('excludeOffice', 'true')
+
+        const res = await fetch(`/api/visits?${qs.toString()}`, {
+          cache: 'no-store',
+        })
+        if (!res.ok) throw new Error('Gagal mengambil data')
+        const json = await res.json()
+        dataToProcess = Array.isArray(json?.items) ? json.items : []
+      } else {
+        dataToProcess = rows
+      }
+
+      const flattenedData = dataToProcess.map((r) => {
+        const row: any = {}
+        if (selectedCols.includes('rank')) row['Rank'] = r.rank || '-'
+        if (selectedCols.includes('nama_sales'))
+          row['Nama Sales'] = r.nama_sales || '-'
+        if (selectedCols.includes('city')) row['City'] = r.city || '-'
+        if (selectedCols.includes('ring'))
+          row['Ring'] = normalizeRing(r.status_ring) || '-'
+        if (selectedCols.includes('klpd')) row['KLPD'] = r.klpd || '-'
+        if (selectedCols.includes('institusi_kerja'))
+          row['Institusi Kerja'] = r.institusi_kerja || '-'
+        if (selectedCols.includes('satuan_kerja'))
+          row['Satuan Kerja'] = r.satuan_kerja || '-'
+        if (selectedCols.includes('pic_name'))
+          row['Pic Name'] = r.pic_name || '-'
+        if (selectedCols.includes('pic_phone'))
+          row['Pic Phone'] = r.pic_phone || '-'
+        if (selectedCols.includes('total_visit'))
+          row['Total Visit'] = r.total_visit
+        return row
+      })
+
+      const worksheet = XLSX.utils.json_to_sheet(flattenedData)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Tracking B2G')
+      XLSX.writeFile(
+        workbook,
+        `Tracking_B2G_${scope === 'all' ? 'ALL' : 'Page'}.xlsx`,
+      )
+
+      setIsExportModalOpen(false)
+    } catch (error) {
+      console.error('Failed to export to excel: ', error)
+      alert('gagal mengekspor data ke excel')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   // Fetch visit dates when expanding a satker
@@ -382,9 +511,17 @@ export default function TrackingB2GPage() {
           {/* TOP Bar */}
           <div className='mb-4 px-4 pt-2 pb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
             <div>
-              <h2 className='tex-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
-                Tracking Satuan Kerja
+              <h2 className='text-3xl pl-4 font-extrabold text-black drop-shadow-sm'>
+                Tracking Visit B2G
               </h2>
+            </div>
+            <div className='px-4'>
+              <button
+                onClick={() => setIsExportModalOpen(true)}
+                className='rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm ring-1 ring-green-700 hover:bg-green-700 transition'
+              >
+                Export Excel
+              </button>
             </div>
           </div>
           <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-4'>
@@ -405,7 +542,7 @@ export default function TrackingB2GPage() {
             />
             <StatCard
               title='TOTAL SALES AKTIF'
-              value={statsLoading ? '...' : `${topSatker} (${topSatkerCount}x)`}
+              value={statsLoading ? '...' : String(salesAktif)}
               icon={<UserRound className='h-6 w-6 text-yellow-500' />}
             />
           </div>
@@ -414,27 +551,19 @@ export default function TrackingB2GPage() {
               icon={BarChart3}
               title='SATKER UNIK PER KLPD'
               color='blue'
-              items={[
-                { label: 'Kota', value: 686 },
-                { label: 'Provinsi', value: 237 },
-                { label: 'Kementerian', value: 185 },
-              ]}
+              items={byKlpd}
             />
             <TableCard
-            icon={User2}
-            title='SATKER UNIK PER SALES PERSON'
-            color='green'
-            items={[
-              {label: fSales, value: totalVisitAll},
-            ]}
+              icon={User2}
+              title='SATKER UNIK PER SALES PERSON'
+              color='green'
+              items={bySales}
             />
             <TableCard
-            icon={User2}
-            title='SATKER UNIK PER RING'
-            color='red'
-            items={[
-              {label: fRing, value: totalSatuanKerja},
-            ]}
+              icon={MapPin}
+              title='SATKER UNIK PER RING'
+              color='red'
+              items={byRing}
             />
           </div>
           <section className='rounded-2xl bg-white p-7 shadow-sm'>
@@ -454,19 +583,10 @@ export default function TrackingB2GPage() {
 
             <div
               className={cn(
-                'grid grid-cols-1 gap-6 md:grid-cols-7 mt-4 md:mt-0',
+                'grid grid-cols-1 gap-6 md:grid-cols-9 mt-4 md:mt-0',
                 !isFilterOpen ? 'hidden md:grid' : 'grid',
               )}
             >
-              <FilterSelect
-                label='SALES PERSON'
-                value={fSales}
-                onChange={(v) => onChangeFilter(setFSales, v)}
-                options={[{ label: 'Semua Sales', value: 'ALL' }].concat(
-                  salesOptions.map((s) => ({ label: s, value: s })),
-                )}
-              />
-
               <FilterDate
                 label='TANGGAL MULAI'
                 value={fStart}
@@ -486,6 +606,14 @@ export default function TrackingB2GPage() {
                     e.currentTarget.showPicker()
                   }
                 }}
+              />
+              <FilterSelect
+                label='SALES PERSON'
+                value={fSales}
+                onChange={(v) => onChangeFilter(setFSales, v)}
+                options={[{ label: 'Semua Sales', value: 'ALL' }].concat(
+                  salesOptions.map((s) => ({ label: s, value: s })),
+                )}
               />
 
               <FilterSelect
@@ -507,21 +635,61 @@ export default function TrackingB2GPage() {
               />
 
               <FilterSelect
-                label='PIC PHONE'
-                value={fPhone}
-                onChange={(v) => onChangeFilter(setFPhone, v)}
-                options={[{ label: 'Semua Kontak', value: 'ALL' }].concat(
-                  phoneOptions.map((c) => ({ label: c, value: c })),
+                label='KLPD'
+                value={fKlpd}
+                onChange={(v) => onChangeFilter(setFKlpd, v)}
+                options={[{ label: 'Semua KLPD', value: 'ALL' }].concat(
+                  klpdOptions.map((c) => ({ label: c, value: c })),
+                )}
+              />
+
+              <Field label='PIC PHONE'>
+                <SearchableSelect
+                  value={fPhone}
+                  onChange={(v) => onChangeFilter(setFPhone, v)}
+                  options={[
+                    { label: 'Semua Kontak', value: 'ALL' },
+                    { label: 'Ada Kontak', value: 'HAS_CONTACT' },
+                    { label: 'Belum Ada Kontak', value: 'NO_CONTACT' },
+                  ]}
+                />
+              </Field>
+
+              <FilterSelect
+                label='STATUS VISIT'
+                value={fVisit}
+                onChange={(v) => onChangeFilter(setFVisit, v)}
+                options={[{ label: 'Semua Status', value: 'ALL' }].concat(
+                  visitOptions.map((c) => ({ label: c, value: c })),
                 )}
               />
 
               <div>
                 <FilterSelect
                   label='SATUAN KERJA'
-                  value={fSatker}
-                  onChange={(v) => onChangeFilter(setFSatker, v)}
+                  value={
+                    fNamaEntitas !== 'ALL'
+                      ? fNamaEntitas
+                      : fSatker !== 'ALL'
+                        ? fSatker
+                        : 'ALL'
+                  }
+                  onChange={(v) => {
+                    if (v === 'ALL') {
+                      setFSatker('ALL')
+                      setFNamaEntitas('ALL')
+                      return
+                    }
+
+                    const matchesSatker = satkerOptions.includes(v)
+                    const matchesEntitas = entitasOptions.includes(v)
+
+                    setFSatker(matchesSatker ? v : 'ALL')
+                    setFNamaEntitas(matchesEntitas ? v : 'ALL')
+                  }}
                   options={[{ label: 'Semua Satker', value: 'ALL' }].concat(
                     satkerOptions.map((s) => ({ label: s, value: s })),
+                    entitasOptions.map((e) => ({ label: e, value: e })),
                   )}
                   full
                 />
@@ -643,7 +811,7 @@ export default function TrackingB2GPage() {
                               {r.city}
                             </td>
                             <td className='px-6 py-6 font-extrabold text-[#0B6AA9]'>
-                              {r.status_ring}
+                              {normalizeRing(r.status_ring) || '-'}
                             </td>
                             <td className='px-6 py-6 text-gray-900'>
                               {r.satuan_kerja}
@@ -754,6 +922,128 @@ export default function TrackingB2GPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile View */}
+            <div className='md:hidden space-y-3 p-3'>
+              {loadingRows ? (
+                <div className='py-12 text-center text-gray-500'>
+                  Loading...
+                </div>
+              ) : rows.length === 0 ? (
+                <div className='py-12 text-center text-gray-500'>
+                  Tidak ada data.
+                </div>
+              ) : (
+                rows.map((r) => {
+                  const isExpanded = expandedSatker === r.satuan_kerja
+                  return (
+                    <div
+                      key={r._id}
+                      className='rounded-xl bg-white border border-gray-100 shadow-sm'
+                    >
+                      <div className='p-4 space-y-2'>
+                        <div className='flex items-center justify-between'>
+                          <span className='inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
+                            {r.rank ?? '-'}
+                          </span>
+                          <button
+                            type='button'
+                            onClick={() => toggleExpandSatker(r.satuan_kerja)}
+                            className={cn(
+                              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all',
+                              isExpanded
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-blue-50 text-blue-700',
+                            )}
+                          >
+                            {r.total_visit ?? '-'} Visit
+                            {isExpanded ? (
+                              <ChevronUp className='w-3.5 h-3.5' />
+                            ) : (
+                              <ChevronDown className='w-3.5 h-3.5' />
+                            )}
+                          </button>
+                        </div>
+                        <div className='text-sm font-extrabold text-[#0B6AA9]'>
+                          {r.nama_sales}
+                        </div>
+                        <div className='grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700'>
+                          <div>
+                            <span className='text-gray-400'>City:</span>{' '}
+                            {r.city}
+                          </div>
+                          <div>
+                            <span className='text-gray-400'>Ring:</span>{' '}
+                            {normalizeRing(r.status_ring) || '-'}
+                          </div>
+                          <div className='col-span-2'>
+                            <span className='text-gray-400'>Satker:</span>{' '}
+                            {r.satuan_kerja}
+                          </div>
+                          <div>
+                            <span className='text-gray-400'>PIC:</span>{' '}
+                            {r.pic_name}
+                          </div>
+                          <div>
+                            <span className='text-gray-400'>Phone:</span>{' '}
+                            {r.pic_phone}
+                          </div>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className='border-t border-gray-100 p-4'>
+                          <div className='mb-2 text-xs font-extrabold text-gray-900'>
+                            Riwayat Kunjungan — {r.satuan_kerja}
+                          </div>
+                          {loadingVisitDates ? (
+                            <div className='py-4 text-center text-gray-400 text-xs'>
+                              Memuat...
+                            </div>
+                          ) : visitDates.length === 0 ? (
+                            <div className='py-4 text-center text-gray-400 text-xs'>
+                              Tidak ada data.
+                            </div>
+                          ) : (
+                            <div className='space-y-2 max-h-60 overflow-y-auto'>
+                              {visitDates.map((v) => {
+                                const sc = getStatusColor(v.status_visit)
+                                return (
+                                  <button
+                                    key={v._id}
+                                    type='button'
+                                    onClick={() => setModalVisit(v)}
+                                    className='flex items-center gap-3 w-full text-left px-3 py-2 rounded-lg border border-gray-100 hover:bg-blue-50/40 transition-all'
+                                  >
+                                    <Calendar className='w-4 h-4 text-blue-600 shrink-0' />
+                                    <div className='flex-1 min-w-0'>
+                                      <div className='text-xs font-bold text-gray-900'>
+                                        {v.visit_date}
+                                      </div>
+                                      <div className='text-[10px] text-gray-500 truncate'>
+                                        {v.nama_sales} • {v.city}
+                                      </div>
+                                    </div>
+                                    <span
+                                      className={cn(
+                                        'px-2 py-0.5 rounded-full text-[9px] font-bold uppercase',
+                                        sc.bg,
+                                        sc.text,
+                                      )}
+                                    >
+                                      {v.status_visit || '-'}
+                                    </span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </section>
 
           {/* ========== VISIT DETAIL MODAL ========== */}
@@ -810,7 +1100,10 @@ export default function TrackingB2GPage() {
                         value={modalVisit.nama_sales}
                       />
                       <DetailItem label='City' value={modalVisit.city} />
-                      <DetailItem label='Ring' value={modalVisit.status_ring} />
+                      <DetailItem
+                        label='Ring'
+                        value={normalizeRing(modalVisit.status_ring) || '-'}
+                      />
                       <DetailItem
                         label='Satuan Kerja'
                         value={modalVisit.satuan_kerja}
@@ -917,15 +1210,19 @@ export default function TrackingB2GPage() {
                         <div
                           className='relative w-full max-w-xs mx-auto cursor-pointer group'
                           onClick={() =>
-                            openImageFullscreen(modalVisit.visit_image!)
+                            openImageFullscreen(
+                              `/api/visits/${modalVisit._id}/image`,
+                            )
                           }
                         >
                           <Image
-                            src={modalVisit.visit_image}
+                            src={`/api/visits/${modalVisit._id}/image`}
                             alt='Bukti Kunjungan'
                             width={500}
                             height={500}
                             quality={80}
+                            unoptimized
+                            priority
                             className='w-full rounded-xl shadow-sm ring-1 ring-gray-200 group-hover:ring-blue-400 group-hover:shadow-lg transition-all'
                           />
                           <div className='absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center'>
@@ -976,6 +1273,8 @@ export default function TrackingB2GPage() {
                 height={500}
                 width={500}
                 quality={80}
+                unoptimized
+                priority
                 alt='Full size'
                 className='max-w-full max-h-full rounded-xl shadow-2xl object-contain'
                 onClick={(e) => e.stopPropagation()}
@@ -1043,17 +1342,26 @@ export default function TrackingB2GPage() {
           </section>
         </div>
       </div>
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        columns={exportColumns}
+        onExport={handleExport}
+        isLoading={isExporting}
+      />
     </div>
   )
 }
 
 function StatCard({ title, value, icon }: StatCardProps) {
   return (
-    <div className='rounded-xl bg-white p-7 shadow flex items-center gap-4'>
+    <div className='rounded-xl bg-white p-4 sm:p-7 shadow flex items-center gap-4'>
       {icon && <div className='rounded-lg bg-blue-100 p-2'>{icon}</div>}
-      <div>
-        <p className='text-l text-gray-500'>{title}</p>
-        <p className='mt-2 text-3xl font-semibold'>{value ?? '-'}</p>
+      <div className='min-w-0'>
+        <p className='text-xs sm:text-sm text-gray-500'>{title}</p>
+        <p className='mt-1 sm:mt-2 text-lg sm:text-3xl font-semibold break-words'>
+          {value ?? '-'}
+        </p>
       </div>
     </div>
   )
@@ -1119,6 +1427,23 @@ function FilterDate({
           className='h-12 w-full rounded-xl border border-blue-200 bg-white px-4 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-200'
         />
       </div>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className='space-y-2'>
+      <label className='text-sm font-bold tracking-wide text-slate-500 uppercase'>
+        {label}
+      </label>
+      {children}
     </div>
   )
 }

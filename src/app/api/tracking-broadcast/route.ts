@@ -72,9 +72,11 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get('endDate')
     const showOnlyWithStatus = searchParams.get('has_status') === 'true'
 
+    const isExport = searchParams.get('export') === 'true'
+    const maxLimit = isExport ? 50000 : 500
     const page = Math.max(1, Number(searchParams.get('page') ?? 1))
     const limit = Math.min(
-      500,
+      maxLimit,
       Math.max(1, Number(searchParams.get('limit') ?? 10)),
     )
     const skip = (page - 1) * limit
@@ -770,6 +772,56 @@ export async function POST(req: Request) {
     )
   } catch (error) {
     console.error('[POST /api/tracking-broadcast] Error:', error)
+    return NextResponse.json(
+      { error: 'Terjadi kesalahan server' },
+      { status: 500 },
+    )
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json()
+    const { id, pic } = body
+
+    if (!id || typeof pic !== 'string') {
+      return NextResponse.json(
+        { error: 'Parameter tidak valid: id dan pic wajib diisi' },
+        { status: 400 },
+      )
+    }
+
+    const { ObjectId } = await import('mongodb')
+
+    let objectId: InstanceType<typeof ObjectId>
+    try {
+      objectId = new ObjectId(id)
+    } catch {
+      return NextResponse.json(
+        { error: 'Format id tidak valid' },
+        { status: 400 },
+      )
+    }
+
+    const client = await clientPromise
+    const db = client.db('MabelHub')
+    const col = db.collection('input_database')
+
+    const result = await col.updateOne(
+      { _id: objectId },
+      { $set: { nama: pic.trim(), updated_at: new Date().toISOString() } },
+    )
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json(
+        { error: 'Data tidak ditemukan' },
+        { status: 404 },
+      )
+    }
+
+    return NextResponse.json({ success: true, updated: result.modifiedCount })
+  } catch (error) {
+    console.error('[PATCH /api/tracking-broadcast] Error:', error)
     return NextResponse.json(
       { error: 'Terjadi kesalahan server' },
       { status: 500 },

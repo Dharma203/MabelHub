@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertSuperadmin } from "@/lib/auth-server";
 import { ObjectId } from "mongodb";
 import { getParams, toObjectId } from "@/lib/api-helpers";
@@ -23,13 +23,13 @@ type TeamDoc = {
 
 export async function PUT(
   req: Request,
-  ctx: { params: { teamId: string } | Promise<{ teamId: string }> },
+  { params } : { params : Promise<{ teamId : string}>}
 ) {
   const gate = assertSuperadmin(req);
   if (!gate.ok)
     return NextResponse.json({ error: gate.error }, { status: gate.status });
 
-  const { teamId } = await getParams(ctx);
+  const { teamId } = await params;
   const teamOid = toObjectId(teamId);
   if (!teamOid)
     return NextResponse.json({ error: "teamId tidak valid" }, { status: 400 });
@@ -40,7 +40,7 @@ export async function PUT(
     : [];
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   const teamsCol = db.collection<TeamDoc>("teams");
   const usersCol = db.collection<UserDoc>("users");
 

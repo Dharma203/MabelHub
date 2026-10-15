@@ -1,4 +1,10 @@
-export type Role = 'SUPERADMIN' | 'ADMIN' | 'LEADER' | 'SALES' | 'TELEMARKETING'
+export type Role =
+  | 'SUPERADMIN'
+  | 'ADMIN'
+  | 'LEADER'
+  | 'SALES'
+  | 'TELEMARKETING'
+  | 'ADMIN SALES'
 
 export type MenuItem = {
   label: string
@@ -31,6 +37,28 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
         },
         { label: 'Tracking Call', href: '/tracking-call', icon: 'Phone' },
         { label: 'Report Progres', href: '/report-progres', icon: 'FileText' },
+      ],
+    },
+    {
+      title: 'SUMMARIZE',
+      icon: 'Book',
+      items: [
+        {
+          label: 'Tracking Summary Database',
+          href: '/tracking-summary',
+          icon: 'BookIcon',
+        },
+      ],
+    },
+    {
+      title: 'MONITORING',
+      icon: 'Command',
+      items: [
+        {
+          label: 'Instansi No Phone',
+          href: '/monitoring-leader',
+          icon: 'Phone',
+        },
       ],
     },
     {
@@ -78,9 +106,36 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
       ],
     },
     {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
+        {
+          label: 'Database Tracking',
+          href: '/database-tracking',
+          icon: 'Database',
+        },
+      ],
+    },
+    {
       title: 'PRODUCT HUB',
       icon: 'Package',
       items: [{ label: 'Data Produk', href: '/produk', icon: 'CheckSquare' }],
+    },
+    {
+      title: 'MONITORING',
+      icon: 'Command',
+      items: [
+        {
+          label: 'Instansi No Phone',
+          href: '/monitoring-leader',
+          icon: 'Phone',
+        },
+      ],
     },
     {
       title: 'E-PROCUREMENT',
@@ -172,6 +227,17 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
         { label: 'Report Progres', href: '/report-progres', icon: 'FileText' },
       ],
     },
+    {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
+      ],
+    },
   ],
 
   ADMIN: [
@@ -258,9 +324,58 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           icon: 'BarChart3',
         },
         {
+          label: 'Tracking Satuan Kerja',
+          href: '/tracking-satker',
+          icon: 'Building2',
+        },
+        {
+          label: 'Tracking Visit B2G',
+          href: '/tracking-b2g',
+          icon: 'Building',
+        },
+        {
+          label: 'Tracking Visit B2B',
+          href: '/tracking-b2b',
+          icon: 'Building',
+        },
+      ],
+    },
+    {
+      title: 'SALES',
+      icon: 'User',
+      items: [
+        { label: 'Validasi Sales', href: '/validasi-sales', icon: 'User' },
+        {
           label: 'Sales Report System',
           href: '/sales-report-system',
           icon: 'FileText',
+        },
+      ],
+    },
+    {
+      title: 'MONITORING',
+      icon: 'Dashboard',
+      items: [
+        {
+          label: 'Instansi No Phone',
+          href: '/monitoring-leader',
+          icon: 'Phone',
+        },
+      ],
+    },
+    {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
+        {
+          label: 'Database Tracking',
+          href: '/database-tracking',
+          icon: 'Database',
         },
       ],
     },
@@ -312,6 +427,94 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           label: 'Tracking Visit B2B',
           href: '/tracking-b2b',
           icon: 'Building',
+        },
+      ],
+    },
+    {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
+        {
+          label: 'Database Tracking',
+          href: '/database-tracking',
+          icon: 'Database',
+        },
+      ],
+    },
+    {
+      title: 'E-PROCUREMENT',
+      icon: 'ShoppingCart',
+      items: [
+        {
+          label: 'Form E-Procurement',
+          href: '/e-procurement',
+          icon: 'FilePlus',
+        },
+        {
+          label: 'Tracking E-Procurement',
+          href: '/rekapitulasi-Eproc',
+          icon: 'PieChart',
+        },
+      ],
+    },
+  ],
+
+  'ADMIN SALES': [
+    {
+      title: 'VISIT',
+      icon: 'CalendarCheck',
+      items: [
+        {
+          label: 'Dashboard Visit',
+          href: '/dashboard-request',
+          icon: 'LayoutDashboard',
+        },
+        { label: 'Plan Activity', href: '/plan-activity', icon: 'MapPin' },
+        {
+          label: 'Visit Dashboard',
+          href: '/rekapitulasi-visit',
+          icon: 'BarChart3',
+        },
+        {
+          label: 'Sales Report System',
+          href: '/sales-report-system',
+          icon: 'FileText',
+        },
+        {
+          label: 'Tracking Satuan Kerja',
+          href: '/tracking-satker',
+          icon: 'Building2',
+        },
+        {
+          label: 'Tracking Visit B2G',
+          href: '/tracking-b2g',
+          icon: 'Building',
+        },
+        {
+          label: 'Tracking Visit B2B',
+          href: '/tracking-b2b',
+          icon: 'Building',
+        },
+      ],
+    },
+    {
+      title: 'DATABASE',
+      icon: 'Database',
+      items: [
+        {
+          label: 'Database Prospek',
+          href: '/database-prospek',
+          icon: 'DatabaseZap',
+        },
+        {
+          label: 'Database Tracking',
+          href: '/database-tracking',
+          icon: 'Database',
         },
       ],
     },

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 
 type ProductItem = {
@@ -102,17 +102,17 @@ async function getUserLite(db: any, userId: string) {
 
 export async function GET(
   req: Request,
-  ctx: { params: { requestId: string } | Promise<{ requestId: string }> },
+  { params } : { params: Promise<{ requestId : string}>}
 ) {
   const auth = assertLoggedIn(req);
   if (!auth.ok)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { requestId } = await getParams(ctx);
+  const { requestId } = await params;
   const rid = decodeURIComponent(requestId);
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   const col = db.collection<EProcDoc>("eproc_requests");
 
   const doc = await col.findOne({ requestId: rid }, { projection: { _id: 0 } });
@@ -153,13 +153,13 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  ctx: { params: { requestId: string } | Promise<{ requestId: string }> },
+  { params } : { params: Promise<{ requestId : string}>}
 ) {
   const auth = assertLoggedIn(req);
   if (!auth.ok)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { requestId } = await getParams(ctx);
+  const { requestId } = await params;
   const rid = decodeURIComponent(requestId);
 
   const body = await req.json().catch(() => ({}));
@@ -209,7 +209,7 @@ export async function PUT(
   }
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   const col = db.collection<EProcDoc>("eproc_requests");
 
   const existing = await col.findOne(

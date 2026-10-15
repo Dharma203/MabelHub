@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
 
 export async function PUT(
   req: Request,
-  ctx: { params: { requestId: string } | Promise<{ requestId: string }> },
+  { params } : { params: Promise<{ requestId : string}>}
 ) {
   const auth = assertLoggedIn(req);
   if (!auth.ok)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   // Resolve params
-  const { requestId } = await Promise.resolve(ctx.params);
+  const { requestId } = await Promise.resolve(params);
   const rid = decodeURIComponent(requestId);
 
   const body = await req.json().catch(() => ({}));
@@ -34,7 +34,7 @@ export async function PUT(
   }
 
   const client = await clientPromise;
-  const db = client.db(process.env.MONGODB_DB || "MabelHub");
+  const db = client.db(getDbName());
   const col = db.collection("eproc_requests");
 
   const existing = await col.findOne(

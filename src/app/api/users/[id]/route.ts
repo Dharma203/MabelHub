@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { hashPassword } from "@/lib/password";
 import { assertSuperadmin } from "@/lib/auth-server";
 
@@ -50,15 +50,16 @@ async function ensureUserIndexes(db: any) {
   await global.__mabel_users_indexes_promise;
 }
 
-type Ctx = { params: { id: string } } | { params: Promise<{ id: string }> };
-
-export async function PUT(req: Request, context: Ctx) {
+export async function PUT(
+  req: Request,
+ { params } : { params : Promise<{ id: string }>}
+) {
   const gate = assertSuperadmin(req);
   if (!gate.ok) {
     return NextResponse.json({ error: gate.error }, { status: gate.status });
   }
 
-  const { id } = await getParams(context.params);
+  const { id } = await params;
 
   // validasi ObjectId
   if (!ObjectId.isValid(id)) {
@@ -68,7 +69,7 @@ export async function PUT(req: Request, context: Ctx) {
 
   try {
     const client = await clientPromise;
-    const db = client.db(process.env.MONGODB_DB || "MabelHub");
+    const db = client.db(getDbName());
     await ensureUserIndexes(db);
 
     const body = await req.json().catch(() => ({}));
@@ -167,7 +168,7 @@ export async function DELETE(req: Request, context: any) {
 
   try {
     const client = await clientPromise;
-    const db = client.db(process.env.MONGODB_DB || "MabelHub");
+    const db = client.db(getDbName());
 
     const deleted = await db
       .collection("users")

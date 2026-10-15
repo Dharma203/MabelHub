@@ -4,14 +4,9 @@ import React, { useMemo, useState, useEffect } from "react";
 
 import { useSession } from "@/components/session/SessionProvider";
 import { useRouter } from "next/navigation";
-import * as XLSX from "xlsx";
+import { loadXLSX } from "@/lib/xlsx-loader";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-
-type ToastProps = {
-  message: string
-  duration?: number;
-  onDone?: () => void;
-}
+import { Toast } from "@/components/Toast";
 
 type TeamMember = {
   userId: string;
@@ -88,32 +83,6 @@ async function apiUpdateEProc(requestId: string, payload: any) {
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json?.error ?? "Gagal update request");
   return json?.data;
-}
-
-export function Toast({ message, duration = 2500, onDone }: ToastProps) {
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setVisible(false);
-      setTimeout(() => onDone?.(), 300); // tunggu animasi fade selesai
-    }, duration);
-
-    return () => clearTimeout(timer);
-  }, [duration, onDone]);
-
-  return (
-    <div
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999]
-        flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl
-        bg-green-600 text-white text-sm font-semibold
-        transition-all duration-300
-        ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-    >
-      <span className="text-lg">✓</span>
-      {message}
-    </div>
-  );
 }
 
 export default function EProcurementRequestPage() {
@@ -211,7 +180,8 @@ export default function EProcurementRequestPage() {
   const canPickAssignee =
     user?.role === "LEADER" ||
     user?.role === "SUPERADMIN" ||
-    user?.role === "ADMIN";
+    user?.role === "ADMIN" ||
+    user?.role === "ADMIN SALES";
 
   // Prefill requestor untuk non-leader/superadmin (dan tetap bisa edit manual)
   useEffect(() => {
@@ -258,7 +228,11 @@ export default function EProcurementRequestPage() {
         }
 
         // SUPERADMIN/ADMIN: all sales + leader
-        if (user.role === "SUPERADMIN" || user.role === "ADMIN") {
+        if (
+          user.role === "SUPERADMIN" ||
+          user.role === "ADMIN" ||
+          user.role === "ADMIN SALES"
+        ) {
           const res = await fetch("/api/users", { cache: "no-store" });
           const j = await res.json().catch(() => ({}));
           const arr = pickArray(j);
@@ -385,12 +359,12 @@ export default function EProcurementRequestPage() {
     setUploadFile(f)
   }
 
-  const handleSubmitUpload = () => {
+   async function handleSubmitUpload() {
+    const XLSX = await loadXLSX()
     if (!uploadFile) {
       alert("Pilih file Excel terlebih dahulu");
       return;
     }
-
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -898,7 +872,7 @@ export default function EProcurementRequestPage() {
               <div className="md:col-span-8 flex w-full justify-end gap-4">
                 <button
                   onClick={addItem}
-                  className="inline-flex h-14 items-center gap-2 rounded-full bg-blue-600 px-6 text-md font-extrabold text-gray-50 shadow-sm hover:bg-blue-700"
+                  className="inline-flex h-14 items-center gap-2 rounded-full bg-blue-600 px-5 text-md font-extrabold text-gray-50 shadow-sm hover:bg-blue-700"
                 >
                   <span className="text-lg leading-none"></span> TAMBAH PRODUK
                 </button>
@@ -906,7 +880,7 @@ export default function EProcurementRequestPage() {
                 <button
                   onClick={handleKirim}
                   disabled={isSubmitting}
-                  className="inline-flex h-14 items-center justify-center rounded-full bg-green-600 px-32 text-md font-extrabold tracking-wide text-gray-50 shadow-sm hover:bg-green-700 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="inline-flex h-14 items-center justify-center rounded-full bg-green-600 px-20 text-md font-extrabold tracking-wide text-gray-50 shadow-sm hover:bg-green-700 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
                     <>

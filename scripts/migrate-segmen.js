@@ -25,7 +25,7 @@ async function run() {
 
       for (const s of oldSegmen) {
         if (!s.includes("::")) {
-          // Defaulting old segmen to RING 1 if they don't have a parent
+          // Defaulting old segmen to RING 1 if they don't have a parents
           // Modify this mapping based on actual business logic if needed
           newSegmen.push(`RING 1::${s}`);
           updated = true;

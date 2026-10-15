@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import clientPromise from "@/lib/mongodb";
+import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertLoggedIn } from "@/lib/auth-server";
-
-function getDbName() {
-  return process.env.MONGODB_DB || "MabelHub";
-}
 
 function toStringId(doc: any) {
   if (!doc) return doc;

@@ -8,7 +8,7 @@ import HistoryEprocModal, {
   EProcHistoryItem,
 } from "@/components/modals/HistoryEprocModal";
 import { useSession } from "@/components/session/SessionProvider";
-import * as XLSX from "xlsx";
+import { loadXLSX } from "@/lib/xlsx-loader";
 import ExportExcelModal, {
   ExportColumn,
   ExportScope,
@@ -344,6 +344,8 @@ export default function RekapitulasiEProcurementPage() {
     startDate,
     endDate,
     searchId,
+    getDisplayStatusAkhir,
+    getTindakLanjutValue,
   ]);
 
   // pagination derived
@@ -353,7 +355,7 @@ export default function RekapitulasiEProcurementPage() {
 
   useEffect(() => {
     if (page !== safePage) setPage(safePage);
-  }, [totalPages]);
+  }, [totalPages, page, safePage]);
 
   const pageItems = useMemo(() => {
     const start = (safePage - 1) * limit;
@@ -461,7 +463,8 @@ export default function RekapitulasiEProcurementPage() {
     },
   ];
 
-  const handleExport = async (selectedCols: string[], scope: ExportScope) => {
+  async function handleExport(selectedCols: string[], scope: ExportScope) {
+    const XLSX = await loadXLSX()
     setIsExporting(true);
     try {
       const dataToProcess = scope === "page" ? pageItems : filtered;
@@ -666,7 +669,7 @@ export default function RekapitulasiEProcurementPage() {
                     console.log("EXPORT BUTTON CLICKED");
                     setIsExportModalOpen(true);
                   }}
-                  className="z-50 relative rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm ring-1 ring-green-700 hover:bg-green-700 transition whitespace-nowrap"
+                  className="relative rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm ring-1 ring-green-700 hover:bg-green-700 transition whitespace-nowrap"
                 >
                   Export Excel
                 </button>
