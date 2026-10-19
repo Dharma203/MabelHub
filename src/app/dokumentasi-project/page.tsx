@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { useSession } from "@/components/session/SessionProvider";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import ConfirmModal from "@/components/modals/ConfirmModal";
 import {
   FileText,
   ClipboardList,
@@ -142,6 +143,7 @@ function DokumentasiProjectContent() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState("");
+  const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
 
   // Auth check
   useEffect(() => {
@@ -268,7 +270,7 @@ function DokumentasiProjectContent() {
     );
 
   // Submit
-  const handleSubmit = async () => {
+  const handleSubmit = async (confirmedReplace = false) => {
     setSubmitError("");
     setSubmitSuccess("");
 
@@ -291,6 +293,18 @@ function DokumentasiProjectContent() {
         setSubmitError(`Keterangan kendala pada Barang #${i + 1} wajib diisi`);
         return;
       }
+    }
+
+    // Satu kontrak = satu dokumentasi: minta konfirmasi jika akan menimpa yang lama
+    const hasExisting = contracts.some(
+      (c) =>
+        c.nomorKontrak === nomorKontrak &&
+        c.dokSales &&
+        c.dokSales !== "Belum Upload"
+    );
+    if (hasExisting && !confirmedReplace) {
+      setShowReplaceConfirm(true);
+      return;
     }
 
     setSubmitting(true);
@@ -350,7 +364,14 @@ function DokumentasiProjectContent() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Gagal mengirim dokumentasi");
 
-      setSubmitSuccess("Dokumentasi berhasil dikirim dan tersimpan!");
+      setSubmitSuccess(
+        json.verifikasi?.verified === false
+          ? `Dokumentasi tersimpan, namun perlu diverifikasi admin: ${json.verifikasi.issues.join("; ")}`
+          : "Dokumentasi berhasil dikirim dan terverifikasi otomatis!"
+      );
+      if (json.replaced) {
+        setSubmitSuccess((prev) => `${prev} (menggantikan dokumentasi sebelumnya untuk kontrak ini)`);
+      }
 
       // Reset form
       setNamaSales("");
@@ -368,7 +389,7 @@ function DokumentasiProjectContent() {
       // Refresh stats
       fetchInitialData();
 
-      setTimeout(() => setSubmitSuccess(""), 5000);
+      setTimeout(() => setSubmitSuccess(""), 12000);
     } catch (e: any) {
       setSubmitError(e?.message ?? "Gagal mengirim dokumentasi");
     } finally {
@@ -961,7 +982,7 @@ function DokumentasiProjectContent() {
 
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={submitting}
             className="px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm tracking-wide shadow-xs hover:shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2.5 ml-auto"
           >
@@ -979,6 +1000,25 @@ function DokumentasiProjectContent() {
           </button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={showReplaceConfirm}
+        title="Timpa Dokumentasi Lama?"
+        message={
+          <>
+            Kontrak <strong>{nomorKontrak}</strong> sudah memiliki dokumentasi project.
+            Jika dilanjutkan, dokumentasi lama beserta foto dan videonya akan{" "}
+            <strong>dihapus permanen</strong> dan diganti dengan yang baru.
+          </>
+        }
+        confirmText="TIMPA"
+        cancelText="BATAL"
+        onCancel={() => setShowReplaceConfirm(false)}
+        onConfirm={() => {
+          setShowReplaceConfirm(false);
+          handleSubmit(true);
+        }}
+      />
     </div>
   );
 }

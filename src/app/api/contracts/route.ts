@@ -60,7 +60,12 @@ export async function GET(req: Request) {
     const isUploaded = reportedSet.has(nk);
     return {
       ...c,
-      dokSales: isUploaded ? "Sudah Upload" : "Belum Upload",
+      // "Proses Verifikasi" diset manual oleh admin; hanya berlaku jika dokumen sudah diupload
+      dokSales: !isUploaded
+        ? "Belum Upload"
+        : c.dokSales === "Proses Verifikasi"
+          ? "Proses Verifikasi"
+          : "Sudah Upload",
     };
   });
 

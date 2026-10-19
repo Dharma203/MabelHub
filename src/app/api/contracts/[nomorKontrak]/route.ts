@@ -43,7 +43,11 @@ export async function GET(
   return NextResponse.json({
     data: {
       ...doc,
-      dokSales: hasDok ? "Sudah Upload" : "Belum Upload",
+      dokSales: !hasDok
+        ? "Belum Upload"
+        : doc.dokSales === "Proses Verifikasi"
+          ? "Proses Verifikasi"
+          : "Sudah Upload",
     },
   });
 }
@@ -92,6 +96,13 @@ export async function PUT(
     }
   }
 
+  if (
+    setPayload.dokSales !== undefined &&
+    !["Belum Upload", "Proses Verifikasi", "Sudah Upload"].includes(setPayload.dokSales)
+  ) {
+    return NextResponse.json({ error: "Status dokumen tidak valid" }, { status: 400 });
+  }
+
   if (body.nominalKontrak !== undefined) {
     setPayload.nominalKontrak = Number(body.nominalKontrak) || 0;
   }
@@ -121,7 +132,9 @@ export async function PUT(
 
   const rawResult = await db.collection(COL_NAME).findOneAndUpdate(
     { nomorKontrak: nk },
-    { $set: setPayload },
+    setPayload.dokSales === "Sudah Upload"
+      ? { $set: setPayload, $unset: { dokVerifikasi: "" } }
+      : { $set: setPayload },
     { returnDocument: "after", projection: { _id: 0 } },
   );
 

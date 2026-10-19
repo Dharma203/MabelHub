@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
 import path from "path";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, unlink } from "fs/promises";
+import { verifyDokumentasi } from "@/lib/verifikasi-dokumentasi";
 
 const DB_NAME = getDbName();
 const COL_NAME = "dokumentasi_project";
@@ -36,6 +37,24 @@ async function saveBase64File(
   await mkdir(uploadsDir, { recursive: true });
   await writeFile(path.join(uploadsDir, filename), buffer);
   return `/uploads/${filename}`;
+}
+
+// Hapus file upload lama (foto/video) milik dokumentasi yang digantikan
+async function removeUploadedFiles(docs: any[]) {
+  const uploadsDir = path.join(process.cwd(), "public", "uploads");
+  for (const d of docs) {
+    for (const b of d.barang ?? []) {
+      for (const f of [b.fotoSerahTerima, b.fotoBarang, b.videoBarang]) {
+        if (typeof f !== "string" || !f.startsWith("/uploads/")) continue;
+        const full = path.join(uploadsDir, path.basename(f));
+        try {
+          await unlink(full);
+        } catch {
+          // file sudah tidak ada — abaikan
+        }
+      }
+    }
+  }
 }
 
 export async function GET(req: Request) {
@@ -182,16 +201,54 @@ export async function POST(req: Request) {
   const db = client.db(DB_NAME);
   await ensureIndexes(db);
 
-  await db.collection(COL_NAME).insertOne(doc);
+  // Verifikasi otomatis: cocokkan input dengan data kontrak
+  const contract = await db.collection("contracts").findOne({ nomorKontrak });
+  const issues = verifyDokumentasi({ doc, contract: contract as any });
+  const verified = issues.length === 0;
 
-  // Otomatis tandai dokSales pada contracts sebagai 'Sudah Upload'
+  const docWithVerif = {
+    ...doc,
+    verifikasi: {
+      status: verified ? "TERVERIFIKASI" : "PERLU_DIPERIKSA",
+      issues,
+      checkedAt: now,
+    },
+  };
+
+  // Satu kontrak = satu dokumentasi: yang baru menggantikan yang lama.
+  // Simpan yang baru dulu, baru hapus yang lama agar data tidak hilang jika insert gagal.
+  const inserted = await db.collection(COL_NAME).insertOne(docWithVerif);
+  const oldDocs = await db
+    .collection(COL_NAME)
+    .find({ nomorKontrak, _id: { $ne: inserted.insertedId } })
+    .toArray();
+  if (oldDocs.length > 0) {
+    await db
+      .collection(COL_NAME)
+      .deleteMany({ _id: { $in: oldDocs.map((d: any) => d._id) } });
+    await removeUploadedFiles(oldDocs);
+  }
+
+  // Lolos -> "Sudah Upload"; ada masalah -> "Proses Verifikasi" (menunggu admin)
   if (nomorKontrak) {
     await db.collection("contracts").updateOne(
       { nomorKontrak },
-      { $set: { dokSales: "Sudah Upload", updatedAt: now } }
+      verified
+        ? { $set: { dokSales: "Sudah Upload", updatedAt: now }, $unset: { dokVerifikasi: "" } }
+        : {
+            $set: {
+              dokSales: "Proses Verifikasi",
+              dokVerifikasi: { issues, checkedAt: now },
+              updatedAt: now,
+            },
+          }
     );
   }
 
-  return NextResponse.json({ data: doc }, { status: 201 });
+  const { _id, ...safeDoc } = docWithVerif as any;
+  return NextResponse.json(
+    { data: safeDoc, verifikasi: { verified, issues }, replaced: oldDocs.length > 0 },
+    { status: 201 }
+  );
 }
 

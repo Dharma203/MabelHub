@@ -901,15 +901,10 @@ function KontrakPageContent() {
                   ) : (
                     paginatedContracts.map((c) => (
                       <Fragment key={c.nomorKontrak}>
-                        <tr className={`border-b border-slate-100/80 hover:bg-slate-50 cursor-pointer transition-colors ${expandedRow === c.nomorKontrak ? "bg-indigo-50/20" : ""} ${isExpiring(c.tanggalBerakhirKontrak) && expandedRow !== c.nomorKontrak ? "bg-amber-50/50" : ""}`}
+                        <tr className={`border-b border-slate-100/80 hover:bg-slate-50 cursor-pointer transition-colors ${expandedRow === c.nomorKontrak ? "bg-indigo-50/20" : ""}`}
                           onClick={() => setExpandedRow(expandedRow === c.nomorKontrak ? null : c.nomorKontrak)}>
                           <td className="px-5 py-4 font-semibold text-slate-800 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              {c.nomorKontrak}
-                              {isExpiring(c.tanggalBerakhirKontrak) && (
-                                <span title="Kontrak segera berakhir!" className="inline-flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                              )}
-                            </div>
+                            {c.nomorKontrak}
                           </td>
                           <td className="px-5 py-4 text-slate-800">{c.instansi || "-"}</td>
                           <td className="px-5 py-4 text-slate-800">{c.namaPengadaan || "-"}</td>
@@ -917,7 +912,7 @@ function KontrakPageContent() {
                           <td className="px-5 py-4 text-slate-800">{c.marketing || "-"}</td>
                           <td className="px-5 py-4 text-slate-800">{c.pic || "-"}</td>
                           <td className="px-5 py-4 text-right text-slate-800 font-medium whitespace-nowrap">{fmtCurrency(c.nominalKontrak)}</td>
-                          <td className={`px-5 py-4 whitespace-nowrap ${isExpiring(c.tanggalBerakhirKontrak) ? "text-amber-600 font-semibold" : "text-slate-600 font-medium"}`}>
+                          <td className="px-5 py-4 whitespace-nowrap text-slate-600 font-medium">
                             {fmtDate(c.tanggalBerakhirKontrak)}
                           </td>
                           <td className="px-5 py-4 text-center whitespace-nowrap">
