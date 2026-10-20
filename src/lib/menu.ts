@@ -102,7 +102,7 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
     },
     {
       title: 'MONITORING',
-      icon: 'Command',
+      icon: 'Activity',
       items: [
         {
           label: 'Instansi No Phone',
@@ -386,7 +386,7 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
     },
     {
       title: 'MONITORING',
-      icon: 'Dashboard',
+      icon: 'Activity',
       items: [
         {
           label: 'Instansi No Phone',

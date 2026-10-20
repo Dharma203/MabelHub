@@ -21,6 +21,10 @@ import {
   Building2,
   ExternalLink,
   Tag,
+  ImageIcon,
+  Video,
+  Eye,
+  Loader2,
 } from "lucide-react";
 
 type Penagihan = {
@@ -106,6 +110,43 @@ function DataProjectContent() {
 
   // Detail Modal State
   const [selectedDetail, setSelectedDetail] = useState<Contract | null>(null);
+  const [dokDetail, setDokDetail] = useState<any>(null);
+  const [loadingDok, setLoadingDok] = useState(false);
+  const [previewMedia, setPreviewMedia] = useState<{
+    url: string;
+    title: string;
+    isVideo?: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!selectedDetail?.nomorKontrak) {
+      setDokDetail(null);
+      return;
+    }
+    let active = true;
+    setLoadingDok(true);
+    fetch(
+      `/api/dokumentasi-project?nomorKontrak=${encodeURIComponent(
+        selectedDetail.nomorKontrak
+      )}`
+    )
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (active) {
+          setDokDetail(json?.data || null);
+        }
+      })
+      .catch(() => {
+        if (active) setDokDetail(null);
+      })
+      .finally(() => {
+        if (active) setLoadingDok(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedDetail?.nomorKontrak]);
 
   // Edit Modal State (hanya ubah status)
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
@@ -1212,73 +1253,270 @@ function DataProjectContent() {
                 </div>
               </div>
 
-              {/* Status Dokumen & Link GDrive */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
-                  Dokumen & Berkas
-                </span>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Dok. Fisik</span>
-                    <span className={`font-extrabold ${selectedDetail.fisik === "YA" ? "text-emerald-600" : "text-slate-400"}`}>
-                      {selectedDetail.fisik || "TIDAK"}
-                    </span>
+              {/* Dokumentasi Project (Foto & Video) */}
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <ImageIcon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                        Dokumentasi Project
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Foto serah terima, foto produk, dan video dokumentasi yang diunggah
+                      </p>
+                    </div>
                   </div>
-
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Dok. Scan</span>
-                    <span className={`font-extrabold ${selectedDetail.scan === "YA" ? "text-emerald-600" : "text-slate-400"}`}>
-                      {selectedDetail.scan || "TIDAK"}
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 sm:col-span-2">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Nama Folder</span>
-                    <span className="font-semibold text-slate-800 truncate block">
-                      {selectedDetail.namaFolder || "—"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Link GDrive */}
-                <div className="pt-2">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Link GDrive</span>
-                  {selectedDetail.link ? (
-                    <a
-                      href={selectedDetail.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 px-3 py-1.5 rounded-xl transition-colors max-w-full break-all"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span className="truncate">{selectedDetail.link}</span>
-                    </a>
-                  ) : (
-                    <span className="text-xs text-slate-400 italic">Belum ada link GDrive</span>
+                  {dokDetail && (
+                    <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg">
+                      Oleh: <strong className="text-slate-800">{dokDetail.namaSales || "Sales"}</strong>
+                      {dokDetail.tanggalReport ? ` (${fmtDate(dokDetail.tanggalReport)})` : ""}
+                    </div>
                   )}
                 </div>
-              </div>
 
-              {/* Data Penagihan */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-2xs space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
-                  Informasi Penagihan
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Tgl Mulai</span>
-                    <span className="font-semibold text-slate-800">{fmtDate(selectedDetail.penagihan?.tanggalMulai)}</span>
+                {loadingDok ? (
+                  <div className="py-8 flex flex-col items-center justify-center text-slate-400 gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                    <span className="text-xs font-medium">Memuat dokumentasi project...</span>
                   </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Tgl Berakhir</span>
-                    <span className="font-semibold text-slate-800">{fmtDate(selectedDetail.penagihan?.tanggalBerakhir)}</span>
+                ) : !dokDetail || !dokDetail.barang || dokDetail.barang.length === 0 ? (
+                  <div className="py-6 px-4 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                    <AlertCircle className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
+                    <p className="text-xs font-semibold text-slate-700">Belum Ada Dokumentasi Project</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Foto dan video dokumentasi belum diunggah oleh sales untuk kontrak ini.
+                    </p>
                   </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Nominal Penagihan</span>
-                    <span className="font-bold text-blue-900">{fmtCurrency(selectedDetail.penagihan?.nominalPenagihan)}</span>
+                ) : (
+                  <div className="space-y-3.5">
+                    {dokDetail.barang.map((b: any, idx: number) => {
+                      const hasSerahTerima = !!b.fotoSerahTerima;
+                      const hasFotoBarang = !!b.fotoBarang;
+                      const hasVideo = !!b.videoBarang;
+                      const hasAnyMedia = hasSerahTerima || hasFotoBarang || hasVideo;
+
+                      return (
+                        <div
+                          key={idx}
+                          className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200 space-y-3"
+                        >
+                          {/* Info Barang */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/70 pb-2">
+                            <div>
+                              <span className="text-xs font-bold text-slate-800">
+                                Barang #{idx + 1}: {b.unitProduk || "Produk"}
+                              </span>
+                              <span className="text-xs text-slate-500 ml-1.5">
+                                ({b.merekBarang || "-"} {b.tipeBarang ? `• ${b.tipeBarang}` : ""})
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="px-2 py-0.5 text-[11px] font-bold bg-white text-slate-700 rounded-md border border-slate-200">
+                                {b.jumlahUnit || 0} Unit
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase tracking-wider border ${
+                                  b.kondisiBarang === "BARU"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : "bg-rose-50 text-rose-700 border-rose-200"
+                                }`}
+                              >
+                                {b.kondisiBarang || "—"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {b.kendala && (
+                            <div className="text-[11px] bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-lg">
+                              <strong>Kendala:</strong> {b.kendala}
+                            </div>
+                          )}
+
+                          {/* Grid Media Upload */}
+                          {hasAnyMedia ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              {/* Foto Serah Terima */}
+                              <div className="rounded-xl border border-slate-200 bg-white p-2.5 flex flex-col justify-between">
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                                    Foto Serah Terima
+                                  </span>
+                                  {hasSerahTerima ? (
+                                    <div
+                                      onClick={() =>
+                                        setPreviewMedia({
+                                          url: b.fotoSerahTerima,
+                                          title: `Foto Serah Terima - ${b.unitProduk || "Barang"}`,
+                                        })
+                                      }
+                                      className="relative group overflow-hidden rounded-lg aspect-video bg-slate-100 flex items-center justify-center border border-slate-100 cursor-pointer"
+                                    >
+                                      <img
+                                        src={b.fotoSerahTerima}
+                                        alt="Foto Serah Terima"
+                                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                      />
+                                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-semibold gap-1">
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>Lihat</span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="aspect-video rounded-lg bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                                      Tidak ada foto
+                                    </div>
+                                  )}
+                                </div>
+                                {hasSerahTerima && (
+                                  <div className="pt-2 flex items-center justify-between gap-1 border-t border-slate-100 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewMedia({
+                                          url: b.fotoSerahTerima,
+                                          title: `Foto Serah Terima - ${b.unitProduk || "Barang"}`,
+                                        })
+                                      }
+                                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      <span>Preview</span>
+                                    </button>
+                                    <a
+                                      href={b.fotoSerahTerima}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      <span>Buka Link</span>
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Foto Barang */}
+                              <div className="rounded-xl border border-slate-200 bg-white p-2.5 flex flex-col justify-between">
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                                    Foto Barang
+                                  </span>
+                                  {hasFotoBarang ? (
+                                    <div
+                                      onClick={() =>
+                                        setPreviewMedia({
+                                          url: b.fotoBarang,
+                                          title: `Foto Barang - ${b.unitProduk || "Barang"}`,
+                                        })
+                                      }
+                                      className="relative group overflow-hidden rounded-lg aspect-video bg-slate-100 flex items-center justify-center border border-slate-100 cursor-pointer"
+                                    >
+                                      <img
+                                        src={b.fotoBarang}
+                                        alt="Foto Barang"
+                                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                      />
+                                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-semibold gap-1">
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>Lihat</span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="aspect-video rounded-lg bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                                      Tidak ada foto
+                                    </div>
+                                  )}
+                                </div>
+                                {hasFotoBarang && (
+                                  <div className="pt-2 flex items-center justify-between gap-1 border-t border-slate-100 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewMedia({
+                                          url: b.fotoBarang,
+                                          title: `Foto Barang - ${b.unitProduk || "Barang"}`,
+                                        })
+                                      }
+                                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      <span>Preview</span>
+                                    </button>
+                                    <a
+                                      href={b.fotoBarang}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      <span>Buka Link</span>
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Video Barang */}
+                              <div className="rounded-xl border border-slate-200 bg-white p-2.5 flex flex-col justify-between">
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                                    Video Barang
+                                  </span>
+                                  {hasVideo ? (
+                                    <div className="relative overflow-hidden rounded-lg aspect-video bg-black flex items-center justify-center">
+                                      <video
+                                        src={b.videoBarang}
+                                        controls
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="aspect-video rounded-lg bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                                      Tidak ada video
+                                    </div>
+                                  )}
+                                </div>
+                                {hasVideo && (
+                                  <div className="pt-2 flex items-center justify-between gap-1 border-t border-slate-100 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewMedia({
+                                          url: b.videoBarang,
+                                          title: `Video Barang - ${b.unitProduk || "Barang"}`,
+                                          isVideo: true,
+                                        })
+                                      }
+                                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                    >
+                                      <Video className="w-3 h-3" />
+                                      <span>Putar Penuh</span>
+                                    </button>
+                                    <a
+                                      href={b.videoBarang}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      <span>Buka Link</span>
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic">
+                              Tidak ada berkas foto maupun video yang dilampirkan untuk barang ini.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Request IDs */}
@@ -1343,6 +1581,56 @@ function DataProjectContent() {
                 <Pencil className="w-3.5 h-3.5" />
                 <span>Ubah Status</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Preview Modal */}
+      {previewMedia && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xs p-4"
+          onClick={() => setPreviewMedia(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-white/10 w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-800/90 border-b border-white/10 text-white">
+              <span className="text-xs font-bold truncate pr-2">{previewMedia.title}</span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <a
+                  href={previewMedia.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-400 hover:text-blue-300 font-semibold px-2.5 py-1 rounded bg-white/10 transition-colors"
+                >
+                  Buka Asli ↗
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMedia(null)}
+                  className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-3 flex items-center justify-center overflow-auto max-h-[calc(90vh-60px)] bg-black/40">
+              {previewMedia.isVideo ? (
+                <video
+                  src={previewMedia.url}
+                  controls
+                  autoPlay
+                  className="max-w-full max-h-[75vh] rounded-lg shadow-md"
+                />
+              ) : (
+                <img
+                  src={previewMedia.url}
+                  alt={previewMedia.title}
+                  className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-md"
+                />
+              )}
             </div>
           </div>
         </div>
