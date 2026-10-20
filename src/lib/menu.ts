@@ -15,6 +15,7 @@ export type MenuItem = {
 export type MenuSection = {
   title: string
   icon: string
+  href?: string
   items: MenuItem[]
 }
 
@@ -161,6 +162,16 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/rekapitulasi-response',
           icon: 'BarChart',
         },
+        {
+          label: 'Dokumentasi Project',
+          href: '/dokumentasi-project',
+          icon: 'FileText',
+        },
+        {
+          label: 'Tambah Kontrak',
+          href: '/kontrak',
+          icon: 'FilePlus',
+        },
       ],
     },
     {
@@ -176,14 +187,15 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
       ],
     },
     {
-      title: 'KONTRAK',
-      icon: 'FileSignature',
-      items: [],
-    },
-    {
       title: 'FINANCE',
       icon: 'Banknote',
-      items: [],
+      items: [
+        {
+          label: 'Data Project',
+          href: '/data-project',
+          icon: 'FolderKanban',
+        },
+      ],
     },
     {
       title: 'MANAJEMEN',
@@ -274,25 +286,28 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/rekapitulasi-response',
           icon: 'BarChart',
         },
+        {
+          label: 'Dokumentasi Project',
+          href: '/dokumentasi-project',
+          icon: 'FileText',
+        },
+        {
+          label: 'Tambah Kontrak',
+          href: '/kontrak',
+          icon: 'FilePlus',
+        },
       ],
-    },
-    // {
-    //   title: "INSTANSI",
-    //   icon: "Building2",
-    //   items: [
-    //     { label: "Daftar Instansi", href: "/instansi", icon: "Building2" },
-    //     { label: "Tambah Instansi", href: "/tambah-instansi", icon: "PlusSquare" },
-    //   ],
-    // },
-    {
-      title: 'KONTRAK',
-      icon: 'FileSignature',
-      items: [],
     },
     {
       title: 'FINANCE',
       icon: 'Banknote',
-      items: [],
+      items: [
+        {
+          label: 'Data Project',
+          href: '/data-project',
+          icon: 'FolderKanban',
+        },
+      ],
     },
   ],
 

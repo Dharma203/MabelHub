@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
-import { param } from "motion/react-client";
+
+export const dynamic = "force-dynamic";
 
 const DB_NAME = getDbName();
 const COL_NAME = "contracts";
@@ -35,7 +36,20 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ data: doc });
+  const hasDok = await db
+    .collection("dokumentasi_project")
+    .findOne({ nomorKontrak: nk });
+
+  return NextResponse.json({
+    data: {
+      ...doc,
+      dokSales: !hasDok
+        ? "Belum Upload"
+        : doc.dokSales === "Proses Verifikasi"
+          ? "Proses Verifikasi"
+          : "Sudah Upload",
+    },
+  });
 }
 
 export async function PUT(
@@ -73,13 +87,20 @@ export async function PUT(
     "link", "namaFolder", "instansi", "tanggalKontrak",
     "namaPengadaan", "keterangan", "marketing", "bendera",
     "tanggalPenyerahan", "catatan", "pic", "tanggalBerakhirKontrak",
-    "perusahaan",
+    "perusahaan", "status", "dokSales",
   ];
 
   for (const f of stringFields) {
     if (body[f] !== undefined) {
       setPayload[f] = String(body[f] ?? "").trim();
     }
+  }
+
+  if (
+    setPayload.dokSales !== undefined &&
+    !["Belum Upload", "Proses Verifikasi", "Sudah Upload"].includes(setPayload.dokSales)
+  ) {
+    return NextResponse.json({ error: "Status dokumen tidak valid" }, { status: 400 });
   }
 
   if (body.nominalKontrak !== undefined) {
@@ -111,7 +132,9 @@ export async function PUT(
 
   const rawResult = await db.collection(COL_NAME).findOneAndUpdate(
     { nomorKontrak: nk },
-    { $set: setPayload },
+    setPayload.dokSales === "Sudah Upload"
+      ? { $set: setPayload, $unset: { dokVerifikasi: "" } }
+      : { $set: setPayload },
     { returnDocument: "after", projection: { _id: 0 } },
   );
 

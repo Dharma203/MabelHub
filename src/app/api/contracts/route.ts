@@ -5,6 +5,8 @@ import { assertAdminOrSuperadmin } from "@/lib/auth-server";
 const DB_NAME = getDbName();
 const COL_NAME = "contracts";
 
+export const dynamic = "force-dynamic";
+
 declare global {
   // eslint-disable-next-line no-var
   var __contracts_indexes_promise: Promise<void> | undefined;
@@ -45,7 +47,38 @@ export async function GET(req: Request) {
     .limit(500)
     .toArray();
 
-  return NextResponse.json({ data: items });
+  // Ambil daftar nomor kontrak yang sudah memiliki dokumentasi project
+  const reportedNomorKontraks = await db
+    .collection("dokumentasi_project")
+    .distinct("nomorKontrak");
+  const reportedSet = new Set(
+    reportedNomorKontraks.map((nk: any) => String(nk ?? "").trim())
+  );
+
+  const enrichedItems = items.map((c: any) => {
+    const nk = String(c.nomorKontrak ?? "").trim();
+    const isUploaded = reportedSet.has(nk);
+    return {
+      ...c,
+      // "Proses Verifikasi" diset manual oleh admin; hanya berlaku jika dokumen sudah diupload
+      dokSales: !isUploaded
+        ? "Belum Upload"
+        : c.dokSales === "Proses Verifikasi"
+          ? "Proses Verifikasi"
+          : "Sudah Upload",
+    };
+  });
+
+  return NextResponse.json(
+    { data: enrichedItems },
+    {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    }
+  );
 }
 
 export async function POST(req: Request) {
@@ -103,6 +136,8 @@ export async function POST(req: Request) {
     catatan: String(body.catatan ?? "").trim(),
     pic: String(body.pic ?? "").trim(),
     tanggalBerakhirKontrak: String(body.tanggalBerakhirKontrak ?? "").trim(),
+    status: String(body.status ?? "PENAGIHAN").trim(),
+    dokSales: String(body.dokSales ?? "Belum Upload").trim(),
 
     // Penagihan (embedded, one per contract)
     penagihan: {

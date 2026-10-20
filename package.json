@@ -48,6 +48,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "^12.9.0",
     "@jest/globals": "^30.3.0",
     "@tailwindcss/postcss": "^4",
     "@tanstack/devtools-vite": "^0.8.3",
