@@ -104,7 +104,23 @@ export async function PUT(
   }
 
   if (body.nominalKontrak !== undefined) {
-    setPayload.nominalKontrak = Number(body.nominalKontrak) || 0;
+    const nom = Number(body.nominalKontrak) || 0;
+    if (nom < 0) {
+      return NextResponse.json(
+        { error: "Nominal Kontrak tidak boleh bernilai negatif" },
+        { status: 400 },
+      );
+    }
+    setPayload.nominalKontrak = nom;
+  }
+
+  const tglKontrak = setPayload.tanggalKontrak !== undefined ? setPayload.tanggalKontrak : existing.tanggalKontrak;
+  const tglBerakhir = setPayload.tanggalBerakhirKontrak !== undefined ? setPayload.tanggalBerakhirKontrak : existing.tanggalBerakhirKontrak;
+  if (tglKontrak && tglBerakhir && tglBerakhir < tglKontrak) {
+    return NextResponse.json(
+      { error: "Tanggal Berakhir harus lebih besar atau sama dengan Tanggal Kontrak" },
+      { status: 400 },
+    );
   }
 
   if (body.fisik !== undefined) {
@@ -130,11 +146,129 @@ export async function PUT(
     };
   }
 
+  const FIELD_LABELS: Record<string, string> = {
+    namaPengadaan: "Nama Pengadaan",
+    instansi: "Instansi",
+    bendera: "Bendera",
+    perusahaan: "Perusahaan",
+    tanggalKontrak: "Tanggal Kontrak",
+    tanggalBerakhirKontrak: "Tanggal Berakhir",
+    tanggalPenyerahan: "Tanggal Penyerahan",
+    link: "Link GDrive",
+    namaFolder: "Nama Folder",
+    keterangan: "Keterangan",
+    catatan: "Catatan",
+    marketing: "Marketing",
+    pic: "PIC",
+    status: "Status",
+    dokSales: "Dokumen Sales",
+  };
+
+  const changes: {
+    field: string;
+    label: string;
+    oldValue: string;
+    newValue: string;
+  }[] = [];
+
+  for (const f of stringFields) {
+    if (setPayload[f] !== undefined) {
+      const oldVal = String(existing[f] ?? "").trim();
+      const newVal = String(setPayload[f] ?? "").trim();
+      if (oldVal !== newVal) {
+        changes.push({
+          field: f,
+          label: FIELD_LABELS[f] || f,
+          oldValue: oldVal || "-",
+          newValue: newVal || "-",
+        });
+      }
+    }
+  }
+
+  if (setPayload.nominalKontrak !== undefined) {
+    const oldNom = Number(existing.nominalKontrak) || 0;
+    const newNom = Number(setPayload.nominalKontrak) || 0;
+    if (oldNom !== newNom) {
+      changes.push({
+        field: "nominalKontrak",
+        label: "Nominal Kontrak",
+        oldValue: `Rp ${oldNom.toLocaleString("id-ID")}`,
+        newValue: `Rp ${newNom.toLocaleString("id-ID")}`,
+      });
+    }
+  }
+
+  if (setPayload.fisik !== undefined) {
+    const oldFisik = existing.fisik || "TIDAK";
+    if (oldFisik !== setPayload.fisik) {
+      changes.push({
+        field: "fisik",
+        label: "Fisik",
+        oldValue: oldFisik,
+        newValue: setPayload.fisik,
+      });
+    }
+  }
+
+  if (setPayload.scan !== undefined) {
+    const oldScan = existing.scan || "TIDAK";
+    if (oldScan !== setPayload.scan) {
+      changes.push({
+        field: "scan",
+        label: "Scan",
+        oldValue: oldScan,
+        newValue: setPayload.scan,
+      });
+    }
+  }
+
+  if (setPayload.requestIds !== undefined) {
+    const oldReqs = Array.isArray(existing.requestIds)
+      ? existing.requestIds.join(", ")
+      : "";
+    const newReqs = Array.isArray(setPayload.requestIds)
+      ? setPayload.requestIds.join(", ")
+      : "";
+    if (oldReqs !== newReqs) {
+      changes.push({
+        field: "requestIds",
+        label: "Request IDs Terkait",
+        oldValue: oldReqs || "-",
+        newValue: newReqs || "-",
+      });
+    }
+  }
+
+  const updateQuery: any = {
+    $set: setPayload,
+  };
+
+  if (setPayload.dokSales === "Sudah Upload") {
+    updateQuery.$unset = { dokVerifikasi: "" };
+  }
+
+  if (changes.length > 0) {
+    const historyEntry = {
+      id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      at: now,
+      by: gate.session.fullName || gate.session.username || "Admin",
+      role: gate.session.role || "ADMIN",
+      action: "UPDATE",
+      changes,
+    };
+
+    updateQuery.$push = {
+      history: {
+        $each: [historyEntry],
+        $position: 0,
+      },
+    };
+  }
+
   const rawResult = await db.collection(COL_NAME).findOneAndUpdate(
     { nomorKontrak: nk },
-    setPayload.dokSales === "Sudah Upload"
-      ? { $set: setPayload, $unset: { dokVerifikasi: "" } }
-      : { $set: setPayload },
+    updateQuery,
     { returnDocument: "after", projection: { _id: 0 } },
   );
 

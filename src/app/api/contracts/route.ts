@@ -96,6 +96,23 @@ export async function POST(req: Request) {
     );
   }
 
+  const tanggalKontrak = String(body.tanggalKontrak ?? "").trim();
+  const tanggalBerakhirKontrak = String(body.tanggalBerakhirKontrak ?? "").trim();
+  if (tanggalKontrak && tanggalBerakhirKontrak && tanggalBerakhirKontrak < tanggalKontrak) {
+    return NextResponse.json(
+      { error: "Tanggal Berakhir harus lebih besar atau sama dengan Tanggal Kontrak" },
+      { status: 400 },
+    );
+  }
+
+  const nominalKontrak = Number(body.nominalKontrak) || 0;
+  if (nominalKontrak < 0) {
+    return NextResponse.json(
+      { error: "Nominal Kontrak tidak boleh bernilai negatif" },
+      { status: 400 },
+    );
+  }
+
   const perusahaan = String(body.perusahaan ?? "").trim();
 
   const client = await clientPromise;
@@ -145,6 +162,24 @@ export async function POST(req: Request) {
       tanggalBerakhir: String(body.penagihan?.tanggalBerakhir ?? "").trim(),
       nominalPenagihan: Number(body.penagihan?.nominalPenagihan) || 0,
     },
+
+    history: [
+      {
+        id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        at: now,
+        by: gate.session.fullName || gate.session.username || "Admin",
+        role: gate.session.role || "ADMIN",
+        action: "CREATE",
+        changes: [
+          {
+            field: "nomorKontrak",
+            label: "Pembuatan Kontrak",
+            oldValue: "-",
+            newValue: nomorKontrak,
+          },
+        ],
+      },
+    ],
 
     createdAt: now,
     updatedAt: now,
