@@ -387,10 +387,20 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/validasi-sales', 
           icon: 'User' 
         },
+        { label: 'Validasi Sales', 
+          href: '/validasi-sales', 
+          icon: 'User' 
+        },
         {
+          label: 'Submit Plan',
           label: 'Submit Plan',
           href: '/sales-report-system',
           icon: 'FileText',
+        },
+        {
+          label: 'Plan',
+          href: '/list-plan',
+          icon: 'Book',
         },
         {
           label: 'Plan',
