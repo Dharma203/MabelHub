@@ -43,7 +43,6 @@ export function normalizePlanVisitSales(
   }
 
   const sales = new Set<string>()
-  const segments = new Set<string>()
   const entries: PlanVisitSalesEntry[] = []
 
   for (const row of value) {
@@ -72,14 +71,12 @@ export function normalizePlanVisitSales(
       !planVisitSegmenNames.includes(entry.segmentasi) ||
       !planVisitTypes.includes(entry.tipe_visit) ||
       !entry.nama_perusahaan ||
-      sales.has(entry.nama_sales) ||
-      segments.has(entry.segmentasi)
+      sales.has(entry.nama_sales)
     ) {
       return null
     }
 
     sales.add(entry.nama_sales)
-    segments.add(entry.segmentasi)
     entries.push(entry)
   }
 

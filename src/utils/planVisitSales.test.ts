@@ -39,5 +39,16 @@ it('normalizes valid visit rows and rejects incomplete entries', () => {
     ]),
   ).toBeNull()
 
+  expect(
+    normalizePlanVisitSales([
+      entry,
+      {
+        ...entry,
+        nama_sales: 'Beffry Rizkana',
+        nama_perusahaan: 'PT Contoh Lain',
+      },
+    ]),
+  ).toHaveLength(2)
+
   expect(normalizePlanVisitSales([entry, entry])).toBeNull()
 })

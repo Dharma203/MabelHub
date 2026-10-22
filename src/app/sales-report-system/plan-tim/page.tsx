@@ -119,7 +119,7 @@ function PlanTimContent() {
               </h1>
               <div className='text-sm ml-4 mt-2 text-slate-500 font-medium'>
                 Isi rencana penjualan tim untuk periode yang dipilih, Target tim
-                dihitung otomatis dari akumulasi target per sales.
+                dihitung otomatis dari akumulasi target per sales
               </div>
             </div>
           </div>
@@ -404,7 +404,7 @@ function PlanTimContent() {
                 onClick={handleKirim}
                 className='flex h-10 items-center justify-center gap-2 cursor-pointer rounded-lg bg-blue-600 px-5 text-sm font-bold text-white shadow-sm ring-1 ring-inset ring-blue-700 hover:bg-blue-700 transition-all'
               >
-                <Save className='h-5 w-5' />
+                <Save className='h-5 w-5' /> Save
               </button>
             </div>
           </div>

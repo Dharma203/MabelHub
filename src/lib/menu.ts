@@ -49,10 +49,17 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/database-prospek',
           icon: 'DatabaseZap',
         },
+      ],
+    },
+    {
+      title: 'SALES',
+      icon: 'User',
+      items: [
+        { label: 'Validasi Sales', href: '/validasi-sales', icon: 'User' },
         {
-          label: 'Database Tracking',
-          href: '/database-tracking',
-          icon: 'Database',
+          label: 'Submit Plan',
+          href: '/sales-report-system',
+          icon: 'FileText',
         },
       ],
     },
@@ -376,11 +383,19 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
       title: 'SALES',
       icon: 'User',
       items: [
-        { label: 'Validasi Sales', href: '/validasi-sales', icon: 'User' },
+        { label: 'Validasi Sales', 
+          href: '/validasi-sales', 
+          icon: 'User' 
+        },
         {
-          label: 'Sales Report System',
+          label: 'Submit Plan',
           href: '/sales-report-system',
           icon: 'FileText',
+        },
+        {
+          label: 'Plan',
+          href: '/list-plan',
+          icon: 'Book',
         },
       ],
     },
@@ -513,7 +528,7 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           icon: 'BarChart3',
         },
         {
-          label: 'Sales Report System',
+          label: 'Submit Plan',
           href: '/sales-report-system',
           icon: 'FileText',
         },

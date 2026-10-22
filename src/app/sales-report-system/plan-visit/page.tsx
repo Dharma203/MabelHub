@@ -26,7 +26,7 @@ function PlanVisitContent() {
     }
   }, [router])
 
-  const handleKirim = async () => {
+  const handleKirim = () => {
     if (visitTargets.length === 0) {
       alert('Tambahkan minimal satu rencana visit.')
       return
@@ -40,31 +40,12 @@ function PlanVisitContent() {
       }
     }
 
-    const draft = sessionStorage.getItem('sales-report-plan-tim-draft')
-    if (!draft) {
-      alert('Data Plan Tim tidak ditemukan. Silakan isi kembali.')
-      router.replace('/sales-report-system/plan-tim')
-      return
-    }
-
-    let planTimHeader: unknown
-    try {
-      planTimHeader = JSON.parse(draft)
-    } catch {
-      sessionStorage.removeItem('sales-report-plan-tim-draft')
-      alert('Data sementara Plan Tim tidak valid. Silakan isi kembali.')
-      router.replace('/sales-report-system/plan-tim')
-      return
-    }
-
     setIsSaving(true)
     try {
-      const response = await fetch('/api/plan-tim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          header: planTimHeader,
-          sales_visit: visitTargets.map(
+      sessionStorage.setItem(
+        'sales-report-plan-visit-draft',
+        JSON.stringify(
+          visitTargets.map(
             ({ nama_sales, segmentasi, tipe_visit, nama_perusahaan, note }) => ({
               nama_sales,
               segmentasi,
@@ -73,25 +54,12 @@ function PlanVisitContent() {
               note,
             }),
           ),
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData?.error || 'Gagal menyimpan data visit.')
-      }
-
-      sessionStorage.removeItem('sales-report-plan-tim-draft')
-      alert('Data Plan Tim dan Plan Visit berhasil disimpan.')
-      router.push('/sales-report-system')
-    } catch (error) {
-      console.error('Error saving sales report:', error)
-      alert(
-        error instanceof Error
-          ? error.message
-          : 'Terjadi kesalahan saat menyimpan data.',
+        ),
       )
-    } finally {
+      router.push('/sales-report-system/review-submit')
+    } catch (error) {
+      console.error('Error saving sales report draft:', error)
+      alert('Gagal menyimpan data sementara. Silakan coba lagi.')
       setIsSaving(false)
     }
   }
@@ -187,15 +155,6 @@ function PlanVisitContent() {
                           options={[
                             { value: '', label: '-- Pilih Segmen --' },
                             ...planVisitSegmenNames
-                              .filter(
-                                (name) =>
-                                  name === row.segmentasi ||
-                                  !visitTargets.some(
-                                    (item) =>
-                                      item.id !== row.id &&
-                                      item.segmentasi === name,
-                                  ),
-                              )
                               .map((name) => ({ value: name, label: name })),
                           ]}
                           className='px-2 mt-2'
@@ -290,7 +249,7 @@ function PlanVisitContent() {
                 aria-label={isSaving ? 'Menyimpan data visit' : 'Simpan data visit'}
                 className='flex h-10 items-center justify-center gap-2 cursor-pointer rounded-lg bg-blue-600 px-5 text-sm font-bold text-white shadow-sm ring-1 ring-inset ring-blue-700 hover:bg-blue-700 transition-all'
               >
-                <Save className='h-5 w-5' />
+                <Save className='h-5 w-5' /> Save
               </button>
             </div>
           </div>
