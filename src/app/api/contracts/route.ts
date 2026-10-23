@@ -163,6 +163,17 @@ export async function POST(req: Request) {
       nominalPenagihan: Number(body.penagihan?.nominalPenagihan) || 0,
     },
 
+    pembayaran: Array.isArray(body.pembayaran)
+      ? body.pembayaran.map((p: any) => ({
+          id: String(p.id || `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`),
+          tanggal: String(p.tanggal ?? "").trim(),
+          jumlah: Number(p.jumlah) || 0,
+          keterangan: String(p.keterangan ?? "").trim(),
+          createdAt: now,
+          createdBy: gate.session.fullName || gate.session.username || "Admin",
+        }))
+      : [],
+
     history: [
       {
         id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,

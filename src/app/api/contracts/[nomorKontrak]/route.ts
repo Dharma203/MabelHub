@@ -146,6 +146,18 @@ export async function PUT(
     };
   }
 
+  // Update pembayaran (embedded array)
+  if (body.pembayaran !== undefined && Array.isArray(body.pembayaran)) {
+    setPayload.pembayaran = body.pembayaran.map((p: any) => ({
+      id: String(p.id || `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`),
+      tanggal: String(p.tanggal ?? "").trim(),
+      jumlah: Number(p.jumlah) || 0,
+      keterangan: String(p.keterangan ?? "").trim(),
+      createdAt: p.createdAt ? new Date(p.createdAt) : now,
+      createdBy: String(p.createdBy || gate.session.fullName || gate.session.username || "Admin"),
+    }));
+  }
+
   const FIELD_LABELS: Record<string, string> = {
     namaPengadaan: "Nama Pengadaan",
     instansi: "Instansi",
@@ -236,6 +248,21 @@ export async function PUT(
         label: "Request IDs Terkait",
         oldValue: oldReqs || "-",
         newValue: newReqs || "-",
+      });
+    }
+  }
+
+  if (setPayload.pembayaran !== undefined) {
+    const oldArr: any[] = Array.isArray(existing.pembayaran) ? existing.pembayaran : [];
+    const newArr: any[] = setPayload.pembayaran;
+    const oldSum = oldArr.reduce((acc, p) => acc + (Number(p.jumlah) || 0), 0);
+    const newSum = newArr.reduce((acc, p) => acc + (Number(p.jumlah) || 0), 0);
+    if (oldSum !== newSum || oldArr.length !== newArr.length) {
+      changes.push({
+        field: "pembayaran",
+        label: "Pencatatan Pembayaran",
+        oldValue: `${oldArr.length} pembayaran (Total: Rp ${oldSum.toLocaleString("id-ID")})`,
+        newValue: `${newArr.length} pembayaran (Total: Rp ${newSum.toLocaleString("id-ID")})`,
       });
     }
   }
