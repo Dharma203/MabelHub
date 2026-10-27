@@ -435,7 +435,7 @@ function DokumentasiProjectContent() {
 
   if (sessionLoading || loading) {
     return (
-      <div className="flex w-full min-h-[400px] items-center justify-center p-8 text-slate-500 font-medium">
+      <div className="flex w-full min-h-100 items-center justify-center p-8 text-slate-500 font-medium">
         <div className="flex items-center gap-3 bg-white px-6 py-4 rounded-2xl shadow-xs border border-slate-200">
           <RotateCw className="w-5 h-5 animate-spin text-blue-600" />
           <span>Memuat data dokumentasi project...</span>
@@ -456,7 +456,7 @@ function DokumentasiProjectContent() {
       {/* ─── Top Header Bar ─── */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-sm shadow-blue-500/20 flex-shrink-0">
+          <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-sm shadow-blue-500/20 shrink-0">
             <FileText className="w-6 h-6" />
           </div>
           <div>
@@ -491,7 +491,7 @@ function DokumentasiProjectContent() {
       {/* ─── Stats Cards Grid ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
             <ClipboardList className="w-5 h-5" />
           </div>
           <div>
@@ -505,7 +505,7 @@ function DokumentasiProjectContent() {
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
             <Clock className="w-5 h-5" />
           </div>
           <div>
@@ -519,7 +519,7 @@ function DokumentasiProjectContent() {
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
             <CheckSquare className="w-5 h-5" />
           </div>
           <div>
@@ -533,7 +533,7 @@ function DokumentasiProjectContent() {
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
             <Users className="w-5 h-5" />
           </div>
           <div>
@@ -550,14 +550,14 @@ function DokumentasiProjectContent() {
       {/* ─── Alerts ─── */}
       {submitError && (
         <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 text-rose-600 text-sm font-semibold flex items-center gap-2.5 shadow-xs">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <AlertCircle className="w-5 h-5 shrink-0" />
           <span>{submitError}</span>
         </div>
       )}
 
       {submitSuccess && (
         <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-600 text-sm font-semibold flex items-center gap-2.5 shadow-xs">
-          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+          <CheckCircle2 className="w-5 h-5 shrink-0" />
           <span>{submitSuccess}</span>
         </div>
       )}
@@ -673,14 +673,14 @@ function DokumentasiProjectContent() {
 
               {!namaSales ? (
                 <div className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-amber-700 bg-amber-50 px-3 py-2 rounded-xl border border-amber-200">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-500" />
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
                   <span>
                     Silakan pilih <strong>Nama Sales</strong> pada bagian <strong>1. Info Laporan</strong> terlebih dahulu untuk memunculkan kontrak yang diajukan sales terkait.
                   </span>
                 </div>
               ) : availableContracts.length === 0 ? (
                 <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-slate-500 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                  <AlertCircle className="w-4 h-4 shrink-0 text-slate-400" />
                   <span>
                     Tidak ditemukan data kontrak yang diajukan oleh sales <strong>{namaSales}</strong>.
                   </span>
@@ -782,7 +782,7 @@ function DokumentasiProjectContent() {
                   <button
                     type="button"
                     onClick={() => removeRequestIdSph(idx)}
-                    className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-200 rounded-xl transition-colors flex-shrink-0"
+                    className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-200 rounded-xl transition-colors shrink-0"
                     title="Hapus ID"
                   >
                     <X className="w-4 h-4" />
@@ -885,7 +885,7 @@ function DokumentasiProjectContent() {
                       onChange={(e) =>
                         updateBarang(idx, "tipeBarang", e.target.value)
                       }
-                      placeholder="Contoh: Latitude 3420..."
+                      placeholder="Tipe / Model"
                     />
                   </div>
                 </div>
@@ -939,7 +939,7 @@ function DokumentasiProjectContent() {
                 {item.kondisiBarang === "ADA KENDALA" && (
                   <div className="p-4 bg-amber-50/80 border border-amber-200/90 rounded-xl space-y-1.5 transition-all">
                     <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-900">
-                      <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                       <span>
                         Keterangan Kendala Barang <span className="text-rose-500">*</span>
                       </span>

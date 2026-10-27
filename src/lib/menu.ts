@@ -61,6 +61,11 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/sales-report-system',
           icon: 'FileText',
         },
+        {
+          label: 'Plan',
+          href: '/list-plan',
+          icon: 'Book',
+        },
       ],
     },
     {
@@ -92,18 +97,6 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           label: 'Tracking Visit B2B',
           href: '/tracking-b2b',
           icon: 'Building',
-        },
-      ],
-    },
-    {
-      title: 'SALES',
-      icon: 'User',
-      items: [
-        { label: 'Validasi Sales', href: '/validasi-sales', icon: 'User' },
-        {
-          label: 'Sales Report System',
-          href: '/sales-report-system',
-          icon: 'FileText',
         },
       ],
     },
@@ -383,24 +376,11 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
       title: 'SALES',
       icon: 'User',
       items: [
-        { label: 'Validasi Sales', 
-          href: '/validasi-sales', 
-          icon: 'User' 
-        },
-        { label: 'Validasi Sales', 
-          href: '/validasi-sales', 
-          icon: 'User' 
-        },
+        { label: 'Validasi Sales', href: '/validasi-sales', icon: 'User' },
         {
-          label: 'Submit Plan',
           label: 'Submit Plan',
           href: '/sales-report-system',
           icon: 'FileText',
-        },
-        {
-          label: 'Plan',
-          href: '/list-plan',
-          icon: 'Book',
         },
         {
           label: 'Plan',
