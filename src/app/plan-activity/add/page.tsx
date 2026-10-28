@@ -36,7 +36,6 @@ type SatuanKerja = {
   source: 'b2g' | 'visit'
   institusiKerja: string
   satuanKerja: string
-  institusiKerja?: string
   kota: string
   klpd: string
   ring?: string
@@ -476,6 +475,19 @@ function AddPlansContent() {
     }
   }
 
+  function pickEntity(itemId: string, company: Company) {
+    patchItem(itemId, {
+      selectedCompany: company,
+      namaEntitas: company.namaEntitas || company.institusiKerja || '',
+      jenisEntitas: company.jenisEntitas || company.jenis || '',
+      kota: company.kota || '',
+      pic_default: toPic(company.pic_default),
+      sugs: [],
+      showSug: false,
+      loadingSug: false,
+    })
+  }
+
   async function fetchSatkerSuggestion(
     itemId: string,
     ring: string,
@@ -524,7 +536,7 @@ function AddPlansContent() {
       selectedSatker: c,
       satuanKerja: c.satuanKerja || '',
       institusiQuery: c.institusiKerja || '',
-      namaEntitas: c.namaEntitas || '',
+      namaEntitas: '',
       kota: c.kota || '',
       klpd: c.klpd || '',
       showSatkerSug: false,
@@ -840,7 +852,11 @@ function AddPlansContent() {
                                   fetchSuggestion(it.id, 'RING 4', val)
                                 }}
                                 onFocus={() =>
-                                  fetchSuggestion(it.id, 'RING 4', it.namaEntitas)
+                                  fetchSuggestion(
+                                    it.id,
+                                    'RING 4',
+                                    it.namaEntitas,
+                                  )
                                 }
                                 placeholder='Ketik untuk mencari nama entitas...'
                                 className={inputCls(true)}
@@ -871,13 +887,18 @@ function AddPlansContent() {
                             </div>
                           </div>
 
-                          <ReadonlyField label='Kota/Kabupaten' value={it.kota} />
+                          <ReadonlyField
+                            label='Kota/Kabupaten'
+                            value={it.kota}
+                          />
                           <div>
                             <label className={labelCls}>Jenis Entitas</label>
                             <input
                               value={it.jenisEntitas}
                               onChange={(e) =>
-                                patchItem(it.id, { jenisEntitas: e.target.value })
+                                patchItem(it.id, {
+                                  jenisEntitas: e.target.value,
+                                })
                               }
                               placeholder='Masukkan jenis entitas'
                               className={`mt-2 block ${inputCls(true)}`}
@@ -950,8 +971,14 @@ function AddPlansContent() {
                             </div>
                           </div>
 
-                          <ReadonlyField label='Institusi' value={it.institusiQuery} />
-                          <ReadonlyField label='Kota/Kabupaten' value={it.kota} />
+                          <ReadonlyField
+                            label='Institusi'
+                            value={it.institusiQuery}
+                          />
+                          <ReadonlyField
+                            label='Kota/Kabupaten'
+                            value={it.kota}
+                          />
                         </>
                       )}
                     </div>

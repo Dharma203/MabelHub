@@ -26,6 +26,7 @@ export async function GET(req: Request) {
   const code = searchParams.get('code')?.trim()
   const period = searchParams.get('period')?.trim()
   const leaderName = searchParams.get('leaderName')?.trim()
+  const year = searchParams.get('year')?.trim()
 
   if (code) {
     try {
@@ -49,9 +50,9 @@ export async function GET(req: Request) {
     }
   }
 
-  if (!period && !leaderName) {
+  if (!period && !leaderName && !year) {
     return NextResponse.json(
-      { error: 'Pilih periode atau leader untuk mencari plan' },
+      { error: 'Pilih periode, tahun, atau leader untuk mencari plan' },
       { status: 400 },
     )
   }
@@ -65,14 +66,22 @@ export async function GET(req: Request) {
         {
           ...(period ? { period } : {}),
           ...(leaderName ? { leaderName } : {}),
+          ...(year ? { year } : {}),
         },
         {
           projection: {
             code_submit: 1,
             leaderName: 1,
             period: 1,
+            periodOf: 1,
             month: 1,
             year: 1,
+            visit_target: 1,
+            demo_target: 1,
+            sph_target: 1,
+            sph_deal_target: 1,
+            revenue: 1,
+            sales_targets: 1,
             created_at: 1,
             revised_at: 1,
           },

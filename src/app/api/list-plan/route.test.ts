@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { PUT } from './route'
+import { GET, PUT } from './route'
 import clientPromise from '@/lib/mongodb'
 
 jest.mock('@/lib/mongodb', () => ({
@@ -34,7 +34,12 @@ describe('PUT /api/list-plan', () => {
     jest.clearAllMocks()
     const client = await clientPromise
     const collection = client.db().collection()
-    const cursor = { sort: jest.fn(), limit: jest.fn(), next: jest.fn() }
+    const cursor = {
+      sort: jest.fn(),
+      limit: jest.fn(),
+      next: jest.fn(),
+      toArray: jest.fn().mockResolvedValue([]),
+    }
     cursor.sort.mockReturnValue(cursor)
     cursor.limit.mockReturnValue(cursor)
     collection.find.mockImplementation(({ code_submit }) => {
@@ -45,6 +50,22 @@ describe('PUT /api/list-plan', () => {
     })
     updateOne = collection.updateOne
     updateOne.mockResolvedValue({ matchedCount: 1 })
+  })
+
+  it('filters plans by year, period, and leader', async () => {
+    const find = (await clientPromise).db().collection().find
+    const response = await GET(
+      new Request(
+        'http://localhost/api/list-plan?year=2026&period=Bulanan&leaderName=Arie',
+      ),
+    )
+
+    expect(find.mock.calls[0][0]).toEqual({
+      year: '2026',
+      period: 'Bulanan',
+      leaderName: 'Arie',
+    })
+    expect(response.status).toBe(200)
   })
 
   it('updates editable fields and keeps team targets in sync', async () => {

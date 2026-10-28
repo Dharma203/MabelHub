@@ -1,41 +1,18 @@
 'use client'
 
 import SearchableSelect from '@/components/ui/SearchableSelect'
-import { useState, useMemo, useEffect, useRef, Suspense } from 'react'
-import { useSession } from '@/components/session/SessionProvider'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { ArrowBigUp, Clock, Save, Target } from 'lucide-react'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Clock, Save, Target } from 'lucide-react'
 import { validateFormFieldsPlan } from '@/utils/formValidationPlan'
 import { computeChangedFields } from '@/utils/validation'
 
-type ReportItem = {
-  id: string
-  created_at: string
-  nama_sales: string
-  updated_at: string
-  code_submit: string
-  period: string
-  period_of: string
-  month: string
-  year: string
-  leaderId: string
-  leaderName: string
-  total_active_sales: string
-  visit_target: string
-  demo_target: string
-  sph_target: string
-  sph_deal_target: string
-  revenue: string
-  note: string
-}
-
 function PlanSalesContent() {
-  const [codeSubmit, setCodeSubmit] = useState('')
+  const [codeSubmit] = useState('')
   const [period, setPeriod] = useState('')
   const [periodOf, setPeriodOf] = useState('')
   const [month, setMonth] = useState('')
   const [year, setYear] = useState('')
-  const [leaderId, setLeaderId] = useState('')
   const [leaderName, setLeaderName] = useState('')
   const [activeSales, setActiveSales] = useState('')
   const [visitTarget, setVisitTarget] = useState('')
@@ -46,32 +23,30 @@ function PlanSalesContent() {
   const [isOpen, setIsOpen] = useState(false)
   const [note, setNote] = useState('')
   const searchParams = useSearchParams()
-  const [originalSnapshot, setOriginalSnapshot] = useState<{
+  const [originalSnapshot] = useState<{
     header: Record<string, string>
-    items: any[]
+    items: { id: string; leaderName: string; leaderId: string; note: string }[]
   } | null>(null)
 
-  const [items, setItems] = useState<
-  {
-    id: string
-    leaderName: string
-    leaderId: string
-    note: string
-  }[]
+  const [items] = useState<
+    {
+      id: string
+      leaderName: string
+      leaderId: string
+      note: string
+    }[]
   >(() => [
     {
       id: Date.now().toString(36) + Math.random().toString(36).substring(2),
       leaderName: '',
       leaderId: '',
       note: '',
-    }
+    },
   ])
 
   const wrapperRef = useRef<HTMLDivElement>(null)
 
-  const isRevisionMode = !!(
-    searchParams.get('id')?.trim() || originalSnapshot
-  )
+  const isRevisionMode = !!(searchParams.get('id')?.trim() || originalSnapshot)
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -84,7 +59,7 @@ function PlanSalesContent() {
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [setIsOpen])
 
   const handleKirim = () => {
     const headerError = validateFormFieldsPlan({
@@ -126,18 +101,18 @@ function PlanSalesContent() {
       return result
     }
     const date = new Date()
-    const year = date.toLocaleDateString('id-ID', {
-      year: 'numeric'
-    })
-    .replace(/\//g, '')
-    const generatedCode = 
-    codeSubmit.trim() ||
-    `${prefixFallback}-${makeMonthPrefix}-${'X'}-${year}`
+    const year = date
+      .toLocaleDateString('id-ID', {
+        year: 'numeric',
+      })
+      .replace(/\//g, '')
+    const generatedCode =
+      codeSubmit.trim() || `${prefixFallback}-${makeMonthPrefix}-${'X'}-${year}`
 
     const headerPayload = {
       codeSubmit: generatedCode,
       period: period,
-      periodOf : 'X',
+      periodOf: 'X',
       month: month,
       year: year,
       leaderName: leaderName,
@@ -147,7 +122,7 @@ function PlanSalesContent() {
       sphTarget: sphDealTarget,
       sphDealTarget: sphDealTarget,
       revenue: revenue,
-      note: note
+      note: note,
     }
 
     const itemsPayload = items.map((item) => ({
@@ -155,10 +130,9 @@ function PlanSalesContent() {
       leaderName: item.leaderName,
       leaderId: item.leaderId,
       note: note,
-
     }))
 
-    let res : Response
+    let res: Response
 
     if (isRevisionMode) {
       // hitung perubahan field
@@ -169,9 +143,6 @@ function PlanSalesContent() {
       )
 
       // mode revisi : panggil put
-      
-
-
     }
   }
 

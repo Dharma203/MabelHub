@@ -18,7 +18,7 @@ export default function SharedLayoutAnimation() {
               key={item.label}
               initial={false}
               animate={{
-                backgroundColor: item === selectedTab ? '#eee' : '#eee0',
+                backgroundColor: '#fffff',
               }}
               style={tab}
               onClick={() => {
@@ -73,6 +73,7 @@ const container: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   position: 'relative',
+  placeItems: 'center',
 }
 
 const nav: React.CSSProperties = {
@@ -146,9 +147,7 @@ const icon: React.CSSProperties = {
 
 const PageOptions = [
   { icon: '👥', label: 'Plan Tim', link: '/sales-report-system/plan-tim' },
-  { icon: '👤', label: 'Plan Sales', link: '/sales-report-system/plan-sales' },
-  { icon: '🏢', label: 'Plan Visit', link: '//sales-report-system/plan-visit' },
 ]
 
-const [PlanTim, PlanSales, PlanVisit] = PageOptions
-const tabs = [PlanSales, PlanTim, PlanVisit]
+const [PlanTim] = PageOptions
+const tabs = [PlanTim]

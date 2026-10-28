@@ -537,24 +537,6 @@ function ListPlanContent() {
                     <p className='mt-1 font-bold text-slate-800'>{value}</p>
                   </div>
                 ))}
-                {/* <div className='col-span-full rounded-lg border border-slate-200 px-4 py-3'>
-                  <label className='text-xs font-medium uppercase text-slate-400'>
-                    Catatan
-                  </label>
-                  {draftPlan ? (
-                    <input
-                      value={draftPlan.note}
-                      onChange={(event) =>
-                        setDraftPlan({ ...draftPlan, note: event.target.value })
-                      }
-                      className='mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm'
-                    />
-                  ) : (
-                    <p className='mt-1 font-bold text-slate-800'>
-                      {shownPlan.note || '—'}
-                    </p>
-                  )}
-                </div> */}
                 {(
                   [
                     ['Target Visit', shownPlan.visit_target],
