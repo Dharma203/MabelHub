@@ -104,7 +104,23 @@ export async function PUT(
   }
 
   if (body.nominalKontrak !== undefined) {
-    setPayload.nominalKontrak = Number(body.nominalKontrak) || 0;
+    const nom = Number(body.nominalKontrak) || 0;
+    if (nom < 0) {
+      return NextResponse.json(
+        { error: "Nominal Kontrak tidak boleh bernilai negatif" },
+        { status: 400 },
+      );
+    }
+    setPayload.nominalKontrak = nom;
+  }
+
+  const tglKontrak = setPayload.tanggalKontrak !== undefined ? setPayload.tanggalKontrak : existing.tanggalKontrak;
+  const tglBerakhir = setPayload.tanggalBerakhirKontrak !== undefined ? setPayload.tanggalBerakhirKontrak : existing.tanggalBerakhirKontrak;
+  if (tglKontrak && tglBerakhir && tglBerakhir < tglKontrak) {
+    return NextResponse.json(
+      { error: "Tanggal Berakhir harus lebih besar atau sama dengan Tanggal Kontrak" },
+      { status: 400 },
+    );
   }
 
   if (body.fisik !== undefined) {
@@ -130,11 +146,156 @@ export async function PUT(
     };
   }
 
+  // Update pembayaran (embedded array)
+  if (body.pembayaran !== undefined && Array.isArray(body.pembayaran)) {
+    setPayload.pembayaran = body.pembayaran.map((p: any) => ({
+      id: String(p.id || `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`),
+      tanggal: String(p.tanggal ?? "").trim(),
+      jumlah: Number(p.jumlah) || 0,
+      keterangan: String(p.keterangan ?? "").trim(),
+      createdAt: p.createdAt ? new Date(p.createdAt) : now,
+      createdBy: String(p.createdBy || gate.session.fullName || gate.session.username || "Admin"),
+    }));
+  }
+
+  const FIELD_LABELS: Record<string, string> = {
+    namaPengadaan: "Nama Pengadaan",
+    instansi: "Instansi",
+    bendera: "Bendera",
+    perusahaan: "Perusahaan",
+    tanggalKontrak: "Tanggal Kontrak",
+    tanggalBerakhirKontrak: "Tanggal Berakhir",
+    tanggalPenyerahan: "Tanggal Penyerahan",
+    link: "Link GDrive",
+    namaFolder: "Nama Folder",
+    keterangan: "Keterangan",
+    catatan: "Catatan",
+    marketing: "Marketing",
+    pic: "PIC",
+    status: "Status",
+    dokSales: "Dokumen Sales",
+  };
+
+  const changes: {
+    field: string;
+    label: string;
+    oldValue: string;
+    newValue: string;
+  }[] = [];
+
+  for (const f of stringFields) {
+    if (setPayload[f] !== undefined) {
+      const oldVal = String(existing[f] ?? "").trim();
+      const newVal = String(setPayload[f] ?? "").trim();
+      if (oldVal !== newVal) {
+        changes.push({
+          field: f,
+          label: FIELD_LABELS[f] || f,
+          oldValue: oldVal || "-",
+          newValue: newVal || "-",
+        });
+      }
+    }
+  }
+
+  if (setPayload.nominalKontrak !== undefined) {
+    const oldNom = Number(existing.nominalKontrak) || 0;
+    const newNom = Number(setPayload.nominalKontrak) || 0;
+    if (oldNom !== newNom) {
+      changes.push({
+        field: "nominalKontrak",
+        label: "Nominal Kontrak",
+        oldValue: `Rp ${oldNom.toLocaleString("id-ID")}`,
+        newValue: `Rp ${newNom.toLocaleString("id-ID")}`,
+      });
+    }
+  }
+
+  if (setPayload.fisik !== undefined) {
+    const oldFisik = existing.fisik || "TIDAK";
+    if (oldFisik !== setPayload.fisik) {
+      changes.push({
+        field: "fisik",
+        label: "Fisik",
+        oldValue: oldFisik,
+        newValue: setPayload.fisik,
+      });
+    }
+  }
+
+  if (setPayload.scan !== undefined) {
+    const oldScan = existing.scan || "TIDAK";
+    if (oldScan !== setPayload.scan) {
+      changes.push({
+        field: "scan",
+        label: "Scan",
+        oldValue: oldScan,
+        newValue: setPayload.scan,
+      });
+    }
+  }
+
+  if (setPayload.requestIds !== undefined) {
+    const oldReqs = Array.isArray(existing.requestIds)
+      ? existing.requestIds.join(", ")
+      : "";
+    const newReqs = Array.isArray(setPayload.requestIds)
+      ? setPayload.requestIds.join(", ")
+      : "";
+    if (oldReqs !== newReqs) {
+      changes.push({
+        field: "requestIds",
+        label: "Request IDs Terkait",
+        oldValue: oldReqs || "-",
+        newValue: newReqs || "-",
+      });
+    }
+  }
+
+  if (setPayload.pembayaran !== undefined) {
+    const oldArr: any[] = Array.isArray(existing.pembayaran) ? existing.pembayaran : [];
+    const newArr: any[] = setPayload.pembayaran;
+    const oldSum = oldArr.reduce((acc, p) => acc + (Number(p.jumlah) || 0), 0);
+    const newSum = newArr.reduce((acc, p) => acc + (Number(p.jumlah) || 0), 0);
+    if (oldSum !== newSum || oldArr.length !== newArr.length) {
+      changes.push({
+        field: "pembayaran",
+        label: "Pencatatan Pembayaran",
+        oldValue: `${oldArr.length} pembayaran (Total: Rp ${oldSum.toLocaleString("id-ID")})`,
+        newValue: `${newArr.length} pembayaran (Total: Rp ${newSum.toLocaleString("id-ID")})`,
+      });
+    }
+  }
+
+  const updateQuery: any = {
+    $set: setPayload,
+  };
+
+  if (setPayload.dokSales === "Sudah Upload") {
+    updateQuery.$unset = { dokVerifikasi: "" };
+  }
+
+  if (changes.length > 0) {
+    const historyEntry = {
+      id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      at: now,
+      by: gate.session.fullName || gate.session.username || "Admin",
+      role: gate.session.role || "ADMIN",
+      action: "UPDATE",
+      changes,
+    };
+
+    updateQuery.$push = {
+      history: {
+        $each: [historyEntry],
+        $position: 0,
+      },
+    };
+  }
+
   const rawResult = await db.collection(COL_NAME).findOneAndUpdate(
     { nomorKontrak: nk },
-    setPayload.dokSales === "Sudah Upload"
-      ? { $set: setPayload, $unset: { dokVerifikasi: "" } }
-      : { $set: setPayload },
+    updateQuery,
     { returnDocument: "after", projection: { _id: 0 } },
   );
 

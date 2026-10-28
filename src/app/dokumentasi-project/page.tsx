@@ -172,11 +172,7 @@ function DokumentasiProjectContent() {
       const statsJson = await statsRes.json().catch(() => ({}));
 
       if (usersJson.data) {
-        const sales = usersJson.data.filter(
-          (u: UserOption) =>
-            u.role === "SALES" || u.role === "LEADER" || u.role === "ADMIN SALES"
-        );
-        setSalesUsers(sales);
+        setSalesUsers(usersJson.data);
       }
 
       if (contractsJson.data) {
@@ -207,6 +203,32 @@ function DokumentasiProjectContent() {
     if (user) fetchInitialData();
   }, [user, fetchInitialData]);
 
+  // Dropdown options: Tampilkan semua user (tanpa filter role & tanpa harus sudah punya kontrak)
+  const salesOptions = useMemo(() => {
+    const map = new Map<string, string>();
+
+    // 1. Masukkan semua user yang terdaftar di sistem
+    salesUsers.forEach((u) => {
+      const name = (u.fullName || "").trim();
+      if (name) map.set(name.toLowerCase(), name);
+    });
+
+    // 2. Masukkan juga nama marketing dari kontrak jika ada yang belum terdaftar di users
+    contracts.forEach((c) => {
+      const m = (c.marketing || "").trim();
+      if (m && !map.has(m.toLowerCase())) {
+        map.set(m.toLowerCase(), m);
+      }
+    });
+
+    return Array.from(map.values())
+      .sort((a, b) => a.localeCompare(b, "id-ID"))
+      .map((name) => ({
+        value: name,
+        label: name,
+      }));
+  }, [salesUsers, contracts]);
+
   // Kontrak yang tersedia hanya yang diajukan oleh sales yang dipilih
   const availableContracts = useMemo(() => {
     if (!namaSales) return [];
@@ -216,6 +238,20 @@ function DokumentasiProjectContent() {
       return marketing === target;
     });
   }, [contracts, namaSales]);
+
+  const contractOptions = useMemo(
+    () =>
+      availableContracts.map((c) => ({
+        value: c.nomorKontrak,
+        label: `${c.nomorKontrak}${c.namaPengadaan ? ` — ${c.namaPengadaan}` : ""}${c.instansi ? ` (${c.instansi})` : ""}`,
+      })),
+    [availableContracts]
+  );
+
+  const kotaOptions = useMemo(
+    () => kotaList.map((k) => ({ value: k, label: k })),
+    [kotaList]
+  );
 
   // Ketika nama sales berubah, reset nomor kontrak jika kontrak lama bukan milik sales tersebut
   useEffect(() => {
@@ -414,17 +450,6 @@ function DokumentasiProjectContent() {
     "w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400";
   const readOnlyCls =
     "w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-sm font-semibold text-slate-600 cursor-not-allowed";
-
-  // Dropdown options
-  const salesOptions = salesUsers.map((u) => ({
-    value: u.fullName,
-    label: u.fullName,
-  }));
-  const contractOptions = availableContracts.map((c) => ({
-    value: c.nomorKontrak,
-    label: `${c.nomorKontrak}${c.namaPengadaan ? ` — ${c.namaPengadaan}` : ""}${c.instansi ? ` (${c.instansi})` : ""}`,
-  }));
-  const kotaOptions = kotaList.map((k) => ({ value: k, label: k }));
 
   return (
     <div className="min-h-screen bg-blue-50/50 p-4 md:p-6 lg:p-8 space-y-6">

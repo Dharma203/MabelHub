@@ -21,7 +21,24 @@ import {
   Building2,
   ExternalLink,
   Tag,
+  ImageIcon,
+  Video,
+  Eye,
+  Loader2,
+  Receipt,
+  Plus,
+  Trash2,
+  Wallet,
 } from "lucide-react";
+
+export type PembayaranItem = {
+  id: string;
+  tanggal: string; // YYYY-MM-DD
+  jumlah: number;
+  keterangan?: string;
+  createdAt?: string | Date;
+  createdBy?: string;
+};
 
 type Penagihan = {
   tanggalMulai?: string;
@@ -44,6 +61,7 @@ type Contract = {
   status?: string;
   dokSales?: string;
   penagihan?: Penagihan;
+  pembayaran?: PembayaranItem[];
   [key: string]: any;
 };
 
@@ -55,9 +73,22 @@ type SortField =
   | "nomorKontrak"
   | "tanggalKontrak"
   | "nominalKontrak"
+  | "terbayar"
+  | "sisa"
   | "pic"
   | "dokSales"
   | "status";
+
+function getTotalTerbayar(c: Contract): number {
+  if (!c.pembayaran || !Array.isArray(c.pembayaran)) return 0;
+  return c.pembayaran.reduce((sum, p) => sum + (Number(p.jumlah) || 0), 0);
+}
+
+function getSisaTagihan(c: Contract): number {
+  const nominal = Number(c.nominalKontrak) || 0;
+  const terbayar = getTotalTerbayar(c);
+  return nominal - terbayar;
+}
 
 function fmtDate(d?: string) {
   if (!d) return "—";
@@ -72,6 +103,11 @@ function fmtDate(d?: string) {
 
 function fmtCurrency(n?: number) {
   if (typeof n !== "number" || isNaN(n) || n === 0) return "—";
+  return `Rp ${n.toLocaleString("id-ID")}`;
+}
+
+function fmtCurrencyWithZero(n?: number) {
+  if (typeof n !== "number" || isNaN(n)) return "Rp 0";
   return `Rp ${n.toLocaleString("id-ID")}`;
 }
 
@@ -106,6 +142,43 @@ function DataProjectContent() {
 
   // Detail Modal State
   const [selectedDetail, setSelectedDetail] = useState<Contract | null>(null);
+  const [dokDetail, setDokDetail] = useState<any>(null);
+  const [loadingDok, setLoadingDok] = useState(false);
+  const [previewMedia, setPreviewMedia] = useState<{
+    url: string;
+    title: string;
+    isVideo?: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!selectedDetail?.nomorKontrak) {
+      setDokDetail(null);
+      return;
+    }
+    let active = true;
+    setLoadingDok(true);
+    fetch(
+      `/api/dokumentasi-project?nomorKontrak=${encodeURIComponent(
+        selectedDetail.nomorKontrak
+      )}`
+    )
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (active) {
+          setDokDetail(json?.data || null);
+        }
+      })
+      .catch(() => {
+        if (active) setDokDetail(null);
+      })
+      .finally(() => {
+        if (active) setLoadingDok(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedDetail?.nomorKontrak]);
 
   // Edit Modal State (hanya ubah status)
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
@@ -289,6 +362,14 @@ function DataProjectContent() {
           valA = a.nominalKontrak || 0;
           valB = b.nominalKontrak || 0;
           break;
+        case "terbayar":
+          valA = getTotalTerbayar(a);
+          valB = getTotalTerbayar(b);
+          break;
+        case "sisa":
+          valA = getSisaTagihan(a);
+          valB = getSisaTagihan(b);
+          break;
         case "pic":
           valA = a.pic || "";
           valB = b.pic || "";
@@ -386,6 +467,140 @@ function DataProjectContent() {
       setModalError(err.message || "Gagal menyimpan status");
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  // Payment Modal & Form State
+  const [paymentContract, setPaymentContract] = useState<Contract | null>(null);
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [paymentNote, setPaymentNote] = useState("");
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+  const [paymentSuccess, setPaymentSuccess] = useState("");
+
+  const openPaymentModal = (c: Contract) => {
+    setPaymentContract(c);
+    setPaymentDate(new Date().toISOString().split("T")[0]);
+    setPaymentAmount(0);
+    setPaymentNote("");
+    setPaymentError("");
+    setPaymentSuccess("");
+  };
+
+  const handleAddPayment = async (targetContract: Contract) => {
+    if (!paymentDate) {
+      setPaymentError("Tanggal pembayaran wajib diisi");
+      return;
+    }
+    if (!paymentAmount || paymentAmount <= 0) {
+      setPaymentError("Jumlah pembayaran harus lebih dari Rp 0");
+      return;
+    }
+
+    setSavingPayment(true);
+    setPaymentError("");
+    setPaymentSuccess("");
+
+    try {
+      const existingPayments = targetContract.pembayaran || [];
+      const paymentItem: PembayaranItem = {
+        id: `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        tanggal: paymentDate,
+        jumlah: paymentAmount,
+        keterangan: paymentNote.trim(),
+        createdAt: new Date().toISOString(),
+        createdBy: user?.fullName || user?.username || "Admin",
+      };
+
+      const updatedPayments = [...existingPayments, paymentItem];
+
+      const res = await fetch(
+        `/api/contracts/${encodeURIComponent(targetContract.nomorKontrak)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pembayaran: updatedPayments,
+          }),
+        }
+      );
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal menyimpan pembayaran");
+
+      // Update state in contracts, selectedDetail, and paymentContract
+      setContracts((prev) =>
+        prev.map((c) =>
+          c.nomorKontrak === targetContract.nomorKontrak
+            ? { ...c, pembayaran: updatedPayments }
+            : c
+        )
+      );
+
+      if (selectedDetail && selectedDetail.nomorKontrak === targetContract.nomorKontrak) {
+        setSelectedDetail((prev) =>
+          prev ? { ...prev, pembayaran: updatedPayments } : null
+        );
+      }
+      if (paymentContract && paymentContract.nomorKontrak === targetContract.nomorKontrak) {
+        setPaymentContract((prev) =>
+          prev ? { ...prev, pembayaran: updatedPayments } : null
+        );
+      }
+
+      setPaymentSuccess("Pembayaran berhasil dicatat!");
+      setPaymentAmount(0);
+      setPaymentNote("");
+    } catch (err: any) {
+      setPaymentError(err.message || "Gagal menyimpan pembayaran");
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const handleDeletePayment = async (targetContract: Contract, paymentId: string) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus catatan pembayaran ini?")) return;
+
+    try {
+      const updatedPayments = (targetContract.pembayaran || []).filter(
+        (p) => p.id !== paymentId
+      );
+
+      const res = await fetch(
+        `/api/contracts/${encodeURIComponent(targetContract.nomorKontrak)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pembayaran: updatedPayments,
+          }),
+        }
+      );
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal menghapus pembayaran");
+
+      setContracts((prev) =>
+        prev.map((c) =>
+          c.nomorKontrak === targetContract.nomorKontrak
+            ? { ...c, pembayaran: updatedPayments }
+            : c
+        )
+      );
+
+      if (selectedDetail && selectedDetail.nomorKontrak === targetContract.nomorKontrak) {
+        setSelectedDetail((prev) =>
+          prev ? { ...prev, pembayaran: updatedPayments } : null
+        );
+      }
+      if (paymentContract && paymentContract.nomorKontrak === targetContract.nomorKontrak) {
+        setPaymentContract((prev) =>
+          prev ? { ...prev, pembayaran: updatedPayments } : null
+        );
+      }
+    } catch (err: any) {
+      alert(err.message || "Gagal menghapus pembayaran");
     }
   };
 
@@ -690,6 +905,24 @@ function DataProjectContent() {
                   </div>
                 </th>
                 <th
+                  onClick={() => handleSort("terbayar")}
+                  className="py-3.5 px-3.5 font-bold text-[11px] tracking-wider uppercase cursor-pointer hover:text-blue-600 transition-colors select-none whitespace-nowrap text-right"
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>TERBAYAR</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort("sisa")}
+                  className="py-3.5 px-3.5 font-bold text-[11px] tracking-wider uppercase cursor-pointer hover:text-blue-600 transition-colors select-none whitespace-nowrap text-right"
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>SISA TAGIHAN</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+                <th
                   onClick={() => handleSort("pic")}
                   className="py-3.5 px-3.5 font-bold text-[11px] tracking-wider uppercase cursor-pointer hover:text-blue-600 transition-colors select-none"
                 >
@@ -716,7 +949,7 @@ function DataProjectContent() {
                     <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-3.5 px-3 text-center font-bold text-[11px] tracking-wider uppercase w-12 text-slate-400">
+                <th className="py-3.5 px-3 text-center font-bold text-[11px] tracking-wider uppercase w-20 text-slate-400 whitespace-nowrap">
                   AKSI
                 </th>
               </tr>
@@ -725,7 +958,7 @@ function DataProjectContent() {
               {paginatedContracts.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={11}
+                    colSpan={13}
                     className="py-16 text-center text-slate-400 font-medium"
                   >
                     <div className="flex flex-col items-center justify-center gap-2">
@@ -740,6 +973,8 @@ function DataProjectContent() {
                     (currentPage - 1) * pageSize + idx + 1;
                   const statusVal = c.status || "PENAGIHAN";
                   const dokVal = c.dokSales || "—";
+                  const totalTerbayar = getTotalTerbayar(c);
+                  const sisa = getSisaTagihan(c);
 
                   return (
                     <tr
@@ -780,6 +1015,31 @@ function DataProjectContent() {
                       {/* NILAI PENGADAAN */}
                       <td className="py-4 px-3.5 font-bold text-slate-800 whitespace-nowrap">
                         {fmtCurrency(c.nominalKontrak)}
+                      </td>
+
+                      {/* TERBAYAR */}
+                      <td className="py-4 px-3.5 text-right whitespace-nowrap">
+                        <div className="font-bold text-emerald-700">
+                          {fmtCurrency(totalTerbayar)}
+                        </div>
+                        {c.pembayaran && c.pembayaran.length > 0 && (
+                          <span className="text-[10px] text-slate-400 font-medium block">
+                            {c.pembayaran.length}x bayar
+                          </span>
+                        )}
+                      </td>
+
+                      {/* SISA TAGIHAN */}
+                      <td className="py-4 px-3.5 text-right whitespace-nowrap">
+                        {sisa <= 0 && (c.nominalKontrak || 0) > 0 ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Lunas
+                          </span>
+                        ) : (
+                          <div className={`font-bold ${sisa > 0 ? "text-rose-600" : "text-slate-700"}`}>
+                            {fmtCurrency(sisa)}
+                          </div>
+                        )}
                       </td>
 
                       {/* PIC */}
@@ -827,18 +1087,30 @@ function DataProjectContent() {
                         )}
                       </td>
 
-                      {/* EDIT ACTION BUTTON */}
-                      <td className="py-4 px-3 text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditModal(c);
-                          }}
-                          className="p-1.5 rounded-lg border border-blue-200 bg-blue-50/50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-2xs active:scale-90"
-                          title="Ubah Status Project"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
+                      {/* AKSI BUTTONS */}
+                      <td className="py-4 px-3 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openPaymentModal(c);
+                            }}
+                            className="p-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-all shadow-2xs active:scale-90"
+                            title="Catat & Lihat Pembayaran"
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditModal(c);
+                            }}
+                            className="p-1.5 rounded-lg border border-blue-200 bg-blue-50/50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-2xs active:scale-90"
+                            title="Ubah Status Project"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1212,73 +1484,422 @@ function DataProjectContent() {
                 </div>
               </div>
 
-              {/* Status Dokumen & Link GDrive */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
-                  Dokumen & Berkas
-                </span>
+              {/* ─── Pencatatan Pembayaran & Sisa Tagihan ─── */}
+              {(() => {
+                const totalTerbayar = getTotalTerbayar(selectedDetail);
+                const sisa = getSisaTagihan(selectedDetail);
+                const nominal = selectedDetail.nominalKontrak || 0;
+                const pct = nominal > 0 ? Math.min(100, Math.max(0, Math.round((totalTerbayar / nominal) * 100))) : 0;
+                const isLunas = sisa <= 0 && nominal > 0;
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Dok. Fisik</span>
-                    <span className={`font-extrabold ${selectedDetail.fisik === "YA" ? "text-emerald-600" : "text-slate-400"}`}>
-                      {selectedDetail.fisik || "TIDAK"}
-                    </span>
+                return (
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                          <Receipt className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                            Pencatatan Pembayaran & Sisa Tagihan
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Status pembayaran masuk dan sisa tagihan kontrak
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => openPaymentModal(selectedDetail)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Catat Pembayaran</span>
+                      </button>
+                    </div>
+
+                    {/* Ringkasan Finansial 3 Kartu */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
+                          Nominal Kontrak
+                        </span>
+                        <span className="text-sm font-extrabold text-slate-900">
+                          {fmtCurrencyWithZero(nominal)}
+                        </span>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block mb-0.5">
+                            Total Terbayar
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-600">
+                            {pct}%
+                          </span>
+                        </div>
+                        <span className="text-sm font-extrabold text-emerald-700">
+                          {fmtCurrencyWithZero(totalTerbayar)}
+                        </span>
+                      </div>
+
+                      <div className={`p-3 rounded-xl border ${isLunas ? "bg-emerald-50/50 border-emerald-200" : sisa > 0 ? "bg-rose-50/70 border-rose-100" : "bg-slate-50 border-slate-100"}`}>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider block mb-0.5 ${isLunas ? "text-emerald-700" : sisa > 0 ? "text-rose-700" : "text-slate-500"}`}>
+                            Sisa Tagihan
+                          </span>
+                          {isLunas && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
+                              Lunas
+                            </span>
+                          )}
+                        </div>
+                        <span className={`text-sm font-extrabold ${isLunas ? "text-emerald-700" : sisa > 0 ? "text-rose-600" : "text-slate-900"}`}>
+                          {fmtCurrencyWithZero(sisa)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-semibold text-slate-500">
+                        <span>Realisasi Pembayaran</span>
+                        <span>{pct}% Terbayar</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/50">
+                        <div
+                          className={`h-full transition-all duration-300 ${isLunas ? "bg-emerald-500" : "bg-blue-600"}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Riwayat Pembayaran Masuk */}
+                    <div className="pt-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-2">
+                        Riwayat Pembayaran Masuk ({selectedDetail.pembayaran?.length || 0})
+                      </span>
+
+                      {!selectedDetail.pembayaran || selectedDetail.pembayaran.length === 0 ? (
+                        <div className="p-3.5 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center">
+                          <p className="text-xs font-medium text-slate-600">Belum ada pembayaran yang dicatat</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Klik tombol &quot;Catat Pembayaran&quot; untuk menambahkan termin pembayaran masuk.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto rounded-xl border border-slate-200">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                              <tr>
+                                <th className="py-2 px-3">Tanggal</th>
+                                <th className="py-2 px-3 text-right">Jumlah (Rp)</th>
+                                <th className="py-2 px-3">Keterangan / Termin</th>
+                                <th className="py-2 px-3">Dicatat Oleh</th>
+                                <th className="py-2 px-2 text-center w-10">Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {selectedDetail.pembayaran.map((p, idx) => (
+                                <tr key={p.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                                  <td className="py-2.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                                    {fmtDate(p.tanggal)}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-bold text-emerald-700 text-right whitespace-nowrap">
+                                    {fmtCurrencyWithZero(p.jumlah)}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-600">
+                                    {p.keterangan || "—"}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-500 text-[11px] whitespace-nowrap">
+                                    {p.createdBy || "Admin"}
+                                  </td>
+                                  <td className="py-2.5 px-2 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeletePayment(selectedDetail, p.id)}
+                                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                      title="Hapus pembayaran"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                );
+              })()}
 
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Dok. Scan</span>
-                    <span className={`font-extrabold ${selectedDetail.scan === "YA" ? "text-emerald-600" : "text-slate-400"}`}>
-                      {selectedDetail.scan || "TIDAK"}
-                    </span>
+              {/* Dokumentasi Project (Foto & Video) */}
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <ImageIcon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                        Dokumentasi Project
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Foto serah terima, foto produk, dan video dokumentasi yang diunggah
+                      </p>
+                    </div>
                   </div>
-
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 sm:col-span-2">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Nama Folder</span>
-                    <span className="font-semibold text-slate-800 truncate block">
-                      {selectedDetail.namaFolder || "—"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Link GDrive */}
-                <div className="pt-2">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Link GDrive</span>
-                  {selectedDetail.link ? (
-                    <a
-                      href={selectedDetail.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 px-3 py-1.5 rounded-xl transition-colors max-w-full break-all"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span className="truncate">{selectedDetail.link}</span>
-                    </a>
-                  ) : (
-                    <span className="text-xs text-slate-400 italic">Belum ada link GDrive</span>
+                  {dokDetail && (
+                    <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg">
+                      Oleh: <strong className="text-slate-800">{dokDetail.namaSales || "Sales"}</strong>
+                      {dokDetail.tanggalReport ? ` (${fmtDate(dokDetail.tanggalReport)})` : ""}
+                    </div>
                   )}
                 </div>
-              </div>
 
-              {/* Data Penagihan */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-2xs space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
-                  Informasi Penagihan
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Tgl Mulai</span>
-                    <span className="font-semibold text-slate-800">{fmtDate(selectedDetail.penagihan?.tanggalMulai)}</span>
+                {loadingDok ? (
+                  <div className="py-8 flex flex-col items-center justify-center text-slate-400 gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                    <span className="text-xs font-medium">Memuat dokumentasi project...</span>
                   </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Tgl Berakhir</span>
-                    <span className="font-semibold text-slate-800">{fmtDate(selectedDetail.penagihan?.tanggalBerakhir)}</span>
+                ) : !dokDetail || !dokDetail.barang || dokDetail.barang.length === 0 ? (
+                  <div className="py-6 px-4 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                    <AlertCircle className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
+                    <p className="text-xs font-semibold text-slate-700">Belum Ada Dokumentasi Project</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Foto dan video dokumentasi belum diunggah oleh sales untuk kontrak ini.
+                    </p>
                   </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Nominal Penagihan</span>
-                    <span className="font-bold text-blue-900">{fmtCurrency(selectedDetail.penagihan?.nominalPenagihan)}</span>
+                ) : (
+                  <div className="space-y-3.5">
+                    {dokDetail.barang.map((b: any, idx: number) => {
+                      const hasSerahTerima = !!b.fotoSerahTerima;
+                      const hasFotoBarang = !!b.fotoBarang;
+                      const hasVideo = !!b.videoBarang;
+                      const hasAnyMedia = hasSerahTerima || hasFotoBarang || hasVideo;
+
+                      return (
+                        <div
+                          key={idx}
+                          className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200 space-y-3"
+                        >
+                          {/* Info Barang */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/70 pb-2">
+                            <div>
+                              <span className="text-xs font-bold text-slate-800">
+                                Barang #{idx + 1}: {b.unitProduk || "Produk"}
+                              </span>
+                              <span className="text-xs text-slate-500 ml-1.5">
+                                ({b.merekBarang || "-"} {b.tipeBarang ? `• ${b.tipeBarang}` : ""})
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="px-2 py-0.5 text-[11px] font-bold bg-white text-slate-700 rounded-md border border-slate-200">
+                                {b.jumlahUnit || 0} Unit
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase tracking-wider border ${
+                                  b.kondisiBarang === "BARU"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : "bg-rose-50 text-rose-700 border-rose-200"
+                                }`}
+                              >
+                                {b.kondisiBarang || "—"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {b.kendala && (
+                            <div className="text-[11px] bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-lg">
+                              <strong>Kendala:</strong> {b.kendala}
+                            </div>
+                          )}
+
+                          {/* Grid Media Upload */}
+                          {hasAnyMedia ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              {/* Foto Serah Terima */}
+                              <div className="rounded-xl border border-slate-200 bg-white p-2.5 flex flex-col justify-between">
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                                    Foto Serah Terima
+                                  </span>
+                                  {hasSerahTerima ? (
+                                    <div
+                                      onClick={() =>
+                                        setPreviewMedia({
+                                          url: b.fotoSerahTerima,
+                                          title: `Foto Serah Terima - ${b.unitProduk || "Barang"}`,
+                                        })
+                                      }
+                                      className="relative group overflow-hidden rounded-lg aspect-video bg-slate-100 flex items-center justify-center border border-slate-100 cursor-pointer"
+                                    >
+                                      <img
+                                        src={b.fotoSerahTerima}
+                                        alt="Foto Serah Terima"
+                                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                      />
+                                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-semibold gap-1">
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>Lihat</span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="aspect-video rounded-lg bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                                      Tidak ada foto
+                                    </div>
+                                  )}
+                                </div>
+                                {hasSerahTerima && (
+                                  <div className="pt-2 flex items-center justify-between gap-1 border-t border-slate-100 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewMedia({
+                                          url: b.fotoSerahTerima,
+                                          title: `Foto Serah Terima - ${b.unitProduk || "Barang"}`,
+                                        })
+                                      }
+                                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      <span>Preview</span>
+                                    </button>
+                                    <a
+                                      href={b.fotoSerahTerima}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      <span>Buka Link</span>
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Foto Barang */}
+                              <div className="rounded-xl border border-slate-200 bg-white p-2.5 flex flex-col justify-between">
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                                    Foto Barang
+                                  </span>
+                                  {hasFotoBarang ? (
+                                    <div
+                                      onClick={() =>
+                                        setPreviewMedia({
+                                          url: b.fotoBarang,
+                                          title: `Foto Barang - ${b.unitProduk || "Barang"}`,
+                                        })
+                                      }
+                                      className="relative group overflow-hidden rounded-lg aspect-video bg-slate-100 flex items-center justify-center border border-slate-100 cursor-pointer"
+                                    >
+                                      <img
+                                        src={b.fotoBarang}
+                                        alt="Foto Barang"
+                                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                      />
+                                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-semibold gap-1">
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>Lihat</span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="aspect-video rounded-lg bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                                      Tidak ada foto
+                                    </div>
+                                  )}
+                                </div>
+                                {hasFotoBarang && (
+                                  <div className="pt-2 flex items-center justify-between gap-1 border-t border-slate-100 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewMedia({
+                                          url: b.fotoBarang,
+                                          title: `Foto Barang - ${b.unitProduk || "Barang"}`,
+                                        })
+                                      }
+                                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      <span>Preview</span>
+                                    </button>
+                                    <a
+                                      href={b.fotoBarang}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      <span>Buka Link</span>
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Video Barang */}
+                              <div className="rounded-xl border border-slate-200 bg-white p-2.5 flex flex-col justify-between">
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                                    Video Barang
+                                  </span>
+                                  {hasVideo ? (
+                                    <div className="relative overflow-hidden rounded-lg aspect-video bg-black flex items-center justify-center">
+                                      <video
+                                        src={b.videoBarang}
+                                        controls
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="aspect-video rounded-lg bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                                      Tidak ada video
+                                    </div>
+                                  )}
+                                </div>
+                                {hasVideo && (
+                                  <div className="pt-2 flex items-center justify-between gap-1 border-t border-slate-100 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewMedia({
+                                          url: b.videoBarang,
+                                          title: `Video Barang - ${b.unitProduk || "Barang"}`,
+                                          isVideo: true,
+                                        })
+                                      }
+                                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                    >
+                                      <Video className="w-3 h-3" />
+                                      <span>Putar Penuh</span>
+                                    </button>
+                                    <a
+                                      href={b.videoBarang}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      <span>Buka Link</span>
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic">
+                              Tidak ada berkas foto maupun video yang dilampirkan untuk barang ini.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Request IDs */}
@@ -1343,6 +1964,330 @@ function DataProjectContent() {
                 <Pencil className="w-3.5 h-3.5" />
                 <span>Ubah Status</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal Pencatatan Pembayaran & Sisa Tagihan ─── */}
+      {paymentContract && (() => {
+        const totalTerbayar = getTotalTerbayar(paymentContract);
+        const sisa = getSisaTagihan(paymentContract);
+        const nominal = paymentContract.nominalKontrak || 0;
+        const pct = nominal > 0 ? Math.min(100, Math.max(0, Math.round((totalTerbayar / nominal) * 100))) : 0;
+        const isLunas = sisa <= 0 && nominal > 0;
+
+        return (
+          <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-emerald-50/50 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-600/20 flex-shrink-0">
+                    <Receipt className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base">
+                      Pencatatan Pembayaran
+                    </h3>
+                    <p className="text-xs text-slate-500 font-mono mt-0.5 truncate max-w-sm">
+                      {paymentContract.nomorKontrak} {paymentContract.instansi ? `• ${paymentContract.instansi}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPaymentContract(null)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                  title="Tutup"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="overflow-y-auto p-6 space-y-5 text-xs sm:text-sm">
+                {/* Ringkasan Finansial 3 Kartu */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
+                      Nominal Kontrak
+                    </span>
+                    <span className="text-base font-extrabold text-slate-900">
+                      {fmtCurrencyWithZero(nominal)}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-100">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block mb-0.5">
+                        Total Terbayar
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-600">
+                        {pct}%
+                      </span>
+                    </div>
+                    <span className="text-base font-extrabold text-emerald-700">
+                      {fmtCurrencyWithZero(totalTerbayar)}
+                    </span>
+                  </div>
+
+                  <div className={`p-3.5 rounded-xl border ${isLunas ? "bg-emerald-50 border-emerald-200" : sisa > 0 ? "bg-rose-50/70 border-rose-100" : "bg-slate-50 border-slate-100"}`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider block mb-0.5 ${isLunas ? "text-emerald-700" : sisa > 0 ? "text-rose-700" : "text-slate-500"}`}>
+                        Sisa Tagihan
+                      </span>
+                      {isLunas && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
+                          Lunas
+                        </span>
+                      )}
+                    </div>
+                    <span className={`text-base font-extrabold ${isLunas ? "text-emerald-700" : sisa > 0 ? "text-rose-600" : "text-slate-900"}`}>
+                      {fmtCurrencyWithZero(sisa)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-semibold text-slate-500">
+                    <span>Realisasi Pembayaran</span>
+                    <span className="font-bold text-slate-700">{pct}% ({fmtCurrencyWithZero(totalTerbayar)} / {fmtCurrencyWithZero(nominal)})</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200/50">
+                    <div
+                      className={`h-full transition-all duration-300 ${isLunas ? "bg-emerald-500" : "bg-emerald-600"}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Form Input Pembayaran Masuk */}
+                <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-3.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
+                      <Plus className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                      Tambah Pembayaran Masuk
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Tanggal Pembayaran */}
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Tanggal Pembayaran <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+
+                    {/* Jumlah Pembayaran */}
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Jumlah Pembayaran (Rp) <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={paymentAmount || ""}
+                        onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                        placeholder="Contoh: 15000000"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
+                      />
+                      {paymentAmount > 0 && (
+                        <span className="text-[11px] text-emerald-700 font-bold mt-1 block">
+                          {fmtCurrencyWithZero(paymentAmount)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Keterangan / Termin */}
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Keterangan / Termin
+                      </label>
+                      <input
+                        type="text"
+                        value={paymentNote}
+                        onChange={(e) => setPaymentNote(e.target.value)}
+                        placeholder="Contoh: DP 30%, Termin 2 (40%), Pelunasan, No Rekening BNI..."
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Sisa setelah pembayaran ini */}
+                  {paymentAmount > 0 && (
+                    <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-between text-xs">
+                      <span className="text-blue-700 font-medium">Estimasi Sisa Tagihan Setelah Ini:</span>
+                      <span className={`font-bold ${sisa - paymentAmount <= 0 ? "text-emerald-700" : "text-blue-900"}`}>
+                        {sisa - paymentAmount <= 0 ? "Rp 0 (Lunas)" : fmtCurrencyWithZero(sisa - paymentAmount)}
+                      </span>
+                    </div>
+                  )}
+
+                  {paymentError && (
+                    <div className="rounded-xl bg-rose-50 p-2.5 text-rose-600 text-xs font-semibold border border-rose-200">
+                      {paymentError}
+                    </div>
+                  )}
+
+                  {paymentSuccess && (
+                    <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600 text-xs font-semibold border border-emerald-200 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{paymentSuccess}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      disabled={savingPayment}
+                      onClick={() => handleAddPayment(paymentContract)}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-md disabled:opacity-50 active:scale-95 flex items-center gap-1.5"
+                    >
+                      {savingPayment ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Menyimpan...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Simpan Pembayaran</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tabel Riwayat Pembayaran */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Riwayat Pembayaran ({paymentContract.pembayaran?.length || 0})
+                    </span>
+                  </div>
+
+                  {!paymentContract.pembayaran || paymentContract.pembayaran.length === 0 ? (
+                    <div className="p-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center">
+                      <p className="text-xs font-medium text-slate-600">Belum ada riwayat pembayaran</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Gunakan formulir di atas untuk mencatat pembayaran pertama.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-200">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                          <tr>
+                            <th className="py-2.5 px-3">Tanggal</th>
+                            <th className="py-2.5 px-3 text-right">Jumlah Masuk</th>
+                            <th className="py-2.5 px-3">Keterangan</th>
+                            <th className="py-2.5 px-3">Dicatat Oleh</th>
+                            <th className="py-2.5 px-2 text-center w-10">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {paymentContract.pembayaran.map((p, idx) => (
+                            <tr key={p.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="py-2.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                                {fmtDate(p.tanggal)}
+                              </td>
+                              <td className="py-2.5 px-3 font-bold text-emerald-700 text-right whitespace-nowrap">
+                                {fmtCurrencyWithZero(p.jumlah)}
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-600">
+                                {p.keterangan || "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-500 text-[11px] whitespace-nowrap">
+                                {p.createdBy || "Admin"}
+                              </td>
+                              <td className="py-2.5 px-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePayment(paymentContract, p.id)}
+                                  className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                  title="Hapus pembayaran"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end px-6 py-4 border-t border-slate-100 bg-slate-50/70 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPaymentContract(null)}
+                  className="px-5 py-2 border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs transition-colors"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Lightbox Preview Modal */}
+      {previewMedia && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xs p-4"
+          onClick={() => setPreviewMedia(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-white/10 w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-800/90 border-b border-white/10 text-white">
+              <span className="text-xs font-bold truncate pr-2">{previewMedia.title}</span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <a
+                  href={previewMedia.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-400 hover:text-blue-300 font-semibold px-2.5 py-1 rounded bg-white/10 transition-colors"
+                >
+                  Buka Asli ↗
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMedia(null)}
+                  className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-3 flex items-center justify-center overflow-auto max-h-[calc(90vh-60px)] bg-black/40">
+              {previewMedia.isVideo ? (
+                <video
+                  src={previewMedia.url}
+                  controls
+                  autoPlay
+                  className="max-w-full max-h-[75vh] rounded-lg shadow-md"
+                />
+              ) : (
+                <img
+                  src={previewMedia.url}
+                  alt={previewMedia.title}
+                  className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-md"
+                />
+              )}
             </div>
           </div>
         </div>

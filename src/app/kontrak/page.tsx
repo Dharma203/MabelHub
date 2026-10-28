@@ -4,13 +4,31 @@ import { useEffect, useState, useMemo, Fragment, Suspense } from "react";
 import { useSession } from "@/components/session/SessionProvider";
 import { useSearchParams, useRouter } from "next/navigation";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import NotificationMenu from "@/components/modals/NotificationMenu";
 import {
   Search,
   X,
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  History,
+  Clock,
+  ArrowRight,
 } from "lucide-react";
+
+export type ContractHistoryEntry = {
+  id?: string;
+  at: string | Date;
+  by: string;
+  role?: string;
+  action?: "CREATE" | "UPDATE" | string;
+  changes?: {
+    field: string;
+    label: string;
+    oldValue: any;
+    newValue: any;
+  }[];
+};
 
 type Contract = {
   nomorKontrak: string;
@@ -36,6 +54,7 @@ type Contract = {
     tanggalBerakhir: string;
     nominalPenagihan: number;
   };
+  history?: ContractHistoryEntry[];
   createdAt: string;
   updatedAt: string;
 };
@@ -62,6 +81,7 @@ const emptyForm = (): Omit<Contract, "createdAt" | "updatedAt"> => ({
   pic: "",
   tanggalBerakhirKontrak: "",
   penagihan: { tanggalMulai: "", tanggalBerakhir: "", nominalPenagihan: 0 },
+  history: [],
 });
 
 function fmtDate(d: string) {
@@ -71,9 +91,156 @@ function fmtDate(d: string) {
   return dt.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function fmtDateTime(d: string | Date | undefined) {
+  if (!d) return "-";
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return String(d);
+  return dt.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function fmtCurrency(n: number) {
   if (!n) return "-";
   return `Rp ${n.toLocaleString("id-ID")}`;
+}
+
+/* ─────────── Contract History Modal ─────────── */
+function HistoryContractModal({
+  contract,
+  onClose,
+}: {
+  contract: Contract | null;
+  onClose: () => void;
+}) {
+  if (!contract) return null;
+
+  const historyList = contract.history || [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden border border-slate-200/80">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100/70 text-[#0B6AA9] flex items-center justify-center shadow-xs">
+              <History className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                Riwayat Perubahan Kontrak
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                {contract.nomorKontrak} {contract.namaPengadaan ? `• ${contract.namaPengadaan}` : ""}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+          {historyList.length === 0 ? (
+            <div className="text-center py-12 px-4">
+              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                <Clock className="w-6 h-6" />
+              </div>
+              <p className="text-sm font-semibold text-slate-700">Belum Ada Riwayat Perubahan</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Setiap kali data kontrak ini diperbarui, catatan perubahannya akan otomatis terekam di sini.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {historyList.map((entry, idx) => (
+                <div
+                  key={entry.id || idx}
+                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-slate-300 transition-all"
+                >
+                  {/* Entry Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center text-xs font-bold">
+                        {entry.by ? entry.by.charAt(0).toUpperCase() : "U"}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800">
+                          {entry.by || "Admin"}
+                        </span>
+                        {entry.role && (
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600">
+                            {entry.role}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        entry.action === "CREATE"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-blue-50 text-blue-700 border border-blue-200"
+                      }`}>
+                        {entry.action === "CREATE" ? "Kontrak Dibuat" : "Perubahan Data"}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {fmtDateTime(entry.at)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Changes List */}
+                  {entry.changes && entry.changes.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {entry.changes.map((c, cIdx) => (
+                        <div
+                          key={cIdx}
+                          className="bg-slate-50/70 rounded-lg p-2.5 text-xs grid grid-cols-1 sm:grid-cols-[140px_1fr_auto_1fr] gap-2 items-center border border-slate-100"
+                        >
+                          <span className="font-bold text-slate-700">
+                            {c.label || c.field}
+                          </span>
+                          <span className="text-rose-600 line-through bg-rose-50/70 px-2 py-1 rounded border border-rose-100 truncate" title={c.oldValue}>
+                            {c.oldValue || "-"}
+                          </span>
+                          <ArrowRight className="w-3.5 h-3.5 text-slate-400 hidden sm:block mx-auto" />
+                          <span className="text-emerald-700 font-semibold bg-emerald-50/70 px-2 py-1 rounded border border-emerald-100 truncate" title={c.newValue}>
+                            {c.newValue || "-"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+          <span className="text-xs text-slate-500 font-medium">
+            Total {historyList.length} aktivitas tercatat
+          </span>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ─────────── Contract Form Modal ─────────── */
@@ -120,9 +287,24 @@ function ContractFormModal({
   const removeReqId = (id: string) =>
     set("requestIds", form.requestIds.filter((r) => r !== id));
 
+  const isDateInvalid = Boolean(
+    form.tanggalKontrak &&
+    form.tanggalBerakhirKontrak &&
+    form.tanggalBerakhirKontrak < form.tanggalKontrak
+  );
+  const isNominalInvalid = Number(form.nominalKontrak) < 0;
+
   const handleSubmit = async () => {
     if (!form.nomorKontrak.trim()) {
       setError("Nomor Kontrak wajib diisi");
+      return;
+    }
+    if (form.tanggalKontrak && form.tanggalBerakhirKontrak && form.tanggalBerakhirKontrak < form.tanggalKontrak) {
+      setError("Tanggal Berakhir harus lebih besar atau sama dengan Tanggal Kontrak");
+      return;
+    }
+    if (Number(form.nominalKontrak) < 0) {
+      setError("Nominal Kontrak tidak boleh bernilai negatif");
       return;
     }
     setLoading(true);
@@ -150,6 +332,13 @@ function ContractFormModal({
         </div>
 
         <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+          {error && (
+            <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-rose-600 text-xs font-semibold flex items-center justify-between">
+              <span>{error}</span>
+              <button type="button" onClick={() => setError("")} className="text-rose-400 hover:text-rose-600 font-bold ml-2">✕</button>
+            </div>
+          )}
+
           {/* Row 1 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -193,13 +382,33 @@ function ContractFormModal({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>Tanggal Kontrak</label>
-              <input type="date" className={inputCls} value={form.tanggalKontrak}
-                onChange={(e) => set("tanggalKontrak", e.target.value)} />
+              <input
+                type="date"
+                className={inputCls}
+                value={form.tanggalKontrak}
+                onChange={(e) => {
+                  set("tanggalKontrak", e.target.value);
+                  if (error) setError("");
+                }}
+              />
             </div>
             <div>
               <label className={labelCls}>Tanggal Berakhir</label>
-              <input type="date" className={inputCls} value={form.tanggalBerakhirKontrak}
-                onChange={(e) => set("tanggalBerakhirKontrak", e.target.value)} />
+              <input
+                type="date"
+                className={`${inputCls} ${isDateInvalid ? "!border-rose-400 focus:!ring-rose-500/20" : ""}`}
+                value={form.tanggalBerakhirKontrak}
+                min={form.tanggalKontrak || undefined}
+                onChange={(e) => {
+                  set("tanggalBerakhirKontrak", e.target.value);
+                  if (error) setError("");
+                }}
+              />
+              {isDateInvalid && (
+                <p className="mt-1 text-[11px] font-semibold text-rose-500">
+                  Tanggal Berakhir harus ≥ Tanggal Kontrak
+                </p>
+              )}
             </div>
             <div>
               <label className={labelCls}>Tanggal Penyerahan</label>
@@ -217,15 +426,36 @@ function ContractFormModal({
                 <input
                   type="text"
                   inputMode="numeric"
-                  className={`${inputCls} pl-10 font-semibold`}
-                  value={form.nominalKontrak ? form.nominalKontrak.toLocaleString("id-ID") : ""}
+                  className={`${inputCls} pl-10 font-semibold ${isNominalInvalid ? "!border-rose-400 focus:!ring-rose-500/20" : ""}`}
+                  value={
+                    form.nominalKontrak !== undefined && form.nominalKontrak !== null
+                      ? form.nominalKontrak < 0
+                        ? `-${Math.abs(form.nominalKontrak).toLocaleString("id-ID")}`
+                        : form.nominalKontrak > 0
+                          ? form.nominalKontrak.toLocaleString("id-ID")
+                          : ""
+                      : ""
+                  }
                   onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, "");
-                    set("nominalKontrak", raw ? parseInt(raw, 10) : 0);
+                    const text = e.target.value;
+                    if (!text.trim()) {
+                      set("nominalKontrak", 0);
+                      return;
+                    }
+                    const isNegative = text.includes("-");
+                    const digits = text.replace(/\D/g, "");
+                    const num = digits ? parseInt(digits, 10) : 0;
+                    set("nominalKontrak", isNegative ? -num : num);
+                    if (error) setError("");
                   }}
                   placeholder="0"
                 />
               </div>
+              {isNominalInvalid && (
+                <p className="mt-1 text-[11px] font-semibold text-rose-500">
+                  Nominal tidak boleh bernilai negatif
+                </p>
+              )}
             </div>
             <div>
               <label className={labelCls}>Link GDrive</label>
@@ -336,6 +566,45 @@ function ContractFormModal({
                 onChange={(e) => set("catatan", e.target.value)} rows={3} />
             </div>
           </div>
+
+          {/* Riwayat Perubahan Section in Edit Modal */}
+          {isEdit && form.history && form.history.length > 0 && (
+            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/70 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <History className="w-3.5 h-3.5 text-[#0B6AA9]" />
+                  Riwayat Perubahan Terakhir ({form.history.length})
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Terakhir: {fmtDateTime(form.history[0]?.at)} oleh {form.history[0]?.by || "Admin"}
+                </span>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {form.history.slice(0, 3).map((h, i) => (
+                  <div key={i} className="text-xs bg-white rounded-lg p-2.5 border border-slate-200 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-1">
+                      <span className="font-bold text-slate-800">{h.by} {h.role ? `(${h.role})` : ""}</span>
+                      <span className="text-[10px] text-slate-400 font-medium">{fmtDateTime(h.at)}</span>
+                    </div>
+                    {h.changes && h.changes.length > 0 ? (
+                      <div className="space-y-1">
+                        {h.changes.map((c, ci) => (
+                          <div key={ci} className="grid grid-cols-[100px_1fr_auto_1fr] gap-1.5 items-center text-[11px]">
+                            <span className="text-slate-600 font-semibold">{c.label || c.field}:</span>
+                            <span className="text-rose-600 line-through truncate">{c.oldValue || "-"}</span>
+                            <ArrowRight className="w-3 h-3 text-slate-400" />
+                            <span className="text-emerald-700 font-bold truncate">{c.newValue || "-"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-500">{h.action}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -394,6 +663,7 @@ function KontrakPageContent() {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<Contract | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [selectedHistory, setSelectedHistory] = useState<Contract | null>(null);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -684,11 +954,14 @@ function KontrakPageContent() {
                     Kelola data kontrak, dokumen, dan PIC.
                   </div>
                 </div>
-                <div className="px-4">
+                <div className="flex items-center gap-3 px-4">
                   <button onClick={() => setShowForm(true)}
                     className="rounded-xl bg-[#0B6AA9] px-4 py-2 text-sm font-bold text-white shadow-sm ring-1 ring-blue-700 hover:bg-blue-700 transition">
                     + Tambah Kontrak
                   </button>
+                  <div className="hidden lg:flex">
+                    <NotificationMenu />
+                  </div>
                 </div>
               </div>
             </div>
@@ -917,6 +1190,22 @@ function KontrakPageContent() {
                           </td>
                           <td className="px-5 py-4 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedHistory(c);
+                                }}
+                                className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors border border-slate-200 flex items-center gap-1"
+                                title="Lihat Riwayat Perubahan"
+                              >
+                                <History className="w-3.5 h-3.5 text-slate-600" />
+                                <span>Riwayat</span>
+                                {c.history && c.history.length > 0 && (
+                                  <span className="ml-0.5 px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded-full text-[10px] font-bold">
+                                    {c.history.length}
+                                  </span>
+                                )}
+                              </button>
                               <button onClick={(e) => { e.stopPropagation(); setEditTarget(c); }}
                                 className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200">
                                 Edit
@@ -941,6 +1230,27 @@ function KontrakPageContent() {
                                 <div className="md:col-span-2"><span className="font-semibold text-slate-500 text-xs block mb-1">Keterangan:</span> <span className="text-slate-800">{c.keterangan || "-"}</span></div>
                                 <div className="md:col-span-2"><span className="font-semibold text-slate-500 text-xs block mb-1">Catatan:</span> <span className="text-slate-800">{c.catatan || "-"}</span></div>
                                 <div className="md:col-span-2"><span className="font-semibold text-slate-500 text-xs block mb-1">Request IDs:</span> <span className="text-slate-800">{c.requestIds?.length ? c.requestIds.join(", ") : "-"}</span></div>
+                                <div className="md:col-span-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
+                                    <History className="w-4 h-4 text-blue-600" />
+                                    <span>
+                                      {c.history && c.history.length > 0
+                                        ? `Riwayat: ${c.history.length} aktivitas tercatat (terakhir ${fmtDateTime(c.history[0]?.at)} oleh ${c.history[0]?.by || "Admin"})`
+                                        : "Belum ada riwayat perubahan yang tercatat."}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedHistory(c);
+                                    }}
+                                    className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 underline underline-offset-2"
+                                  >
+                                    <span>Lihat Detail Riwayat</span>
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             </td>
                           </tr>
@@ -1052,6 +1362,12 @@ function KontrakPageContent() {
           onSave={handleUpdate}
           onDelete={handleDelete}
           onClose={() => setEditTarget(null)}
+        />
+      )}
+      {selectedHistory && (
+        <HistoryContractModal
+          contract={selectedHistory}
+          onClose={() => setSelectedHistory(null)}
         />
       )}
     </div>

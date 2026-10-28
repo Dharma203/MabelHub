@@ -66,6 +66,16 @@ export async function GET(req: Request) {
   const db = client.db(DB_NAME);
   await ensureIndexes(db);
 
+  const { searchParams } = new URL(req.url);
+  const nomorKontrak = searchParams.get("nomorKontrak");
+
+  if (nomorKontrak) {
+    const doc = await db
+      .collection(COL_NAME)
+      .findOne({ nomorKontrak }, { projection: { _id: 0 } });
+    return NextResponse.json({ data: doc || null });
+  }
+
   const items = await db
     .collection(COL_NAME)
     .find({}, { projection: { _id: 0 } })
