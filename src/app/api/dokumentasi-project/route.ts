@@ -2,8 +2,15 @@ import { NextResponse } from "next/server";
 import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
 import path from "path";
+import type { Db } from "mongodb";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { verifyDokumentasi } from "@/lib/verifikasi-dokumentasi";
+import {
+  DOK_AKTIF_FILTER,
+  getRetensiHari,
+  nextVersion,
+  retentionCutoff,
+} from "@/lib/dokumentasi-arsip";
 
 const DB_NAME = getDbName();
 const COL_NAME = "dokumentasi_project";
@@ -20,6 +27,8 @@ async function ensureIndexes(db: any) {
       await col.createIndex({ createdAt: -1 });
       await col.createIndex({ namaSales: 1 });
       await col.createIndex({ nomorKontrak: 1 });
+      // Untuk pembersihan arsip yang melewati masa retensi
+      await col.createIndex({ archived: 1, archivedAt: 1 });
     })();
   }
   await global.__dokumentasi_indexes_promise;
@@ -39,7 +48,8 @@ async function saveBase64File(
   return `/uploads/${filename}`;
 }
 
-// Hapus file upload lama (foto/video) milik dokumentasi yang digantikan
+// Hapus file upload (foto/video) milik dokumen yang dihapus permanen.
+// Hanya dipanggil untuk arsip yang sudah melewati masa retensi — BUKAN saat dokumentasi diganti.
 async function removeUploadedFiles(docs: any[]) {
   const uploadsDir = path.join(process.cwd(), "public", "uploads");
   for (const d of docs) {
@@ -57,6 +67,30 @@ async function removeUploadedFiles(docs: any[]) {
   }
 }
 
+// Hapus permanen arsip yang sudah melewati masa retensi (default 90 hari,
+// atur lewat env DOKUMENTASI_ARSIP_RETENSI_HARI; 0 = simpan selamanya).
+// Dijalankan "oportunistik" saat ada pengiriman baru; kegagalan di sini
+// tidak boleh menggagalkan pengiriman dokumentasi.
+async function purgeExpiredArchives(db: Db, now: Date): Promise<number> {
+  try {
+    const cutoff = retentionCutoff(now, getRetensiHari());
+    if (!cutoff) return 0;
+
+    const col = db.collection(COL_NAME);
+    const expired = await col
+      .find({ archived: true, archivedAt: { $lt: cutoff } })
+      .toArray();
+    if (expired.length === 0) return 0;
+
+    await col.deleteMany({ _id: { $in: expired.map((d) => d._id) } });
+    await removeUploadedFiles(expired);
+    return expired.length;
+  } catch (err) {
+    console.error("[dokumentasi-project] gagal membersihkan arsip kedaluwarsa:", err);
+    return 0;
+  }
+}
+
 export async function GET(req: Request) {
   const gate = assertAdminOrSuperadmin(req);
   if (!gate.ok)
@@ -70,15 +104,30 @@ export async function GET(req: Request) {
   const nomorKontrak = searchParams.get("nomorKontrak");
 
   if (nomorKontrak) {
+    // Dokumentasi aktif (terbaru) untuk kontrak ini
     const doc = await db
       .collection(COL_NAME)
-      .findOne({ nomorKontrak }, { projection: { _id: 0 } });
+      .findOne(
+        { nomorKontrak, ...DOK_AKTIF_FILTER },
+        { projection: { _id: 0 }, sort: { createdAt: -1 } }
+      );
+
+    // ?riwayat=1 -> sertakan versi sebelumnya (arsip), terbaru dulu
+    if (searchParams.get("riwayat") === "1") {
+      const riwayat = await db
+        .collection(COL_NAME)
+        .find({ nomorKontrak, archived: true }, { projection: { _id: 0 } })
+        .sort({ createdAt: -1 })
+        .toArray();
+      return NextResponse.json({ data: doc || null, riwayat });
+    }
+
     return NextResponse.json({ data: doc || null });
   }
 
   const items = await db
     .collection(COL_NAME)
-    .find({}, { projection: { _id: 0 } })
+    .find({ ...DOK_AKTIF_FILTER }, { projection: { _id: 0 } })
     .sort({ createdAt: -1 })
     .limit(500)
     .toArray();
@@ -88,7 +137,7 @@ export async function GET(req: Request) {
   const totalKontrak = await contractCol.countDocuments();
   const reportedNomorKontraks = await db
     .collection(COL_NAME)
-    .distinct("nomorKontrak");
+    .distinct("nomorKontrak", { ...DOK_AKTIF_FILTER });
   const sudahDireport = reportedNomorKontraks.length;
   const belumDireport = totalKontrak - sudahDireport;
 
@@ -216,8 +265,17 @@ export async function POST(req: Request) {
   const issues = verifyDokumentasi({ doc, contract: contract as any });
   const verified = issues.length === 0;
 
+  // Nomor versi: lanjutan dari dokumentasi terbaru kontrak ini (aktif maupun arsip)
+  const latest = await db
+    .collection(COL_NAME)
+    .find({ nomorKontrak })
+    .sort({ createdAt: -1 })
+    .limit(1)
+    .next();
+
   const docWithVerif = {
     ...doc,
+    version: nextVersion(latest),
     verifikasi: {
       status: verified ? "TERVERIFIKASI" : "PERLU_DIPERIKSA",
       issues,
@@ -225,19 +283,24 @@ export async function POST(req: Request) {
     },
   };
 
-  // Satu kontrak = satu dokumentasi: yang baru menggantikan yang lama.
-  // Simpan yang baru dulu, baru hapus yang lama agar data tidak hilang jika insert gagal.
+  // Satu kontrak = satu dokumentasi AKTIF: yang baru menggantikan yang lama.
+  // Yang lama TIDAK dihapus — ditandai arsip (foto/video tetap tersimpan) sehingga
+  // salah kirim bisa dipulihkan. Arsip baru dibersihkan setelah masa retensi.
   const inserted = await db.collection(COL_NAME).insertOne(docWithVerif);
-  const oldDocs = await db
-    .collection(COL_NAME)
-    .find({ nomorKontrak, _id: { $ne: inserted.insertedId } })
-    .toArray();
-  if (oldDocs.length > 0) {
-    await db
-      .collection(COL_NAME)
-      .deleteMany({ _id: { $in: oldDocs.map((d: any) => d._id) } });
-    await removeUploadedFiles(oldDocs);
-  }
+  const archiveResult = await db.collection(COL_NAME).updateMany(
+    { nomorKontrak, _id: { $ne: inserted.insertedId }, ...DOK_AKTIF_FILTER },
+    {
+      $set: {
+        archived: true,
+        archivedAt: now,
+        archivedBy: gate.session.fullName || gate.session.username || "",
+        replacedBy: inserted.insertedId,
+      },
+    }
+  );
+  const archivedCount = archiveResult.modifiedCount ?? 0;
+
+  await purgeExpiredArchives(db, now);
 
   // Lolos -> "Sudah Upload"; ada masalah -> "Proses Verifikasi" (menunggu admin)
   if (nomorKontrak) {
@@ -257,7 +320,12 @@ export async function POST(req: Request) {
 
   const { _id, ...safeDoc } = docWithVerif as any;
   return NextResponse.json(
-    { data: safeDoc, verifikasi: { verified, issues }, replaced: oldDocs.length > 0 },
+    {
+      data: safeDoc,
+      verifikasi: { verified, issues },
+      replaced: archivedCount > 0,
+      archivedCount,
+    },
     { status: 201 }
   );
 }

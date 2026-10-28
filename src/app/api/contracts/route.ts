@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
+import { DOK_AKTIF_FILTER } from "@/lib/dokumentasi-arsip";
 
 const DB_NAME = getDbName();
 const COL_NAME = "contracts";
@@ -50,7 +51,7 @@ export async function GET(req: Request) {
   // Ambil daftar nomor kontrak yang sudah memiliki dokumentasi project
   const reportedNomorKontraks = await db
     .collection("dokumentasi_project")
-    .distinct("nomorKontrak");
+    .distinct("nomorKontrak", { ...DOK_AKTIF_FILTER });
   const reportedSet = new Set(
     reportedNomorKontraks.map((nk: any) => String(nk ?? "").trim())
   );

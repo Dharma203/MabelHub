@@ -65,6 +65,23 @@ type Contract = {
   [key: string]: any;
 };
 
+// Satu versi dokumentasi project yang sudah diarsipkan (dari ?riwayat=1)
+type DokBarangArsip = {
+  unitProduk?: string;
+  fotoSerahTerima?: string;
+  fotoBarang?: string;
+  videoBarang?: string;
+};
+type DokVersiArsip = {
+  version?: number;
+  namaSales?: string;
+  tanggalReport?: string;
+  createdAt?: string;
+  archivedAt?: string;
+  archivedBy?: string;
+  barang?: DokBarangArsip[];
+};
+
 type SortField =
   | "no"
   | "marketing"
@@ -143,6 +160,7 @@ function DataProjectContent() {
   // Detail Modal State
   const [selectedDetail, setSelectedDetail] = useState<Contract | null>(null);
   const [dokDetail, setDokDetail] = useState<any>(null);
+  const [dokRiwayat, setDokRiwayat] = useState<DokVersiArsip[]>([]); // versi dokumentasi yang sudah diarsipkan
   const [loadingDok, setLoadingDok] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<{
     url: string;
@@ -153,6 +171,7 @@ function DataProjectContent() {
   useEffect(() => {
     if (!selectedDetail?.nomorKontrak) {
       setDokDetail(null);
+      setDokRiwayat([]);
       return;
     }
     let active = true;
@@ -160,16 +179,20 @@ function DataProjectContent() {
     fetch(
       `/api/dokumentasi-project?nomorKontrak=${encodeURIComponent(
         selectedDetail.nomorKontrak
-      )}`
+      )}&riwayat=1`
     )
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (active) {
           setDokDetail(json?.data || null);
+          setDokRiwayat(Array.isArray(json?.riwayat) ? json.riwayat : []);
         }
       })
       .catch(() => {
-        if (active) setDokDetail(null);
+        if (active) {
+          setDokDetail(null);
+          setDokRiwayat([]);
+        }
       })
       .finally(() => {
         if (active) setLoadingDok(false);
@@ -1659,6 +1682,61 @@ function DataProjectContent() {
                     </div>
                   )}
                 </div>
+
+                {dokRiwayat.length > 0 && (
+                  <details className="rounded-xl border border-amber-200 bg-amber-50/50 px-3 py-2">
+                    <summary className="cursor-pointer text-[11px] font-bold text-amber-800">
+                      Versi sebelumnya ({dokRiwayat.length}) — diarsipkan, tidak dihapus
+                    </summary>
+                    <ul className="mt-2 space-y-2">
+                      {dokRiwayat.map((v, i) => (
+                        <li
+                          key={`${v.createdAt}-${i}`}
+                          className="rounded-lg bg-white border border-amber-100 p-2.5 text-[11px] text-slate-600"
+                        >
+                          <div className="font-semibold text-slate-800">
+                            Versi {v.version ?? 1}
+                            <span className="font-normal text-slate-500">
+                              {" "}· oleh {v.namaSales || "Sales"}
+                              {v.tanggalReport ? ` (${fmtDate(v.tanggalReport)})` : ""}
+                            </span>
+                          </div>
+                          <div className="text-slate-500">
+                            Diarsipkan {fmtDate(v.archivedAt)}
+                            {v.archivedBy ? ` oleh ${v.archivedBy}` : ""}
+                          </div>
+                          <ul className="mt-1.5 space-y-1">
+                            {(v.barang || []).map((b, bi) => (
+                              <li key={bi} className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                                <span className="font-medium text-slate-700">
+                                  {b.unitProduk || `Barang ${bi + 1}`}
+                                </span>
+                                {[
+                                  { label: "Foto Serah Terima", url: b.fotoSerahTerima },
+                                  { label: "Foto Barang", url: b.fotoBarang },
+                                  { label: "Video", url: b.videoBarang },
+                                ]
+                                  .filter((m) => m.url)
+                                  .map((m) => (
+                                    <a
+                                      key={m.label}
+                                      href={m.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="font-semibold text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      {m.label}
+                                    </a>
+                                  ))}
+                              </li>
+                            ))}
+                          </ul>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
 
                 {loadingDok ? (
                   <div className="py-8 flex flex-col items-center justify-center text-slate-400 gap-2">

@@ -6,6 +6,13 @@ import { useSearchParams, useRouter } from "next/navigation";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import NotificationMenu from "@/components/modals/NotificationMenu";
 import {
+  CONTRACT_EXPIRY_LABEL,
+  daysUntil,
+  getContractExpiryStatus,
+  todayString,
+  type ContractExpiryStatus,
+} from "@/lib/contract-status";
+import {
   Search,
   X,
   RotateCcw,
@@ -107,6 +114,30 @@ function fmtDateTime(d: string | Date | undefined) {
 function fmtCurrency(n: number) {
   if (!n) return "-";
   return `Rp ${n.toLocaleString("id-ID")}`;
+}
+
+/* ─────────── Badge Masa Berlaku ─────────── */
+const EXPIRY_BADGE_STYLE: Record<ContractExpiryStatus, string> = {
+  AKTIF: "",
+  SEGERA_BERAKHIR: "bg-amber-50 text-amber-700 border-amber-200",
+  KEDALUWARSA: "bg-rose-50 text-rose-700 border-rose-200",
+};
+
+function ExpiryBadge({ endDate, today }: { endDate: string; today: string }) {
+  const status = getContractExpiryStatus(endDate, today);
+  if (status !== "SEGERA_BERAKHIR") return null; // hanya tampilkan badge jika segera berakhir
+
+  const days = daysUntil(endDate, today) ?? 0;
+  const detail = days === 0 ? "hari ini" : `${days} hari lagi`;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${EXPIRY_BADGE_STYLE[status]}`}
+      title={`${CONTRACT_EXPIRY_LABEL[status]} — ${detail}`}
+    >
+      {CONTRACT_EXPIRY_LABEL[status]} · {detail}
+    </span>
+  );
 }
 
 /* ─────────── Contract History Modal ─────────── */
@@ -713,11 +744,8 @@ function KontrakPageContent() {
     setCurrentPage(1);
   };
 
-  const isExpiring = (d: string) => {
-    if (!d) return false;
-    const diff = new Date(d).getTime() - Date.now();
-    return diff > 0 && diff <= 7 * 24 * 60 * 60 * 1000;
-  };
+  // "Hari ini" (WIB). Berubah hanya saat tanggal berganti, jadi aman jadi dependency memo.
+  const today = todayString();
 
   // Filtered Contracts
   const filteredContracts = useMemo(() => {
@@ -754,10 +782,11 @@ function KontrakPageContent() {
       if (filterPic !== "Semua" && c.pic !== filterPic) {
         return false;
       }
-      if (filterStatus === "Segera Berakhir" && !isExpiring(c.tanggalBerakhirKontrak)) {
-        return false;
-      }
-      if (filterStatus === "Aktif" && isExpiring(c.tanggalBerakhirKontrak)) {
+      if (
+        filterStatus !== "Semua" &&
+        CONTRACT_EXPIRY_LABEL[getContractExpiryStatus(c.tanggalBerakhirKontrak, today)] !==
+          filterStatus
+      ) {
         return false;
       }
 
@@ -772,6 +801,7 @@ function KontrakPageContent() {
     filterBendera,
     filterPic,
     filterStatus,
+    today,
   ]);
 
   const totalItems = filteredContracts.length;
@@ -1117,8 +1147,9 @@ function KontrakPageContent() {
                   className="w-full px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 >
                   <option value="Semua">Semua Status</option>
-                  <option value="Segera Berakhir">Segera Berakhir (≤ 7 Hari)</option>
                   <option value="Aktif">Aktif</option>
+                  <option value="Segera Berakhir">Segera Berakhir (≤ 7 Hari)</option>
+                  <option value="Kedaluwarsa">Kedaluwarsa</option>
                 </select>
               </div>
 
@@ -1186,7 +1217,10 @@ function KontrakPageContent() {
                           <td className="px-5 py-4 text-slate-800">{c.pic || "-"}</td>
                           <td className="px-5 py-4 text-right text-slate-800 font-medium whitespace-nowrap">{fmtCurrency(c.nominalKontrak)}</td>
                           <td className="px-5 py-4 whitespace-nowrap text-slate-600 font-medium">
-                            {fmtDate(c.tanggalBerakhirKontrak)}
+                            <div className="flex flex-col items-start gap-1">
+                              <span>{fmtDate(c.tanggalBerakhirKontrak)}</span>
+                              <ExpiryBadge endDate={c.tanggalBerakhirKontrak} today={today} />
+                            </div>
                           </td>
                           <td className="px-5 py-4 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">

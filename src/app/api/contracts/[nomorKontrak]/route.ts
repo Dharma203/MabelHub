@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
+import { DOK_AKTIF_FILTER } from "@/lib/dokumentasi-arsip";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export async function GET(
 
   const hasDok = await db
     .collection("dokumentasi_project")
-    .findOne({ nomorKontrak: nk });
+    .findOne({ nomorKontrak: nk, ...DOK_AKTIF_FILTER });
 
   return NextResponse.json({
     data: {

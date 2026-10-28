@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
+import {
+  SEGERA_BERAKHIR_HARI,
+  daysUntil,
+  getContractExpiryStatus,
+  shiftDate,
+  todayString,
+} from "@/lib/contract-status";
 
 const DB_NAME = getDbName();
 const COL_NAME = "contracts";
@@ -13,12 +20,10 @@ export async function GET(req: Request) {
   const client = await clientPromise;
   const db = client.db(DB_NAME);
 
-  const now = new Date();
-  const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-  // Format as YYYY-MM-DD for string comparison
-  const todayStr = now.toISOString().slice(0, 10);
-  const futureStr = sevenDaysLater.toISOString().slice(0, 10);
+  // Tanggal dihitung di WIB dan memakai batas yang sama dengan halaman Kontrak,
+  // supaya "Segera Berakhir" di UI dan di reminder selalu sama.
+  const todayStr = todayString();
+  const futureStr = shiftDate(todayStr, SEGERA_BERAKHIR_HARI);
 
   // Find contracts where tanggalBerakhirKontrak is between today and 7 days from now
   const items = await db
@@ -36,5 +41,11 @@ export async function GET(req: Request) {
     .limit(100)
     .toArray();
 
-  return NextResponse.json({ data: items, count: items.length });
+  const data = items.map((c) => ({
+    ...c,
+    daysLeft: daysUntil(c.tanggalBerakhirKontrak, todayStr),
+    expiryStatus: getContractExpiryStatus(c.tanggalBerakhirKontrak, todayStr),
+  }));
+
+  return NextResponse.json({ data, count: data.length });
 }

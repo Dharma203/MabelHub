@@ -406,7 +406,7 @@ function DokumentasiProjectContent() {
           : "Dokumentasi berhasil dikirim dan terverifikasi otomatis!"
       );
       if (json.replaced) {
-        setSubmitSuccess((prev) => `${prev} (menggantikan dokumentasi sebelumnya untuk kontrak ini)`);
+        setSubmitSuccess((prev) => `${prev} (menggantikan dokumentasi sebelumnya; versi lama diarsipkan)`);
       }
 
       // Reset form
@@ -1028,15 +1028,16 @@ function DokumentasiProjectContent() {
 
       <ConfirmModal
         open={showReplaceConfirm}
-        title="Timpa Dokumentasi Lama?"
+        title="Ganti Dokumentasi Lama?"
         message={
           <>
             Kontrak <strong>{nomorKontrak}</strong> sudah memiliki dokumentasi project.
-            Jika dilanjutkan, dokumentasi lama beserta foto dan videonya akan{" "}
-            <strong>dihapus permanen</strong> dan diganti dengan yang baru.
+            Jika dilanjutkan, dokumentasi baru akan menjadi yang aktif, sedangkan
+            dokumentasi lama <strong>diarsipkan</strong> (foto dan videonya tidak dihapus)
+            dan masih bisa dilihat sebagai versi sebelumnya.
           </>
         }
-        confirmText="TIMPA"
+        confirmText="GANTI"
         cancelText="BATAL"
         onCancel={() => setShowReplaceConfirm(false)}
         onConfirm={() => {
