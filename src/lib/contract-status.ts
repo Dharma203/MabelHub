@@ -76,6 +76,19 @@ export function daysUntil(
   return end - now;
 }
 
+/** True jika `value` persis berformat YYYY-MM-DD dan merupakan tanggal kalender yang ada. */
+export function isValidDateString(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && toDayNumber(value) !== null;
+}
+
+/** Kebalikan dari CONTRACT_EXPIRY_LABEL: "Segera Berakhir" -> "SEGERA_BERAKHIR". */
+export function contractStatusFromLabel(label: string): ContractExpiryStatus | null {
+  const hit = (Object.keys(CONTRACT_EXPIRY_LABEL) as ContractExpiryStatus[]).find(
+    (k) => CONTRACT_EXPIRY_LABEL[k] === label,
+  );
+  return hit ?? null;
+}
+
 /** Geser tanggal YYYY-MM-DD sebanyak `days` hari (boleh negatif). */
 export function shiftDate(date: string, days: number): string {
   const n = toDayNumber(date);

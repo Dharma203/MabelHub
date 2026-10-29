@@ -1,6 +1,8 @@
 import {
+  contractStatusFromLabel,
   daysUntil,
   getContractExpiryStatus,
+  isValidDateString,
   shiftDate,
   todayString,
 } from "./contract-status";
@@ -68,5 +70,27 @@ describe("todayString", () => {
     expect(todayString(new Date("2026-10-25T20:00:00Z"))).toBe("2026-10-26");
     // 16:59 UTC = 23:59 WIB, masih tanggal yang sama
     expect(todayString(new Date("2026-10-25T16:59:00Z"))).toBe("2026-10-25");
+  });
+});
+
+describe("isValidDateString", () => {
+  it("hanya menerima YYYY-MM-DD yang benar-benar ada di kalender", () => {
+    expect(isValidDateString("2026-10-26")).toBe(true);
+    expect(isValidDateString("2028-02-29")).toBe(true); // kabisat
+    expect(isValidDateString("2026-02-29")).toBe(false);
+    expect(isValidDateString("2026-13-01")).toBe(false);
+    expect(isValidDateString("26-10-2026")).toBe(false);
+    expect(isValidDateString("2026-10-26T00:00:00Z")).toBe(false);
+    expect(isValidDateString("")).toBe(false);
+    expect(isValidDateString(null)).toBe(false);
+  });
+});
+
+describe("contractStatusFromLabel", () => {
+  it("memetakan label UI ke kode status", () => {
+    expect(contractStatusFromLabel("Aktif")).toBe("AKTIF");
+    expect(contractStatusFromLabel("Segera Berakhir")).toBe("SEGERA_BERAKHIR");
+    expect(contractStatusFromLabel("Kedaluwarsa")).toBe("KEDALUWARSA");
+    expect(contractStatusFromLabel("Semua")).toBeNull();
   });
 });

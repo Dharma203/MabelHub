@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useState, useMemo, Fragment, Suspense } from "react";
+import { useEffect, useState, useMemo, useRef, Fragment, Suspense } from "react";
 import { useSession } from "@/components/session/SessionProvider";
 import { useSearchParams, useRouter } from "next/navigation";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import NotificationMenu from "@/components/modals/NotificationMenu";
 import {
   CONTRACT_EXPIRY_LABEL,
+  contractStatusFromLabel,
   daysUntil,
   getContractExpiryStatus,
   todayString,
   type ContractExpiryStatus,
 } from "@/lib/contract-status";
+import { contractQueryToParams, type ContractQuery } from "@/lib/contract-query";
+import { BULK_FIELD_LABEL, MAX_BULK, type BulkChanges } from "@/lib/contract-bulk";
 import {
   Search,
   X,
@@ -21,6 +24,8 @@ import {
   History,
   Clock,
   ArrowRight,
+  Download,
+  Users,
 } from "lucide-react";
 
 export type ContractHistoryEntry = {
@@ -66,6 +71,9 @@ type Contract = {
   updatedAt: string;
 };
 
+type Facets = { marketing: string[]; bendera: string[]; pic: string[]; instansi: string[] };
+const EMPTY_FACETS: Facets = { marketing: [], bendera: [], pic: [], instansi: [] };
+
 type UserOption = { _id: string; fullName: string; role: string };
 
 const emptyForm = (): Omit<Contract, "createdAt" | "updatedAt"> => ({
@@ -96,6 +104,11 @@ function fmtDate(d: string) {
   const dt = new Date(d);
   if (isNaN(dt.getTime())) return d;
   return dt.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+/** Pesan galat yang aman untuk ditampilkan dari nilai `catch` bertipe unknown. */
+function errMsg(e: unknown, fallback: string): string {
+  return e instanceof Error && e.message ? e.message : fallback;
 }
 
 function fmtDateTime(d: string | Date | undefined) {
@@ -139,6 +152,13 @@ function ExpiryBadge({ endDate, today }: { endDate: string; today: string }) {
     </span>
   );
 }
+
+/* ─────────── Label jenis aksi pada riwayat ─────────── */
+const HISTORY_ACTION_META: Record<string, { label: string; cls: string }> = {
+  CREATE: { label: "Kontrak Dibuat", cls: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+  UPDATE: { label: "Perubahan Data", cls: "bg-blue-50 text-blue-700 border border-blue-200" },
+  BULK_UPDATE: { label: "Perubahan Massal", cls: "bg-violet-50 text-violet-700 border border-violet-200" },
+};
 
 /* ─────────── Contract History Modal ─────────── */
 function HistoryContractModal({
@@ -216,11 +236,9 @@ function HistoryContractModal({
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        entry.action === "CREATE"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-blue-50 text-blue-700 border border-blue-200"
+                        (HISTORY_ACTION_META[entry.action ?? ""] ?? HISTORY_ACTION_META.UPDATE).cls
                       }`}>
-                        {entry.action === "CREATE" ? "Kontrak Dibuat" : "Perubahan Data"}
+                        {(HISTORY_ACTION_META[entry.action ?? ""] ?? HISTORY_ACTION_META.UPDATE).label}
                       </span>
                       <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
                         <Clock className="w-3 h-3" />
@@ -676,6 +694,124 @@ function ContractFormModal({
   );
 }
 
+/* ─────────── Modal Aksi Massal ─────────── */
+const modalLabelCls = "block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5";
+const modalInputCls =
+  "w-full px-3 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all";
+
+type BulkResult = { requested: number; modified: number; unchanged: number; notFound: string[] };
+
+function BulkUpdateModal({
+  count,
+  adminUsers,
+  marketingUsers,
+  onSubmit,
+  onClose,
+}: {
+  count: number;
+  adminUsers: UserOption[];
+  marketingUsers: UserOption[];
+  onSubmit: (changes: BulkChanges) => Promise<BulkResult>;
+  onClose: (done: boolean) => void;
+}) {
+  const [pic, setPic] = useState("");
+  const [marketing, setMarketing] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<BulkResult | null>(null);
+
+  const changes: BulkChanges = {};
+  if (pic) changes.pic = pic;
+  if (marketing) changes.marketing = marketing;
+  const hasChange = Object.keys(changes).length > 0;
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setResult(await onSubmit(changes));
+    } catch (e) {
+      setError(errMsg(e, "Gagal mengubah kontrak"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto py-8" role="dialog" aria-label="Ubah PIC atau Marketing Massal">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 my-auto">
+        <div className="border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-800">Ubah PIC / Marketing Massal</h3>
+          <button onClick={() => onClose(!!result)} aria-label="Tutup" className="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+        </div>
+
+        {result ? (
+          <div className="px-6 py-5 space-y-3 text-sm" role="status">
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-emerald-800 font-semibold">
+              {result.modified} kontrak berhasil diubah.
+            </div>
+            {result.unchanged > 0 && (
+              <div className="text-slate-600">{result.unchanged} kontrak dilewati karena nilainya sudah sama.</div>
+            )}
+            {result.notFound.length > 0 && (
+              <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-xs">
+                {result.notFound.length} kontrak tidak ditemukan (mungkin sudah dihapus): {result.notFound.join(", ")}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="px-6 py-5 space-y-4">
+            {error && (
+              <div role="alert" className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-rose-600 text-xs font-semibold">
+                {error}
+              </div>
+            )}
+            <p className="text-sm text-slate-600">
+              Perubahan diterapkan ke <strong>{count} kontrak</strong> terpilih dan dicatat di riwayat masing-masing.
+              Biarkan kolom sebagai &quot;Tidak diubah&quot; bila tidak ingin mengubahnya.
+            </p>
+            <div>
+              <label htmlFor="bulk-pic" className={modalLabelCls}>{BULK_FIELD_LABEL.pic} baru</label>
+              <select id="bulk-pic" className={modalInputCls} value={pic} onChange={(e) => setPic(e.target.value)}>
+                <option value="">— Tidak diubah —</option>
+                {adminUsers.map((u) => (
+                  <option key={u._id} value={u.fullName}>{u.fullName}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="bulk-marketing" className={modalLabelCls}>{BULK_FIELD_LABEL.marketing} baru</label>
+              <select id="bulk-marketing" className={modalInputCls} value={marketing} onChange={(e) => setMarketing(e.target.value)}>
+                <option value="">— Tidak diubah —</option>
+                {marketingUsers.map((u) => (
+                  <option key={u._id} value={u.fullName}>{u.fullName}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-3">
+          {result ? (
+            <button onClick={() => onClose(true)} className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 transition">
+              Selesai
+            </button>
+          ) : (
+            <>
+              <button onClick={() => onClose(false)} disabled={loading} className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors">
+                Batal
+              </button>
+              <button onClick={handleSubmit} disabled={!hasChange || loading} className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-indigo-700 disabled:bg-indigo-300 transition-all active:scale-[0.98]">
+                {loading ? "Menerapkan..." : `Terapkan ke ${count} kontrak`}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────── Main Page Content ─────────── */
 function KontrakPageContent() {
   const router = useRouter();
@@ -683,18 +819,32 @@ function KontrakPageContent() {
   const perusahaanQuery = searchParams.get("perusahaan") || "";
   const { user, loading: sessionLoading } = useSession();
 
-  const [contracts, setContracts] = useState<Contract[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Data tabel berasal dari server per halaman (bukan seluruh kontrak sekaligus).
+  const [rows, setRows] = useState<Contract[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalAll, setTotalAll] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [facets, setFacets] = useState<Facets>(EMPTY_FACETS);
+  const [companyInstansi, setCompanyInstansi] = useState<string[]>([]);
+  // lookupsLoading hanya menahan layar saat pertama dibuka; rowsLoading hanya meredupkan tabel
+  // agar kolom pencarian tidak ikut hilang (kursor tetap) setiap kali server dipanggil.
+  const [lookupsLoading, setLookupsLoading] = useState(true);
+  const [rowsLoading, setRowsLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
+  const needFacetsRef = useRef(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [marketingUsers, setMarketingUsers] = useState<UserOption[]>([]);
   const [adminUsers, setAdminUsers] = useState<UserOption[]>([]);
-  const [instansiList, setInstansiList] = useState<string[]>([]);
   const [perusahaanList, setPerusahaanList] = useState<string[]>([]);
   const [eprocList, setEprocList] = useState<{ requestId: string; pemohon?: string; requestor?: string; lokasi?: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<Contract | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [selectedHistory, setSelectedHistory] = useState<Contract | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -704,34 +854,16 @@ function KontrakPageContent() {
   const [filterBendera, setFilterBendera] = useState("Semua");
   const [filterPic, setFilterPic] = useState("Semua");
   const [filterStatus, setFilterStatus] = useState("Semua");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  const uniqueMarketing = useMemo(() => {
-    const set = new Set<string>();
-    contracts.forEach((c) => {
-      if (c.marketing) set.add(c.marketing);
-    });
-    return Array.from(set).sort();
-  }, [contracts]);
-
-  const uniqueBendera = useMemo(() => {
-    const set = new Set<string>();
-    contracts.forEach((c) => {
-      if (c.bendera) set.add(c.bendera);
-    });
-    return Array.from(set).sort();
-  }, [contracts]);
-
-  const uniquePic = useMemo(() => {
-    const set = new Set<string>();
-    contracts.forEach((c) => {
-      if (c.pic) set.add(c.pic);
-    });
-    return Array.from(set).sort();
-  }, [contracts]);
+  // Opsi dropdown berasal dari SELURUH kontrak (facets server), bukan dari halaman yang tampil.
+  const uniqueMarketing = facets.marketing;
+  const uniqueBendera = facets.bendera;
+  const uniquePic = facets.pic;
 
   const resetFilters = () => {
     setSearchTerm("");
@@ -741,162 +873,195 @@ function KontrakPageContent() {
     setFilterBendera("Semua");
     setFilterPic("Semua");
     setFilterStatus("Semua");
+    committedSearchRef.current = "";
+    setDebouncedSearch("");
     setCurrentPage(1);
   };
 
-  // "Hari ini" (WIB). Berubah hanya saat tanggal berganti, jadi aman jadi dependency memo.
+  // "Hari ini" (WIB). Berubah hanya saat tanggal berganti.
   const today = todayString();
 
-  // Filtered Contracts
-  const filteredContracts = useMemo(() => {
-    return contracts.filter((c) => {
-      // Search term
-      if (searchTerm) {
-        const q = searchTerm.toLowerCase();
-        const matchInstansi = c.instansi?.toLowerCase().includes(q);
-        const matchKontrak = c.nomorKontrak?.toLowerCase().includes(q);
-        const matchMarketing = c.marketing?.toLowerCase().includes(q);
-        const matchPic = c.pic?.toLowerCase().includes(q);
-        const matchPengadaan = c.namaPengadaan?.toLowerCase().includes(q);
-        const matchBendera = c.bendera?.toLowerCase().includes(q);
-        if (!matchInstansi && !matchKontrak && !matchMarketing && !matchPic && !matchPengadaan && !matchBendera) {
-          return false;
-        }
-      }
+  const authorized =
+    !sessionLoading && !!user && (user.role === "SUPERADMIN" || user.role === "ADMIN");
 
-      // Date range on tanggalKontrak
-      if (dateFrom && c.tanggalKontrak && c.tanggalKontrak < dateFrom) {
-        return false;
-      }
-      if (dateTo && c.tanggalKontrak && c.tanggalKontrak > dateTo) {
-        return false;
-      }
-
-      // Dropdown filters
-      if (filterMarketing !== "Semua" && c.marketing !== filterMarketing) {
-        return false;
-      }
-      if (filterBendera !== "Semua" && c.bendera !== filterBendera) {
-        return false;
-      }
-      if (filterPic !== "Semua" && c.pic !== filterPic) {
-        return false;
-      }
-      if (
-        filterStatus !== "Semua" &&
-        CONTRACT_EXPIRY_LABEL[getContractExpiryStatus(c.tanggalBerakhirKontrak, today)] !==
-          filterStatus
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [
-    contracts,
-    searchTerm,
-    dateFrom,
-    dateTo,
-    filterMarketing,
-    filterBendera,
-    filterPic,
-    filterStatus,
-    today,
-  ]);
-
-  const totalItems = filteredContracts.length;
-  const totalPages = Math.ceil(totalItems / pageSize) || 1;
-
-  const paginatedContracts = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredContracts.slice(start, start + pageSize);
-  }, [filteredContracts, currentPage, pageSize]);
-
-  const startRecordIndex = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endRecordIndex = Math.min(currentPage * pageSize, totalItems);
-
+  // Pencarian ditunda 350 ms agar server tidak dipanggil di setiap ketikan. Halaman di-reset
+  // bersamaan dengan nilai pencarian supaya hanya terjadi SATU permintaan, bukan dua.
+  // Hanya berjalan bila nilainya benar-benar berbeda dari yang sudah diterapkan; kalau tidak,
+  // timer saat halaman pertama dibuka akan mengembalikan pengguna ke halaman 1 secara tiba-tiba.
+  const committedSearchRef = useRef("");
   useEffect(() => {
-    if (!sessionLoading) {
-      if (!user) {
-        router.replace("/");
-      } else if (user.role !== "SUPERADMIN" && user.role !== "ADMIN") {
-        router.replace("/dashboard-response");
-      } else {
-        fetchData();
-      }
-    }
-  }, [user, sessionLoading, router, perusahaanQuery]);
+    const next = searchTerm.trim();
+    if (next === committedSearchRef.current) return;
+    const t = setTimeout(() => {
+      committedSearchRef.current = next;
+      setDebouncedSearch(next);
+      setCurrentPage(1);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
-  async function fetchData() {
-    try {
-      setLoading(true);
-      setError("");
-      const baseContractsUrl = perusahaanQuery
-        ? `/api/contracts?perusahaan=${encodeURIComponent(perusahaanQuery)}`
-        : "/api/contracts";
-      const sep = baseContractsUrl.includes("?") ? "&" : "?";
-      const url = `${baseContractsUrl}${sep}_t=${Date.now()}`;
+  // Semua filter yang dikirim ke server. Bentuk & nama parameter dibuat oleh modul bersama
+  // yang sama dengan yang dibaca server, sehingga tabel dan ekspor Excel selalu sepakat.
+  const query = useMemo<Partial<ContractQuery>>(
+    () => ({
+      perusahaan: perusahaanQuery,
+      q: debouncedSearch,
+      dateFrom,
+      dateTo,
+      marketing: filterMarketing === "Semua" ? "" : filterMarketing,
+      bendera: filterBendera === "Semua" ? "" : filterBendera,
+      pic: filterPic === "Semua" ? "" : filterPic,
+      status: contractStatusFromLabel(filterStatus),
+    }),
+    [perusahaanQuery, debouncedSearch, dateFrom, dateTo, filterMarketing, filterBendera, filterPic, filterStatus],
+  );
 
-      const [contractsRes, usersRes, paramsRes, companiesRes, eprocRes] = await Promise.all([
-        fetch(url, { cache: "no-store", headers: { Pragma: "no-cache" } }),
-        fetch(`/api/users?_t=${Date.now()}`, { cache: "no-store" }),
-        fetch(`/api/parameters?_t=${Date.now()}`, { cache: "no-store" }),
-        fetch(`/api/companies?limit=2000&_t=${Date.now()}`, { cache: "no-store" }),
-        fetch(`/api/e-procurement/requests?_t=${Date.now()}`, { cache: "no-store" }),
-      ]);
+  const hasActiveFilters = useMemo(
+    () => Array.from(contractQueryToParams(query).keys()).some((k) => k !== "perusahaan"),
+    [query],
+  );
 
-      const contractsJson = await contractsRes.json();
-      const usersJson = await usersRes.json();
-      const paramsJson = await paramsRes.json().catch(() => ({}));
-      const companiesJson = await companiesRes.json().catch(() => ([]));
-      const eprocJson = await eprocRes.json().catch(() => ({}));
-
-      if (!contractsRes.ok) throw new Error(contractsJson.error || "Gagal mengambil data");
-
-      const contractsData: Contract[] = contractsJson.data || [];
-      setContracts(contractsData);
-
-      const users = usersJson.data || [];
-      setMarketingUsers(
-        users.filter(
-          (u: any) =>
-            u.role === "SALES" || u.role === "LEADER" || u.role === "SUPERADMIN"
-        )
-      );
-      setAdminUsers(
-        users.filter((u: any) => u.role === "ADMIN" || u.role === "SUPERADMIN")
-      );
-
-      setPerusahaanList(paramsJson.data?.perusahaan || []);
-
-      const compRows: any[] = Array.isArray(companiesJson)
-        ? companiesJson
-        : companiesJson.items || [];
-      const instansiSet = new Set<string>();
-      compRows.forEach((c) => {
-        if (c.institusi_kerja?.trim()) instansiSet.add(c.institusi_kerja.trim());
-        if (c.satuan_kerja?.trim()) instansiSet.add(c.satuan_kerja.trim());
-      });
-      contractsData.forEach((c) => {
-        if (c.instansi?.trim()) instansiSet.add(c.instansi.trim());
-      });
-      setInstansiList(Array.from(instansiSet).sort());
-
-      const eprocItems = eprocJson.data || [];
-      setEprocList(
-        eprocItems.map((r: any) => ({
-          requestId: r.requestId,
-          pemohon: r.pemohon || "",
-          requestor: r.requestor || "",
-          lokasi: r.lokasi || "",
-        }))
-      );
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+  // Pilihan baris dikosongkan saat filter berubah, agar tidak ada kontrak "tersembunyi" yang ikut terubah.
+  // Memakai pola "sesuaikan state saat render" (bukan efek) agar tidak ada render sia-sia.
+  const queryKey = contractQueryToParams(query).toString();
+  const [selectionKey, setSelectionKey] = useState(queryKey);
+  if (selectionKey !== queryKey) {
+    setSelectionKey(queryKey);
+    setSelected(new Set());
   }
+
+  const totalItems = total;
+  const startRecordIndex = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endRecordIndex = Math.min(currentPage * pageSize, total);
+
+  const instansiList = useMemo(
+    () => Array.from(new Set([...companyInstansi, ...facets.instansi])).sort(),
+    [companyInstansi, facets.instansi],
+  );
+
+  const refresh = () => {
+    needFacetsRef.current = true; // opsi dropdown bisa berubah setelah data berubah
+    setReloadKey((k) => k + 1);
+  };
+
+  // Data pendukung (tidak bergantung filter): sekali saat halaman dibuka.
+  // Bergantung pada PERAN (nilai primitif), bukan objek user, agar tidak dimuat ulang
+  // hanya karena objek sesi dibuat ulang dengan isi yang sama.
+  const userRole = user?.role;
+  useEffect(() => {
+    if (sessionLoading) return;
+    if (!userRole) {
+      router.replace("/");
+      return;
+    }
+    if (userRole !== "SUPERADMIN" && userRole !== "ADMIN") {
+      router.replace("/dashboard-response");
+      return;
+    }
+
+    let active = true;
+    (async () => {
+      try {
+        const [usersRes, paramsRes, companiesRes, eprocRes] = await Promise.all([
+          fetch(`/api/users?_t=${Date.now()}`, { cache: "no-store" }),
+          fetch(`/api/parameters?_t=${Date.now()}`, { cache: "no-store" }),
+          fetch(`/api/companies?limit=2000&_t=${Date.now()}`, { cache: "no-store" }),
+          fetch(`/api/e-procurement/requests?_t=${Date.now()}`, { cache: "no-store" }),
+        ]);
+
+        const usersJson = await usersRes.json();
+        const paramsJson = await paramsRes.json().catch(() => ({}));
+        const companiesJson = await companiesRes.json().catch(() => ([]));
+        const eprocJson = await eprocRes.json().catch(() => ({}));
+        if (!active) return;
+
+        const users = usersJson.data || [];
+        setMarketingUsers(
+          users.filter((u: any) => u.role === "SALES" || u.role === "LEADER" || u.role === "SUPERADMIN")
+        );
+        setAdminUsers(users.filter((u: any) => u.role === "ADMIN" || u.role === "SUPERADMIN"));
+        setPerusahaanList(paramsJson.data?.perusahaan || []);
+
+        const compRows: any[] = Array.isArray(companiesJson) ? companiesJson : companiesJson.items || [];
+        const instansiSet = new Set<string>();
+        compRows.forEach((c) => {
+          if (c.institusi_kerja?.trim()) instansiSet.add(c.institusi_kerja.trim());
+          if (c.satuan_kerja?.trim()) instansiSet.add(c.satuan_kerja.trim());
+        });
+        setCompanyInstansi(Array.from(instansiSet));
+
+        const eprocItems = eprocJson.data || [];
+        setEprocList(
+          eprocItems.map((r: any) => ({
+            requestId: r.requestId,
+            pemohon: r.pemohon || "",
+            requestor: r.requestor || "",
+            lokasi: r.lokasi || "",
+          }))
+        );
+      } catch (e) {
+        if (active) setError(errMsg(e, "Gagal memuat data pendukung"));
+      } finally {
+        if (active) setLookupsLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [userRole, sessionLoading, router]);
+
+  // Setiap kali permintaan baru akan dikirim (filter/halaman/muat ulang berubah), tandai sedang
+  // memuat dan bersihkan galat lama — dilakukan saat render, bukan di dalam efek.
+  const requestKey = `${queryKey}|${currentPage}|${pageSize}|${reloadKey}`;
+  const [loadingKey, setLoadingKey] = useState(requestKey);
+  if (loadingKey !== requestKey) {
+    setLoadingKey(requestKey);
+    setRowsLoading(true);
+    setError("");
+  }
+
+  // Daftar kontrak: filter, pencarian, dan paginasi dikerjakan di server.
+  // Permintaan yang sudah usang dibatalkan agar jawaban lama tidak menimpa yang baru.
+  useEffect(() => {
+    if (!authorized) return;
+    const controller = new AbortController();
+
+    const params = contractQueryToParams(query);
+    params.set("page", String(currentPage));
+    params.set("pageSize", String(pageSize));
+    const wantFacets = needFacetsRef.current;
+    if (wantFacets) params.set("facets", "1");
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/contracts?${params.toString()}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const json = await res.json();
+        // Jawaban sudah usang (filter/halaman berubah saat menunggu): buang, jangan timpa yang terbaru.
+        if (controller.signal.aborted) return;
+        if (!res.ok) throw new Error(json.error || "Gagal mengambil data");
+
+        setRows(json.data || []);
+        setTotal(json.pagination.total);
+        setTotalPages(json.pagination.totalPages);
+        // Server mengembalikan halaman terakhir bila yang diminta di luar jangkauan
+        if (json.pagination.page !== currentPage) setCurrentPage(json.pagination.page);
+        if (json.facets) {
+          setFacets(json.facets);
+          setTotalAll(json.totalAll ?? 0);
+          needFacetsRef.current = false;
+        }
+      } catch (e) {
+        if (!(e instanceof Error && e.name === "AbortError")) setError(errMsg(e, "Gagal mengambil data"));
+      } finally {
+        if (!controller.signal.aborted) setRowsLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [authorized, query, currentPage, pageSize, reloadKey]);
 
   const handleCreate = async (data: any) => {
     const res = await fetch("/api/contracts", {
@@ -907,7 +1072,7 @@ function KontrakPageContent() {
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || "Gagal menyimpan");
     setShowForm(false);
-    fetchData();
+    refresh();
   };
 
   const handleUpdate = async (data: any) => {
@@ -919,28 +1084,27 @@ function KontrakPageContent() {
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || "Gagal menyimpan");
     setEditTarget(null);
-    fetchData();
+    refresh();
   };
 
   const handleDelete = async (nomorKontrak: string) => {
-    // 1. Optimistic update: langsung hapus dari list contracts di tampilan
-    setContracts((prev) => prev.filter((c) => c.nomorKontrak !== nomorKontrak));
-    if (expandedRow === nomorKontrak) setExpandedRow(null);
-    if (editTarget?.nomorKontrak === nomorKontrak) setEditTarget(null);
-
-    // 2. Request DELETE ke API
+    // Tunggu jawaban server dulu sebelum menutup apa pun: bila ditolak (mis. kontrak masih punya
+    // turunan), pesannya harus tetap terlihat di modal/dialog yang sedang terbuka.
     const res = await fetch(`/api/contracts/${encodeURIComponent(nomorKontrak)}`, {
       method: "DELETE",
     });
-    const json = await res.json();
-    if (!res.ok) {
-      // Revert bila terjadi kegagalan
-      fetchData();
-      throw new Error(json.error || "Gagal menghapus kontrak");
-    }
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || "Gagal menghapus kontrak");
 
-    // 3. Sinkronkan ulang data dari server
-    await fetchData();
+    setRows((prev) => prev.filter((c) => c.nomorKontrak !== nomorKontrak));
+    if (expandedRow === nomorKontrak) setExpandedRow(null);
+    if (editTarget?.nomorKontrak === nomorKontrak) setEditTarget(null);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(nomorKontrak);
+      return next;
+    });
+    refresh();
   };
 
   const confirmAndDelete = async (nomorKontrak: string) => {
@@ -949,14 +1113,96 @@ function KontrakPageContent() {
     }
     try {
       await handleDelete(nomorKontrak);
-    } catch (e: any) {
-      alert(e.message || "Gagal menghapus kontrak");
+    } catch (e) {
+      alert(errMsg(e, "Gagal menghapus kontrak"));
     }
   };
 
+  /* ── Pilih baris & aksi massal ── */
+  const pageIds = rows.map((r) => r.nomorKontrak);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
 
+  const toggleOne = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      if (next.size >= MAX_BULK) {
+        setError(`Maksimal ${MAX_BULK} kontrak dapat dipilih sekaligus.`);
+        return;
+      }
+      next.add(id);
+    }
+    setSelected(next);
+  };
 
-  if (sessionLoading || loading) {
+  const toggleAllOnPage = () => {
+    const next = new Set(selected);
+    if (allOnPageSelected) {
+      pageIds.forEach((id) => next.delete(id));
+    } else {
+      for (const id of pageIds) {
+        if (next.size >= MAX_BULK) {
+          setError(`Maksimal ${MAX_BULK} kontrak dapat dipilih sekaligus.`);
+          break;
+        }
+        next.add(id);
+      }
+    }
+    setSelected(next);
+  };
+
+  const handleBulk = async (changes: BulkChanges): Promise<BulkResult> => {
+    const res = await fetch("/api/contracts/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nomorKontrak: Array.from(selected), changes }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || "Gagal mengubah kontrak");
+    return json as BulkResult;
+  };
+
+  const closeBulk = (done: boolean) => {
+    setBulkOpen(false);
+    if (done) {
+      setSelected(new Set());
+      refresh();
+    }
+  };
+
+  /* ── Ekspor Excel sesuai filter aktif ── */
+  const handleExport = async () => {
+    setExporting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/contracts/export?${contractQueryToParams(query).toString()}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || "Gagal mengekspor data");
+      }
+      const blob = await res.blob();
+      const fileName =
+        /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") || "")?.[1] ||
+        `kontrak_${todayString()}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(errMsg(e, "Gagal mengekspor data"));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  if (sessionLoading || lookupsLoading) {
     return (
       <div className="flex w-full mt-12 items-center justify-center p-8 text-slate-500 font-medium animate-pulse">
         <svg className="mr-3 h-6 w-6 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
@@ -997,7 +1243,13 @@ function KontrakPageContent() {
             </div>
 
           {error && (
-            <div className="mb-6 rounded-2xl bg-rose-50 p-4 text-rose-600 text-sm font-semibold border border-rose-100">{error}</div>
+            <div role="alert" className="mb-6 rounded-2xl bg-rose-50 p-4 text-rose-600 text-sm font-semibold border border-rose-100">{error}</div>
+          )}
+          {notice && (
+            <div role="status" className="mb-6 rounded-2xl bg-emerald-50 p-4 text-emerald-700 text-sm font-semibold border border-emerald-100 flex items-center justify-between gap-3">
+              <span>{notice}</span>
+              <button type="button" onClick={() => setNotice("")} aria-label="Tutup pemberitahuan" className="text-emerald-500 hover:text-emerald-700 font-bold">✕</button>
+            </div>
           )}
 
           {/* ─── Filter Section Card (seperti Data Project) ─── */}
@@ -1014,11 +1266,9 @@ function KontrakPageContent() {
                   <input
                     type="text"
                     placeholder="Cari instansi, no kontrak, marketing, pengadaan..."
+                    aria-label="Pencarian kontrak"
                     value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setCurrentPage(1);
-                    }}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   />
                   {searchTerm && (
@@ -1039,6 +1289,7 @@ function KontrakPageContent() {
                 </label>
                 <input
                   type="date"
+                  aria-label="Tanggal kontrak dari"
                   value={dateFrom}
                   onChange={(e) => {
                     setDateFrom(e.target.value);
@@ -1055,6 +1306,7 @@ function KontrakPageContent() {
                 </label>
                 <input
                   type="date"
+                  aria-label="Tanggal kontrak sampai"
                   value={dateTo}
                   onChange={(e) => {
                     setDateTo(e.target.value);
@@ -1073,6 +1325,7 @@ function KontrakPageContent() {
                   MARKETING
                 </label>
                 <select
+                  aria-label="Filter Marketing"
                   value={filterMarketing}
                   onChange={(e) => {
                     setFilterMarketing(e.target.value);
@@ -1095,6 +1348,7 @@ function KontrakPageContent() {
                   BENDERA
                 </label>
                 <select
+                  aria-label="Filter Bendera"
                   value={filterBendera}
                   onChange={(e) => {
                     setFilterBendera(e.target.value);
@@ -1117,6 +1371,7 @@ function KontrakPageContent() {
                   PIC
                 </label>
                 <select
+                  aria-label="Filter PIC"
                   value={filterPic}
                   onChange={(e) => {
                     setFilterPic(e.target.value);
@@ -1139,6 +1394,7 @@ function KontrakPageContent() {
                   STATUS
                 </label>
                 <select
+                  aria-label="Filter Status"
                   value={filterStatus}
                   onChange={(e) => {
                     setFilterStatus(e.target.value);
@@ -1173,15 +1429,61 @@ function KontrakPageContent() {
               <h3 className="text-sm font-semibold text-slate-800">
                 Data Kontrak
               </h3>
-              <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100">
-                {totalItems} dari {contracts.length} kontrak
-              </span>
+              <div className="flex items-center gap-3">
+                {rowsLoading && <span className="text-xs font-medium text-slate-400 animate-pulse">Memuat...</span>}
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100">
+                  {totalAll > 0 && totalAll !== totalItems ? `${totalItems} dari ${totalAll} kontrak` : `${totalItems} kontrak`}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={exporting || totalItems === 0}
+                  title={hasActiveFilters ? "Ekspor semua kontrak yang cocok dengan filter aktif" : "Ekspor semua kontrak"}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 disabled:pointer-events-none transition"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{exporting ? "Mengekspor..." : "Ekspor Excel"}</span>
+                </button>
+              </div>
             </div>
 
-            <div className="w-full overflow-x-auto">
+            {selected.size > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 bg-indigo-50 border-b border-indigo-100 text-xs font-semibold text-indigo-800">
+                <span>{selected.size} kontrak dipilih</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBulkOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 font-bold text-white hover:bg-indigo-700 transition"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Ubah PIC / Marketing</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(new Set())}
+                    className="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 font-bold text-indigo-700 hover:bg-indigo-100 transition"
+                  >
+                    Batal Pilih
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className={`w-full overflow-x-auto transition-opacity ${rowsLoading ? "opacity-50" : ""}`} aria-busy={rowsLoading}>
               <table className="min-w-fit w-full text-sm border-collapse">
                 <thead className="bg-slate-50/80 text-slate-500 text-xs uppercase tracking-wider font-semibold">
                   <tr className="border-b border-slate-100">
+                    <th className="px-4 py-4 w-10">
+                      <input
+                        type="checkbox"
+                        aria-label="Pilih semua kontrak di halaman ini"
+                        checked={allOnPageSelected}
+                        onChange={toggleAllOnPage}
+                        disabled={rows.length === 0}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 cursor-pointer"
+                      />
+                    </th>
                     <th className="px-5 py-4 text-left whitespace-nowrap">NO. KONTRAK</th>
                     <th className="px-5 py-4 text-left whitespace-nowrap">INSTANSI</th>
                     <th className="px-5 py-4 text-left whitespace-nowrap">NAMA PENGADAAN</th>
@@ -1194,19 +1496,30 @@ function KontrakPageContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedContracts.length === 0 ? (
+                  {rows.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-5 py-12 text-center text-slate-400 font-medium">
-                        {contracts.length === 0
-                          ? "Belum ada kontrak."
-                          : "Tidak ada kontrak yang sesuai dengan filter pencarian."}
+                      <td colSpan={10} className="px-5 py-12 text-center text-slate-400 font-medium">
+                        {rowsLoading
+                          ? "Memuat kontrak..."
+                          : hasActiveFilters
+                            ? "Tidak ada kontrak yang sesuai dengan filter pencarian."
+                            : "Belum ada kontrak."}
                       </td>
                     </tr>
                   ) : (
-                    paginatedContracts.map((c) => (
+                    rows.map((c) => (
                       <Fragment key={c.nomorKontrak}>
                         <tr className={`border-b border-slate-100/80 hover:bg-slate-50 cursor-pointer transition-colors ${expandedRow === c.nomorKontrak ? "bg-indigo-50/20" : ""}`}
                           onClick={() => setExpandedRow(expandedRow === c.nomorKontrak ? null : c.nomorKontrak)}>
+                          <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              aria-label={`Pilih kontrak ${c.nomorKontrak}`}
+                              checked={selected.has(c.nomorKontrak)}
+                              onChange={() => toggleOne(c.nomorKontrak)}
+                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 cursor-pointer"
+                            />
+                          </td>
                           <td className="px-5 py-4 font-semibold text-slate-800 whitespace-nowrap">
                             {c.nomorKontrak}
                           </td>
@@ -1253,7 +1566,7 @@ function KontrakPageContent() {
                         </tr>
                         {expandedRow === c.nomorKontrak && (
                           <tr className="border-b border-neutral-100 bg-slate-50/50">
-                            <td colSpan={9} className="px-5 py-5 text-sm">
+                            <td colSpan={10} className="px-5 py-5 text-sm">
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
                                 <div><span className="font-semibold text-slate-500 text-xs block mb-1">Link GDrive:</span>{" "}<span className="text-slate-800">{c.link ? <a href={c.link} target="_blank" className="text-blue-600 hover:underline">{c.link}</a> : "-"}</span></div>
                                 <div><span className="font-semibold text-slate-500 text-xs block mb-1">Folder:</span> <span className="text-slate-800">{c.namaFolder || "-"}</span></div>
@@ -1301,6 +1614,7 @@ function KontrakPageContent() {
               <div className="flex items-center gap-2">
                 <span>Tampilkan</span>
                 <select
+                  aria-label="Baris per halaman"
                   value={pageSize}
                   onChange={(e) => {
                     setPageSize(Number(e.target.value));
@@ -1396,6 +1710,15 @@ function KontrakPageContent() {
           onSave={handleUpdate}
           onDelete={handleDelete}
           onClose={() => setEditTarget(null)}
+        />
+      )}
+      {bulkOpen && (
+        <BulkUpdateModal
+          count={selected.size}
+          adminUsers={adminUsers}
+          marketingUsers={marketingUsers}
+          onSubmit={handleBulk}
+          onClose={closeBulk}
         />
       )}
       {selectedHistory && (

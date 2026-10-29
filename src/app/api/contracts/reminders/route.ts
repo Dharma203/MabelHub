@@ -23,16 +23,16 @@ export async function GET(req: Request) {
   // Tanggal dihitung di WIB dan memakai batas yang sama dengan halaman Kontrak,
   // supaya "Segera Berakhir" di UI dan di reminder selalu sama.
   const todayStr = todayString();
-  const futureStr = shiftDate(todayStr, SEGERA_BERAKHIR_HARI);
+  // Batas atas eksklusif ke hari berikutnya agar nilai berformat datetime pada hari terakhir ikut terhitung.
+  const untilExclusive = shiftDate(todayStr, SEGERA_BERAKHIR_HARI + 1);
 
-  // Find contracts where tanggalBerakhirKontrak is between today and 7 days from now
-  const items = await db
+  const candidates = await db
     .collection(COL_NAME)
     .find(
       {
         tanggalBerakhirKontrak: {
           $gte: todayStr,
-          $lte: futureStr,
+          $lt: untilExclusive,
         },
       },
       { projection: { _id: 0 } },
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     .limit(100)
     .toArray();
 
-  const data = items.map((c) => ({
+  const data = candidates.map((c) => ({
     ...c,
     daysLeft: daysUntil(c.tanggalBerakhirKontrak, todayStr),
     expiryStatus: getContractExpiryStatus(c.tanggalBerakhirKontrak, todayStr),
