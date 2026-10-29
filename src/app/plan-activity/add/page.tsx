@@ -33,7 +33,7 @@ type Company = {
 // Institusi + Satker + Kota combo bound to a KLPD (from /api/companies/by-klpd)
 type SatuanKerja = {
   _id: string
-  source: 'b2g' | 'visit'
+  source: 'klpd' | 'b2g' | 'visit'
   institusiKerja: string
   satuanKerja: string
   kota: string
@@ -46,6 +46,7 @@ type PlanItem = {
   id: string // local id for rendering
   ring: string
   institusiQuery: string
+  institusiSelected: boolean
   jenisEntitas: string
   namaEntitas: string
   selectedCompany: Company | null
@@ -66,6 +67,9 @@ type PlanItem = {
   showKlpdSug: boolean
   loadingKlpdSug: boolean
   klpdSugs: string[]
+  showInstitusiSug: boolean
+  loadingInstitusiSug: boolean
+  institusiSugs: string[]
   // RING 4: nama entitas search
   showSug: boolean
   loadingSug: boolean
@@ -74,6 +78,9 @@ type PlanItem = {
   showSatkerSug: boolean
   loadingSatkerSug: boolean
   satkerSugs: SatuanKerja[]
+  showKotaSug: boolean
+  loadingKotaSug: boolean
+  kotaSugs: string[]
 }
 
 type AssigneeOption = {
@@ -107,12 +114,13 @@ function toPic(p?: Pic | null) {
   }
 }
 
-// Everything that depends on KLPD/Ring; wiped whenever an upstream choice changes.
+// Everything downstream of the KLPD selection; cleared when it changes.
 function clearedTarget(): Partial<PlanItem> {
   return {
     selectedCompany: null,
     selectedSatker: null,
     institusiQuery: '',
+    institusiSelected: false,
     satuanKerja: '',
     namaEntitas: '',
     jenisEntitas: '',
@@ -122,6 +130,12 @@ function clearedTarget(): Partial<PlanItem> {
     showSug: false,
     satkerSugs: [],
     showSatkerSug: false,
+    institusiSugs: [],
+    showInstitusiSug: false,
+    loadingInstitusiSug: false,
+    kotaSugs: [],
+    showKotaSug: false,
+    loadingKotaSug: false,
   }
 }
 
@@ -148,6 +162,7 @@ function newItem(): PlanItem {
     jenisEntitas: '',
     namaEntitas: '',
     institusiQuery: '',
+    institusiSelected: false,
     selectedCompany: null,
     kota: '',
     klpd: '',
@@ -160,12 +175,18 @@ function newItem(): PlanItem {
     showKlpdSug: false,
     loadingKlpdSug: false,
     klpdSugs: [],
+    showInstitusiSug: false,
+    loadingInstitusiSug: false,
+    institusiSugs: [],
     showSug: false,
     loadingSug: false,
     sugs: [],
     showSatkerSug: false,
     loadingSatkerSug: false,
     satkerSugs: [],
+    showKotaSug: false,
+    loadingKotaSug: false,
+    kotaSugs: [],
   }
 }
 
@@ -372,8 +393,7 @@ function AddPlansContent() {
     }
   }
 
-  // Swasta -> RING 4 locked. Otherwise ring must be picked from RING 1-3,
-  // and institusi/satker/kota are looked up from the KLPD right away.
+  // Swasta -> RING 4 locked. Otherwise choose institution and satker from KLPD.
   function pickKlpd(itemId: string, klpd: string) {
     const swasta = isSwasta(klpd)
     patchItem(itemId, {
@@ -383,30 +403,73 @@ function AddPlansContent() {
       showKlpdSug: false,
       ring: swasta ? 'RING 4' : '',
     })
-    if (!swasta) fetchKlpdTargets(itemId, klpd, '', '', true)
+    if (!swasta) fetchInstitusiSuggestion(itemId, klpd, '')
   }
-
-  // --- Step 2: Ring (RING 1-3 only; RING 4 is auto) ---
 
   function changeRing(it: PlanItem, ring: string) {
-    patchItem(it.id, { ...clearedTarget(), ring })
-    fetchKlpdTargets(it.id, it.klpd, ring, '', true)
+    patchItem(it.id, { ring })
   }
 
-  // --- Step 3a (RING 1-3): auto-fill institusi + satker + kota from KLPD ---
+  async function fetchInstitusiSuggestion(
+    itemId: string,
+    klpd: string,
+    q: string,
+  ) {
+    if (!klpd) return
+    patchItem(itemId, {
+      loadingInstitusiSug: true,
+      showInstitusiSug: true,
+    })
+    try {
+      const params = new URLSearchParams({
+        klpd,
+        mode: 'institusi',
+        q,
+        limit: '50',
+      })
+      const res = await fetch(`/api/companies/by-klpd?${params}`, {
+        cache: 'no-store',
+      })
+      const data = res.ok ? await res.json().catch(() => ({})) : {}
+      patchItem(itemId, {
+        institusiSugs: (data?.items ?? []) as string[],
+        loadingInstitusiSug: false,
+      })
+    } catch {
+      patchItem(itemId, {
+        institusiSugs: [],
+        loadingInstitusiSug: false,
+      })
+    }
+  }
+
+  function pickInstitusi(itemId: string, klpd: string, institusi: string) {
+    patchItem(itemId, {
+      ...clearedTarget(),
+      institusiQuery: institusi,
+      institusiSelected: true,
+      showInstitusiSug: false,
+    })
+    fetchKlpdTargets(itemId, klpd, institusi, '')
+  }
+
+  // --- Step 3: Satuan Kerja based on the selected KLPD and institution ---
 
   async function fetchKlpdTargets(
     itemId: string,
     klpd: string,
-    ring: string,
+    institusi: string,
     q: string,
-    autoPickSingle = false,
   ) {
-    if (!klpd) return
+    if (!klpd || !institusi) return
     patchItem(itemId, { loadingSatkerSug: true, showSatkerSug: true })
     try {
-      const params: Record<string, string> = { klpd, q: q || '', limit: '20' }
-      if (ring) params.ring = ring
+      const params: Record<string, string> = {
+        klpd,
+        institusi,
+        q: q || '',
+        limit: '50',
+      }
       const qs = new URLSearchParams(params)
       const res = await fetch(`/api/companies/by-klpd?${qs.toString()}`, {
         cache: 'no-store',
@@ -414,32 +477,62 @@ function AddPlansContent() {
       const data = res.ok ? await res.json().catch(() => ({})) : {}
       const list = (data?.items ?? []) as SatuanKerja[]
 
-      // Single match -> fill everything without asking
-      if (autoPickSingle && list.length === 1) {
-        pickTarget(itemId, ring, list[0])
-        return
-      }
       patchItem(itemId, { satkerSugs: list, loadingSatkerSug: false })
     } catch {
       patchItem(itemId, { satkerSugs: [], loadingSatkerSug: false })
     }
   }
 
-  function pickTarget(itemId: string, ring: string, c: SatuanKerja) {
-    // Ring not chosen yet -> adopt the row's ring if it's a valid B2G ring
-    const autoRing =
-      !ring && c.ring && RING_B2G.includes(c.ring) ? c.ring : ring
+  function pickTarget(itemId: string, c: SatuanKerja) {
     patchItem(itemId, {
-      ring: autoRing,
       selectedSatker: c,
       institusiQuery: c.institusiKerja || '',
+      institusiSelected: true,
       satuanKerja: c.satuanKerja || '',
-      kota: c.kota || '',
       pic_default: toPic(c.pic_default),
       satkerSugs: [],
       showSatkerSug: false,
       loadingSatkerSug: false,
+      kota: '',
     })
+    fetchKotaSuggestion(
+      itemId,
+      c.klpd,
+      c.institusiKerja,
+      c.satuanKerja,
+      '',
+    )
+  }
+
+  async function fetchKotaSuggestion(
+    itemId: string,
+    klpd: string,
+    institusi: string,
+    satuanKerja: string,
+    q: string,
+  ) {
+    if (!klpd || !institusi || !satuanKerja) return
+    patchItem(itemId, { loadingKotaSug: true, showKotaSug: true })
+    try {
+      const params = new URLSearchParams({
+        klpd,
+        institusi,
+        satuan_kerja: satuanKerja,
+        mode: 'kota',
+        q,
+        limit: '50',
+      })
+      const res = await fetch(`/api/companies/by-klpd?${params}`, {
+        cache: 'no-store',
+      })
+      const data = res.ok ? await res.json().catch(() => ({})) : {}
+      patchItem(itemId, {
+        kotaSugs: (data?.items ?? []) as string[],
+        loadingKotaSug: false,
+      })
+    } catch {
+      patchItem(itemId, { kotaSugs: [], loadingKotaSug: false })
+    }
   }
 
   // --- Step 3b (RING 4): nama entitas search ---
@@ -488,67 +581,6 @@ function AddPlansContent() {
     })
   }
 
-  async function fetchSatkerSuggestion(
-    itemId: string,
-    ring: string,
-    institusi: string,
-    q: string,
-  ) {
-    if (!ring) return
-
-    try {
-      patchItem(itemId, { loadingSatkerSug: true, showSatkerSug: true })
-
-      const params: Record<string, string> = {
-        ring,
-        q: q || '',
-        limit: '10',
-      }
-      if (institusi) params.institusi = institusi
-
-      const qs = new URLSearchParams(params)
-
-      const res = await fetch(
-        `/api/companies/suggest-satker?${qs.toString()}`,
-        {
-          cache: 'no-store',
-        },
-      )
-
-      if (!res.ok) {
-        patchItem(itemId, { satkerSugs: [], loadingSatkerSug: false })
-        return
-      }
-
-      const data = await res.json().catch(() => ({}))
-      patchItem(itemId, {
-        satkerSugs: (data?.items ?? []) as SatuanKerja[],
-        loadingSatkerSug: false,
-      })
-    } catch {
-      patchItem(itemId, { satkerSugs: [], loadingSatkerSug: false })
-    }
-  }
-
-  // When user searches satker-first, picking a result auto-fills institusi + other fields
-  function pickSatkerFirst(id: string, c: SatuanKerja) {
-    patchItem(id, {
-      selectedSatker: c,
-      satuanKerja: c.satuanKerja || '',
-      institusiQuery: c.institusiKerja || '',
-      namaEntitas: '',
-      kota: c.kota || '',
-      klpd: c.klpd || '',
-      showSatkerSug: false,
-      pic_default: {
-        nama: c.pic_default?.nama || '',
-        no_telp: c.pic_default?.no_telp || '',
-        jabatan: c.pic_default?.jabatan || '',
-        role: c.pic_default?.role || '',
-      },
-    })
-  }
-
   const canSubmit = useMemo(() => {
     if (!tanggal) return false
     if (!items.length) return false
@@ -557,7 +589,12 @@ function AddPlansContent() {
       if (it.ring === 'RING 4') {
         return !!it.namaEntitas.trim() && !!it.jenisEntitas.trim()
       }
-      return !!it.institusiQuery.trim() && !!it.satuanKerja.trim()
+      return (
+        it.institusiSelected &&
+        !!it.selectedSatker &&
+        !!it.institusiQuery.trim() &&
+        !!it.satuanKerja.trim()
+      )
     })
   }, [tanggal, items])
 
@@ -809,31 +846,24 @@ function AddPlansContent() {
                         </div>
                       </div>
 
-                      {/* STEP 2: RING (auto for Swasta, RING 1-3 otherwise) */}
-                      <div>
-                        <label className={labelCls}>
-                          Status Ring{' '}
-                          {isRing4 && (
+                      {isRing4 && (
+                        <div>
+                          <label className={labelCls}>
+                            Status Ring{' '}
                             <span className='text-gray-400 lowercase font-normal'>
                               (otomatis)
                             </span>
-                          )}
-                        </label>
-                        <SearchableSelect
-                          value={it.ring}
-                          onChange={(val: string) => changeRing(it, val)}
-                          options={(isRing4 ? ['RING 4'] : RING_B2G).map(
-                            (r) => ({ value: r, label: r }),
-                          )}
-                          isDisabled={!it.klpdSelected || isRing4}
-                          placeholder={
-                            it.klpdSelected
-                              ? 'Pilih Status Ring...'
-                              : 'Pilih KLPD dahulu'
-                          }
-                          className='mt-2'
-                        />
-                      </div>
+                          </label>
+                          <SearchableSelect
+                            value={it.ring}
+                            onChange={(val: string) => changeRing(it, val)}
+                            options={[{ value: 'RING 4', label: 'RING 4' }]}
+                            isDisabled
+                            placeholder='RING 4'
+                            className='mt-2'
+                          />
+                        </div>
+                      )}
 
                       {isRing4 ? (
                         <>
@@ -907,12 +937,66 @@ function AddPlansContent() {
                         </>
                       ) : (
                         <>
-                          {/* STEP 3 (RING 1-3): SATKER + INSTITUSI + KOTA from KLPD */}
+                          {/* Choose institution and satker from KLPD; enter city and ring manually. */}
+                          <div>
+                            <label className={labelCls}>
+                              Institusi Kerja{' '}
+                              <span className='text-gray-400 lowercase font-normal'>
+                                (sesuai KLPD)
+                              </span>
+                            </label>
+                            <div className='relative mt-2'>
+                              <input
+                                value={it.institusiQuery}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  patchItem(it.id, {
+                                    ...clearedTarget(),
+                                    institusiQuery: val,
+                                  })
+                                  fetchInstitusiSuggestion(it.id, it.klpd, val)
+                                }}
+                                onFocus={() =>
+                                  fetchInstitusiSuggestion(
+                                    it.id,
+                                    it.klpd,
+                                    it.institusiQuery,
+                                  )
+                                }
+                                disabled={!it.klpdSelected}
+                                placeholder={
+                                  it.klpdSelected
+                                    ? 'Pilih / cari institusi kerja...'
+                                    : 'Pilih KLPD dahulu'
+                                }
+                                className={inputCls(it.klpdSelected)}
+                              />
+                              {it.showInstitusiSug && it.klpdSelected && (
+                                <SuggestList
+                                  loading={it.loadingInstitusiSug}
+                                  items={it.institusiSugs}
+                                  getKey={(name) => name}
+                                  onPick={(name) =>
+                                    pickInstitusi(it.id, it.klpd, name)
+                                  }
+                                  onClose={() =>
+                                    patchItem(it.id, { showInstitusiSug: false })
+                                  }
+                                  renderItem={(name) => (
+                                    <div className='font-bold text-sm text-gray-900'>
+                                      {name}
+                                    </div>
+                                  )}
+                                />
+                              )}
+                            </div>
+                          </div>
+
                           <div className='md:col-span-2'>
                             <label className={labelCls}>
                               Satuan Kerja{' '}
                               <span className='text-gray-400 lowercase font-normal'>
-                                (sesuai KLPD)
+                                (sesuai KLPD dan institusi)
                               </span>
                             </label>
                             <div className='relative mt-2'>
@@ -923,34 +1007,44 @@ function AddPlansContent() {
                                   patchItem(it.id, {
                                     satuanKerja: val,
                                     selectedSatker: null,
-                                    institusiQuery: '',
                                     kota: '',
                                     pic_default: toPic(),
+                                    kotaSugs: [],
+                                    showKotaSug: false,
                                   })
-                                  fetchKlpdTargets(it.id, it.klpd, it.ring, val)
+                                  fetchKlpdTargets(
+                                    it.id,
+                                    it.klpd,
+                                    it.institusiQuery,
+                                    val,
+                                  )
                                 }}
                                 onFocus={() =>
                                   fetchKlpdTargets(
                                     it.id,
                                     it.klpd,
-                                    it.ring,
+                                    it.institusiQuery,
                                     it.selectedSatker ? '' : it.satuanKerja,
                                   )
                                 }
-                                disabled={!it.klpdSelected}
+                                disabled={!it.klpdSelected || !it.institusiSelected}
                                 placeholder={
-                                  !it.klpdSelected
-                                    ? 'Pilih KLPD dahulu'
+                                  !it.institusiSelected
+                                    ? 'Pilih institusi dahulu'
                                     : 'Pilih dari daftar / ketik untuk memfilter...'
                                 }
-                                className={inputCls(it.klpdSelected)}
+                                className={inputCls(
+                                  it.klpdSelected && it.institusiSelected,
+                                )}
                               />
-                              {it.showSatkerSug && it.klpdSelected && (
+                              {it.showSatkerSug &&
+                                it.klpdSelected &&
+                              it.institusiSelected && (
                                 <SuggestList
                                   loading={it.loadingSatkerSug}
                                   items={it.satkerSugs}
                                   getKey={(c) => c._id}
-                                  onPick={(c) => pickTarget(it.id, it.ring, c)}
+                                  onPick={(c) => pickTarget(it.id, c)}
                                   onClose={() =>
                                     patchItem(it.id, { showSatkerSug: false })
                                   }
@@ -971,14 +1065,83 @@ function AddPlansContent() {
                             </div>
                           </div>
 
-                          <ReadonlyField
-                            label='Institusi'
-                            value={it.institusiQuery}
-                          />
-                          <ReadonlyField
-                            label='Kota/Kabupaten'
-                            value={it.kota}
-                          />
+                          <div>
+                            <label className={labelCls}>Kota/Kabupaten</label>
+                            <div className='relative mt-2'>
+                              <input
+                                value={it.kota}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  patchItem(it.id, { kota: val })
+                                  fetchKotaSuggestion(
+                                    it.id,
+                                    it.klpd,
+                                    it.institusiQuery,
+                                    it.satuanKerja,
+                                    val,
+                                  )
+                                }}
+                                onFocus={() =>
+                                  fetchKotaSuggestion(
+                                    it.id,
+                                    it.klpd,
+                                    it.institusiQuery,
+                                    it.satuanKerja,
+                                    it.kota,
+                                  )
+                                }
+                                disabled={!it.selectedSatker}
+                                placeholder='Ketik kota/kabupaten...'
+                                className={inputCls(
+                                  !!it.selectedSatker,
+                                )}
+                              />
+                              {it.showKotaSug &&
+                                (it.loadingKotaSug || it.kotaSugs.length > 0) && (
+                                <SuggestList
+                                  loading={it.loadingKotaSug}
+                                  items={it.kotaSugs}
+                                  getKey={(city) => city}
+                                  onPick={(city) =>
+                                    patchItem(it.id, {
+                                      kota: city,
+                                      showKotaSug: false,
+                                    })
+                                  }
+                                  onClose={() =>
+                                    patchItem(it.id, { showKotaSug: false })
+                                  }
+                                  renderItem={(city) => (
+                                    <div className='font-bold text-sm text-gray-900'>
+                                      {city}
+                                    </div>
+                                  )}
+                                />
+                              )}
+                            </div>
+                            <p className='mt-1 text-[11px] text-gray-500'>
+                              Saran berdasarkan KLPD, institusi, dan satuan kerja.
+                            </p>
+                          </div>
+
+                          <div>
+                            <label className={labelCls}>Status Ring</label>
+                            <SearchableSelect
+                              value={it.ring}
+                              onChange={(val: string) => changeRing(it, val)}
+                              options={RING_B2G.map((r) => ({
+                                value: r,
+                                label: r,
+                              }))}
+                              isDisabled={!it.klpdSelected}
+                              placeholder={
+                                it.klpdSelected
+                                  ? 'Pilih Status Ring...'
+                                  : 'Pilih KLPD dahulu'
+                              }
+                              className='mt-2'
+                            />
+                          </div>
                         </>
                       )}
                     </div>

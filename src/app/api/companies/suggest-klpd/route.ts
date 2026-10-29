@@ -4,7 +4,7 @@ import { assertLoggedIn } from '@/lib/auth-server'
 
 const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-// Distinct KLPD values from VisitActivity + database_b2g (case-insensitive dedupe).
+// KLPD values from the master collection.
 export async function GET(req: Request) {
   const auth = assertLoggedIn(req)
   if (!auth.ok) {
@@ -21,14 +21,11 @@ export async function GET(req: Request) {
       : { klpd: { $nin: [null, ''] } }
 
     const db = (await clientPromise).db(getDbName())
-    const [b2g, visits] = await Promise.all([
-      db.collection('database_b2g').distinct('klpd', filter),
-      db.collection('VisitActivity').distinct('klpd', filter),
-    ])
+    const klpdItems = await db.collection('KLPD').distinct('klpd', filter)
 
     // "Swasta" is always offered so the RING 4 path stays reachable.
     const seen = new Map<string, string>()
-    for (const raw of [...b2g, ...visits, 'Swasta']) {
+    for (const raw of [...klpdItems, 'Swasta']) {
       if (typeof raw !== 'string') continue
       const v = raw.trim()
       const key = v.toLowerCase()

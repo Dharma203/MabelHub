@@ -5,8 +5,7 @@ import { normalizeRing } from '@/lib/ring'
 
 const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-// Institusi + Satuan Kerja + Kota combos bound to one KLPD,
-// from database_b2g (master) first, then VisitActivity (history).
+// Institusi, Satuan Kerja, and available city data from KLPD only.
 export async function GET(req: Request) {
   const auth = assertLoggedIn(req)
   if (!auth.ok) {
@@ -17,6 +16,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const klpd = String(searchParams.get('klpd') ?? '').trim()
     const ring = normalizeRing(searchParams.get('ring'))
+    const mode = searchParams.get('mode')
+    const institusi = String(searchParams.get('institusi') ?? '').trim()
+    const satuanKerja = String(searchParams.get('satuan_kerja') ?? '').trim()
     const q = String(searchParams.get('q') ?? '').trim()
     const limit = Math.min(Math.max(Number(searchParams.get('limit') ?? '20'), 1), 50)
 
@@ -26,94 +28,138 @@ export async function GET(req: Request) {
 
     const klpdExact = { $regex: `^${escapeRegex(klpd)}$`, $options: 'i' }
     const qRegex = q ? { $regex: escapeRegex(q), $options: 'i' } : null
+    const institusiExact = institusi
+      ? { $regex: `^${escapeRegex(institusi)}$`, $options: 'i' }
+      : null
+    const satuanKerjaExact = satuanKerja
+      ? { $regex: `^${escapeRegex(satuanKerja)}$`, $options: 'i' }
+      : null
 
-    const b2gFilter: Record<string, unknown> = {
-      klpd: klpdExact,
-      institusiKerja: { $nin: [null, ''] },
-      satuanKerja: { $nin: [null, ''] },
+    const db = (await clientPromise).db(getDbName())
+
+    if (mode === 'institusi') {
+      const institutions = await db.collection('KLPD').distinct('institusi_kerja', {
+          klpd: klpdExact,
+          institusi_kerja: qRegex
+            ? { $nin: [null, ''], ...qRegex }
+            : { $nin: [null, ''] },
+        })
+      const seen = new Map<string, string>()
+      for (const raw of institutions) {
+        if (typeof raw !== 'string') continue
+        const value = raw.trim()
+        if (value && !seen.has(value.toLowerCase())) {
+          seen.set(value.toLowerCase(), value)
+        }
+      }
+      return NextResponse.json({
+        items: [...seen.values()]
+          .sort((a, b) => a.localeCompare(b, 'id'))
+          .slice(0, limit),
+      })
     }
-    if (ring) b2gFilter.ring = ring
-    if (qRegex) b2gFilter.$or = [{ institusiKerja: qRegex }, { satuanKerja: qRegex }]
 
-    const visitMatch: Record<string, unknown> = {
+    if (mode === 'kota') {
+      if (!institusi || !satuanKerja) {
+        return NextResponse.json(
+          { error: 'institusi dan satuan_kerja wajib' },
+          { status: 400 },
+        )
+      }
+      const filter: Record<string, unknown> = {
+        klpd: klpdExact,
+        institusi_kerja: institusiExact,
+        satuan_kerja: satuanKerjaExact,
+      }
+      if (qRegex) {
+        filter.$or = ['kota', 'kota_kab', 'kota_kabupaten', 'kotaKabupaten', 'city']
+          .map((field) => ({ [field]: qRegex }))
+      }
+      const cityFields = ['kota', 'kota_kab', 'kota_kabupaten', 'kotaKabupaten', 'city']
+      const cityValues = await Promise.all(
+        cityFields.map((field) => db.collection('KLPD').distinct(field, filter)),
+      )
+      const seen = new Map<string, string>()
+      for (const raw of cityValues.flat()) {
+        if (typeof raw !== 'string') continue
+        const value = raw.trim()
+        if (value && !seen.has(value.toLowerCase())) {
+          seen.set(value.toLowerCase(), value)
+        }
+      }
+      return NextResponse.json({
+        items: [...seen.values()]
+          .sort((a, b) => a.localeCompare(b, 'id'))
+          .slice(0, limit),
+      })
+    }
+
+    const filterClauses: Record<string, unknown>[] = [{
       klpd: klpdExact,
       institusi_kerja: { $nin: [null, ''] },
       satuan_kerja: { $nin: [null, ''] },
-    }
+    }]
+    if (institusiExact) filterClauses[0].institusi_kerja = institusiExact
     if (ring) {
-      visitMatch.status_ring = { $regex: `ring[\\s_-]*${ring.slice(-1)}`, $options: 'i' }
+      filterClauses.push({ $or: [
+        { ring },
+        { status_ring: { $regex: `ring[\\s_-]*${ring.slice(-1)}`, $options: 'i' } },
+      ] })
     }
-    if (qRegex) visitMatch.$or = [{ institusi_kerja: qRegex }, { satuan_kerja: qRegex }]
+    if (qRegex) {
+      filterClauses.push({
+        $or: institusiExact
+          ? [{ satuan_kerja: qRegex }]
+          : [{ institusi_kerja: qRegex }, { satuan_kerja: qRegex }],
+      })
+    }
+    const klpdFilter =
+      filterClauses.length === 1 ? filterClauses[0] : { $and: filterClauses }
 
-    const db = (await clientPromise).db(getDbName())
-    const [b2gRows, visitRows] = await Promise.all([
-      db
-        .collection('database_b2g')
-        .find(b2gFilter)
-        .sort({ institusiKerja: 1, satuanKerja: 1 })
-        .limit(limit)
-        .project({ institusiKerja: 1, satuanKerja: 1, kota: 1, klpd: 1, ring: 1, pic_default: 1 })
-        .toArray(),
-      db
-        .collection('VisitActivity')
-        .aggregate([
-          { $match: visitMatch },
-          { $sort: { created_at: -1 } },
-          {
-            $group: {
-              _id: { i: '$institusi_kerja', s: '$satuan_kerja' },
-              kota: { $first: '$city' },
-              klpd: { $first: '$klpd' },
-              ring: { $first: '$status_ring' },
-              pic_name: { $first: '$pic_name' },
-              pic_phone: { $first: '$pic_phone' },
-              pic_position: { $first: '$pic_position' },
-              pic_role: { $first: '$pic_role' },
-            },
-          },
-          { $sort: { '_id.i': 1, '_id.s': 1 } },
-          { $limit: limit },
-        ])
-        .toArray(),
-    ])
-
-    const merged = [
-      ...b2gRows.map((x) => ({
-        _id: String(x._id),
-        source: 'b2g' as const,
-        institusiKerja: String(x.institusiKerja ?? ''),
-        satuanKerja: String(x.satuanKerja ?? ''),
-        kota: String(x.kota ?? ''),
-        klpd: String(x.klpd ?? ''),
-        ring: normalizeRing(x.ring),
-        pic_default: x.pic_default ?? null,
-      })),
-      ...visitRows.map((x) => ({
-        _id: `visit:${x._id.i}|${x._id.s}`,
-        source: 'visit' as const,
-        institusiKerja: String(x._id.i ?? ''),
-        satuanKerja: String(x._id.s ?? ''),
-        kota: String(x.kota ?? ''),
-        klpd: String(x.klpd ?? ''),
-        ring: normalizeRing(x.ring),
-        pic_default: {
-          nama: x.pic_name ?? '',
-          no_telp: x.pic_phone ?? '',
-          jabatan: x.pic_position ?? '',
-          role: x.pic_role ?? '',
-        },
-      })),
-    ]
-
+    const rows = await db
+      .collection('KLPD')
+      .find(klpdFilter)
+      .sort({ institusi_kerja: 1, satuan_kerja: 1 })
+      .limit(limit)
+      .project({
+        institusi_kerja: 1,
+        satuan_kerja: 1,
+        klpd: 1,
+        ring: 1,
+        status_ring: 1,
+        kota: 1,
+        kota_kab: 1,
+        kota_kabupaten: 1,
+        kotaKabupaten: 1,
+        city: 1,
+        pic_default: 1,
+      })
+      .toArray()
     const seen = new Set<string>()
-    const items = merged
-      .filter((it) => {
-        const key = `${it.institusiKerja}|${it.satuanKerja}`.toLowerCase()
-        if (seen.has(key)) return false
+    const items = rows
+      .map((row) => ({
+        _id: String(row._id),
+        source: 'klpd' as const,
+        institusiKerja: String(row.institusi_kerja ?? ''),
+        satuanKerja: String(row.satuan_kerja ?? ''),
+        kota: String(
+          row.kota ??
+            row.kota_kab ??
+            row.kota_kabupaten ??
+            row.kotaKabupaten ??
+            row.city ??
+            '',
+        ),
+        klpd: String(row.klpd ?? ''),
+        ring: normalizeRing(row.ring ?? row.status_ring),
+        pic_default: row.pic_default ?? null,
+      }))
+      .filter((item) => {
+        const key = `${item.institusiKerja}|${item.satuanKerja}`.toLowerCase()
+        if (!key || seen.has(key)) return false
         seen.add(key)
         return true
       })
-      .slice(0, limit)
 
     return NextResponse.json({ items })
   } catch (e: unknown) {
