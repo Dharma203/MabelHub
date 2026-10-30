@@ -31,8 +31,11 @@ import {
   Trash2,
   Wallet,
   Sparkles,
+  Download,
 } from "lucide-react";
 import { getSuggestedProjectStatus } from "@/lib/project-status-helper";
+import { buildDataProjectWorkbook } from "@/lib/data-project-export";
+import * as XLSX from "xlsx-js-style";
 
 export type PembayaranItem = {
   id: string;
@@ -254,6 +257,59 @@ function DataProjectContent() {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchData();
+  };
+
+  // ─── Ekspor Excel ───
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportExcel = () => {
+    if (sortedContracts.length === 0) return;
+    setExporting(true);
+    try {
+      const now = new Date();
+      const todayStr = new Intl.DateTimeFormat("id-ID", {
+        timeZone: "Asia/Jakarta",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).format(now) + " WIB";
+
+      const activeFilters: { label: string; value: string }[] = [];
+      if (filterStatus !== "Semua") activeFilters.push({ label: "Status Project", value: filterStatus });
+      if (filterMarketing !== "Semua") activeFilters.push({ label: "Sales / Marketing", value: filterMarketing });
+      if (filterBendera !== "Semua") activeFilters.push({ label: "Bendera / PT", value: filterBendera });
+      if (filterPic !== "Semua") activeFilters.push({ label: "PIC Admin", value: filterPic });
+      if (filterDokSales !== "Semua") activeFilters.push({ label: "Dokumen Sales", value: filterDokSales });
+      if (searchTerm.trim()) activeFilters.push({ label: "Pencarian", value: searchTerm.trim() });
+
+      const wb = buildDataProjectWorkbook(sortedContracts, {
+        today: todayStr,
+        exportedBy: user?.fullName || user?.username || "Admin",
+        exportedAt: now,
+        filters: activeFilters,
+      });
+
+      const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+      const blob = new Blob([buf], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const dateTag = now.toISOString().slice(0, 10);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `data_project_${dateTag}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err?.message || "Gagal mengekspor Excel");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleResetFilter = () => {
@@ -903,14 +959,25 @@ function DataProjectContent() {
           </span>
         </div>
 
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 shadow-xs transition-all active:scale-95 disabled:opacity-50"
-          title="Segarkan Data"
-        >
-          <RotateCw className={`w-4 h-4 ${refreshing ? "animate-spin text-blue-600" : ""}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportExcel}
+            disabled={exporting || sortedContracts.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 shadow-xs transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Ekspor ke Excel"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">{exporting ? "Mengekspor..." : "Ekspor Excel"}</span>
+          </button>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 shadow-xs transition-all active:scale-95 disabled:opacity-50"
+            title="Segarkan Data"
+          >
+            <RotateCw className={`w-4 h-4 ${refreshing ? "animate-spin text-blue-600" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {error && (
