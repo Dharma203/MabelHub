@@ -277,7 +277,8 @@ export async function POST(req: Request) {
     ...doc,
     version: nextVersion(latest),
     verifikasi: {
-      status: verified ? "TERVERIFIKASI" : "PERLU_DIPERIKSA",
+      status: "PERLU_DIPERIKSA",
+      autoCheckPassed: verified,
       issues,
       checkedAt: now,
     },
@@ -302,19 +303,25 @@ export async function POST(req: Request) {
 
   await purgeExpiredArchives(db, now);
 
-  // Lolos -> "Sudah Upload"; ada masalah -> "Proses Verifikasi" (menunggu admin)
+  // Setiap upload baru masuk ke status "Proses Verifikasi" untuk diperiksa & disetujui/ditolak oleh admin
   if (nomorKontrak) {
     await db.collection("contracts").updateOne(
       { nomorKontrak },
-      verified
-        ? { $set: { dokSales: "Sudah Upload", updatedAt: now }, $unset: { dokVerifikasi: "" } }
-        : {
-            $set: {
-              dokSales: "Proses Verifikasi",
-              dokVerifikasi: { issues, checkedAt: now },
-              updatedAt: now,
-            },
-          }
+      {
+        $set: {
+          dokSales: "Proses Verifikasi",
+          dokVerifikasi: {
+            status: "PERLU_DIPERIKSA",
+            autoCheckPassed: verified,
+            issues,
+            checkedAt: now,
+          },
+          updatedAt: now,
+        },
+        $unset: {
+          alasanPenolakan: "",
+        },
+      }
     );
   }
 
@@ -322,7 +329,7 @@ export async function POST(req: Request) {
   return NextResponse.json(
     {
       data: safeDoc,
-      verifikasi: { verified, issues },
+      verifikasi: { verified, issues, status: "PERLU_DIPERIKSA" },
       replaced: archivedCount > 0,
       archivedCount,
     },

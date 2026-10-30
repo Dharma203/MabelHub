@@ -12,8 +12,9 @@ export const DOKUMENTASI_COL = "dokumentasi_project";
 type Doc = Record<string, unknown>;
 
 /**
- * Tentukan status dokumen sales per kontrak. "Proses Verifikasi" diset manual oleh admin
- * dan hanya berlaku bila dokumentasi memang sudah diunggah.
+ * Tentukan status dokumen sales per kontrak. Status verifikasi:
+ * - "Belum Upload" bila belum ada dokumentasi aktif.
+ * - "Proses Verifikasi", "Disetujui", "Ditolak", atau "Sudah Upload" sesuai verifikasi admin.
  * Hanya menanyakan kontrak yang sedang ditampilkan (bukan seluruh koleksi dokumentasi).
  */
 export async function withDokSales<T extends Doc>(db: Db, items: T[]): Promise<T[]> {
@@ -26,13 +27,17 @@ export async function withDokSales<T extends Doc>(db: Db, items: T[]): Promise<T
 
   return items.map((c) => {
     const isUploaded = uploadedSet.has(String(c.nomorKontrak ?? "").trim());
+    if (!isUploaded) {
+      return {
+        ...c,
+        dokSales: "Belum Upload",
+      };
+    }
+    const current = String(c.dokSales ?? "").trim();
+    const valid = ["Proses Verifikasi", "Disetujui", "Ditolak", "Sudah Upload"];
     return {
       ...c,
-      dokSales: !isUploaded
-        ? "Belum Upload"
-        : c.dokSales === "Proses Verifikasi"
-          ? "Proses Verifikasi"
-          : "Sudah Upload",
+      dokSales: valid.includes(current) ? current : "Sudah Upload",
     };
   });
 }

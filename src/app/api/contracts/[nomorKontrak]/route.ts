@@ -41,14 +41,18 @@ export async function GET(
     .collection("dokumentasi_project")
     .findOne({ nomorKontrak: nk, ...DOK_AKTIF_FILTER });
 
+  const currentDok = String(doc.dokSales ?? "").trim();
+  const validDok = ["Proses Verifikasi", "Disetujui", "Ditolak", "Sudah Upload"];
+  const dokSales = !hasDok
+    ? "Belum Upload"
+    : validDok.includes(currentDok)
+      ? currentDok
+      : "Sudah Upload";
+
   return NextResponse.json({
     data: {
       ...doc,
-      dokSales: !hasDok
-        ? "Belum Upload"
-        : doc.dokSales === "Proses Verifikasi"
-          ? "Proses Verifikasi"
-          : "Sudah Upload",
+      dokSales,
     },
   });
 }
@@ -97,11 +101,31 @@ export async function PUT(
     }
   }
 
+  const VALID_DOK_STATUSES = [
+    "Belum Upload",
+    "Proses Verifikasi",
+    "Disetujui",
+    "Ditolak",
+    "Sudah Upload",
+  ];
+
   if (
     setPayload.dokSales !== undefined &&
-    !["Belum Upload", "Proses Verifikasi", "Sudah Upload"].includes(setPayload.dokSales)
+    !VALID_DOK_STATUSES.includes(setPayload.dokSales)
   ) {
     return NextResponse.json({ error: "Status dokumen tidak valid" }, { status: 400 });
+  }
+
+  // Jika menolak dokumentasi, alasan penolakan wajib diisi
+  if (setPayload.dokSales === "Ditolak") {
+    const alasan = String(body.alasanPenolakan ?? "").trim();
+    if (!alasan) {
+      return NextResponse.json(
+        { error: "Alasan penolakan wajib diisi ketika menolak dokumentasi" },
+        { status: 400 },
+      );
+    }
+    setPayload.alasanPenolakan = alasan;
   }
 
   if (body.nominalKontrak !== undefined) {
@@ -268,19 +292,53 @@ export async function PUT(
     }
   }
 
+  const adminName = gate.session.fullName || gate.session.username || "Admin";
+
+  if (setPayload.dokSales !== undefined) {
+    if (setPayload.dokSales === "Disetujui" || setPayload.dokSales === "Sudah Upload") {
+      setPayload.alasanPenolakan = "";
+      setPayload.dokVerifikasi = {
+        ...(existing.dokVerifikasi || {}),
+        status: "DISETUJUI",
+        verifiedBy: adminName,
+        verifiedAt: now,
+        alasanPenolakan: "",
+      };
+    } else if (setPayload.dokSales === "Ditolak") {
+      const alasan = String(body.alasanPenolakan ?? "").trim();
+      setPayload.alasanPenolakan = alasan;
+      setPayload.dokVerifikasi = {
+        ...(existing.dokVerifikasi || {}),
+        status: "DITOLAK",
+        alasanPenolakan: alasan,
+        verifiedBy: adminName,
+        verifiedAt: now,
+      };
+      changes.push({
+        field: "alasanPenolakan",
+        label: "Alasan Penolakan",
+        oldValue: existing.alasanPenolakan || "-",
+        newValue: alasan,
+      });
+    } else if (setPayload.dokSales === "Proses Verifikasi") {
+      setPayload.alasanPenolakan = "";
+      setPayload.dokVerifikasi = {
+        ...(existing.dokVerifikasi || {}),
+        status: "PERLU_DIPERIKSA",
+        alasanPenolakan: "",
+      };
+    }
+  }
+
   const updateQuery: any = {
     $set: setPayload,
   };
-
-  if (setPayload.dokSales === "Sudah Upload") {
-    updateQuery.$unset = { dokVerifikasi: "" };
-  }
 
   if (changes.length > 0) {
     const historyEntry = {
       id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       at: now,
-      by: gate.session.fullName || gate.session.username || "Admin",
+      by: adminName,
       role: gate.session.role || "ADMIN",
       action: "UPDATE",
       changes,
@@ -306,6 +364,35 @@ export async function PUT(
     return NextResponse.json(
       { error: "Gagal menyimpan kontrak" },
       { status: 500 },
+    );
+  }
+
+  if (
+    setPayload.dokSales &&
+    ["Disetujui", "Sudah Upload", "Ditolak", "Proses Verifikasi"].includes(setPayload.dokSales)
+  ) {
+    const dokStatus =
+      setPayload.dokSales === "Ditolak"
+        ? "DITOLAK"
+        : setPayload.dokSales === "Disetujui" || setPayload.dokSales === "Sudah Upload"
+          ? "DISETUJUI"
+          : "PERLU_DIPERIKSA";
+
+    const dokUpdate: Record<string, any> = {
+      "verifikasi.status": dokStatus,
+      "verifikasi.verifiedBy": adminName,
+      "verifikasi.verifiedAt": now,
+      updatedAt: now,
+    };
+    if (setPayload.dokSales === "Ditolak") {
+      dokUpdate["verifikasi.alasanPenolakan"] = String(body.alasanPenolakan ?? "").trim();
+    } else {
+      dokUpdate["verifikasi.alasanPenolakan"] = "";
+    }
+
+    await db.collection("dokumentasi_project").updateMany(
+      { nomorKontrak: nk, ...DOK_AKTIF_FILTER },
+      { $set: dokUpdate },
     );
   }
 

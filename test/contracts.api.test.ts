@@ -440,3 +440,75 @@ describe("GET /api/contracts/reminders", () => {
     expect(body.count).toBe(1);
   });
 });
+
+/* ───────────────────────── Verifikasi Dokumentasi ───────────────────────── */
+describe("PUT /api/contracts/[nomorKontrak] — status verifikasi dokumentasi", () => {
+  const put = (nk: string, body: any) =>
+    singleRoute.PUT(
+      new Request(`http://localhost/api/contracts/${nk}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+      params(nk),
+    );
+
+  it("admin menyetujui dokumentasi -> dokSales menjadi Disetujui", async () => {
+    useDb({
+      contracts: [{ nomorKontrak: "K-1", dokSales: "Proses Verifikasi", createdAt: new Date() }],
+      dokumentasi_project: [{ nomorKontrak: "K-1", verifikasi: { status: "PERLU_DIPERIKSA" } }],
+    });
+    const res = await put("K-1", { dokSales: "Disetujui" });
+    expect(res.status).toBe(200);
+
+    const updatedContract = fake.data.contracts.find((c) => c.nomorKontrak === "K-1");
+    expect(updatedContract.dokSales).toBe("Disetujui");
+    expect(updatedContract.dokVerifikasi.status).toBe("DISETUJUI");
+    expect(updatedContract.dokVerifikasi.verifiedBy).toBeTruthy();
+
+    const updatedDok = fake.data.dokumentasi_project.find((d) => d.nomorKontrak === "K-1");
+    expect(updatedDok.verifikasi.status).toBe("DISETUJUI");
+  });
+
+  it("menolak dokumentasi tanpa alasan -> ditolak dengan status 400", async () => {
+    useDb({
+      contracts: [{ nomorKontrak: "K-1", dokSales: "Proses Verifikasi", createdAt: new Date() }],
+    });
+    const res = await put("K-1", { dokSales: "Ditolak" });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/alasan penolakan/i);
+  });
+
+  it("admin menolak dokumentasi dengan alasan -> dokSales Ditolak dan alasan tersimpan", async () => {
+    useDb({
+      contracts: [{ nomorKontrak: "K-1", dokSales: "Proses Verifikasi", createdAt: new Date() }],
+      dokumentasi_project: [{ nomorKontrak: "K-1", verifikasi: { status: "PERLU_DIPERIKSA" } }],
+    });
+    const res = await put("K-1", {
+      dokSales: "Ditolak",
+      alasanPenolakan: "Foto barang tidak jelas dan serial number buram",
+    });
+    expect(res.status).toBe(200);
+
+    const updatedContract = fake.data.contracts.find((c) => c.nomorKontrak === "K-1");
+    expect(updatedContract.dokSales).toBe("Ditolak");
+    expect(updatedContract.alasanPenolakan).toBe("Foto barang tidak jelas dan serial number buram");
+    expect(updatedContract.dokVerifikasi.status).toBe("DITOLAK");
+    expect(updatedContract.dokVerifikasi.alasanPenolakan).toBe("Foto barang tidak jelas dan serial number buram");
+
+    // Catatan riwayat tersimpan
+    expect(updatedContract.history[0].changes.some((ch: any) => ch.field === "alasanPenolakan")).toBe(true);
+
+    const updatedDok = fake.data.dokumentasi_project.find((d) => d.nomorKontrak === "K-1");
+    expect(updatedDok.verifikasi.status).toBe("DITOLAK");
+    expect(updatedDok.verifikasi.alasanPenolakan).toBe("Foto barang tidak jelas dan serial number buram");
+  });
+
+  it("menolak status dokumen yang tidak valid", async () => {
+    useDb({
+      contracts: [{ nomorKontrak: "K-1", dokSales: "Proses Verifikasi", createdAt: new Date() }],
+    });
+    const res = await put("K-1", { dokSales: "STATUS_NGASAL" });
+    expect(res.status).toBe(400);
+  });
+});

@@ -15,6 +15,7 @@ import {
   ArrowDown,
   Calendar,
   CheckCircle2,
+  XCircle,
   Clock,
   AlertCircle,
   FileText,
@@ -206,10 +207,16 @@ function DataProjectContent() {
   // Edit Modal State (hanya ubah status)
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [editStatus, setEditStatus] = useState("PENAGIHAN");
-  const [editDokSales, setEditDokSales] = useState("Sudah Upload");
+  const [editDokSales, setEditDokSales] = useState("Proses Verifikasi");
+  const [editAlasanPenolakan, setEditAlasanPenolakan] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const [modalError, setModalError] = useState("");
   const [modalSuccess, setModalSuccess] = useState("");
+
+  // Quick Verification State (di dalam modal detail)
+  const [verifyingDok, setVerifyingDok] = useState(false);
+  const [showTolakPrompt, setShowTolakPrompt] = useState(false);
+  const [tolakReason, setTolakReason] = useState("");
 
   useEffect(() => {
     if (!sessionLoading) {
@@ -293,7 +300,7 @@ function DataProjectContent() {
   }, [contracts]);
 
   const uniqueDokSales = useMemo(() => {
-    const set = new Set<string>(["Belum Upload", "Proses Verifikasi", "Sudah Upload"]);
+    const set = new Set<string>(["Belum Upload", "Proses Verifikasi", "Disetujui", "Ditolak", "Sudah Upload"]);
     contracts.forEach((c) => {
       if (c.dokSales) set.add(c.dokSales);
     });
@@ -337,8 +344,13 @@ function DataProjectContent() {
       if (filterStatus !== "Semua" && (c.status || "PENAGIHAN") !== filterStatus) {
         return false;
       }
-      if (filterDokSales !== "Semua" && (c.dokSales || "Belum Upload") !== filterDokSales) {
-        return false;
+      if (filterDokSales !== "Semua") {
+        const val = c.dokSales || "Belum Upload";
+        if (filterDokSales === "Disetujui") {
+          if (val !== "Disetujui" && val !== "Sudah Upload") return false;
+        } else {
+          if (val !== filterDokSales) return false;
+        }
       }
 
       return true;
@@ -443,7 +455,14 @@ function DataProjectContent() {
   const openEditModal = (c: Contract) => {
     setEditingContract(c);
     setEditStatus(c.status || "PENAGIHAN");
-    setEditDokSales(c.dokSales === "Proses Verifikasi" ? "Proses Verifikasi" : "Sudah Upload");
+    const dokVal =
+      c.dokSales === "Ditolak"
+        ? "Ditolak"
+        : c.dokSales === "Proses Verifikasi"
+          ? "Proses Verifikasi"
+          : "Disetujui";
+    setEditDokSales(dokVal);
+    setEditAlasanPenolakan(c.alasanPenolakan || c.dokVerifikasi?.alasanPenolakan || "");
     setModalError("");
     setModalSuccess("");
   };
@@ -462,6 +481,14 @@ function DataProjectContent() {
       // Status dokumen hanya bisa diubah jika dokumen sudah diupload
       if (editingContract.dokSales !== "Belum Upload") {
         payload.dokSales = editDokSales;
+        if (editDokSales === "Ditolak") {
+          if (!editAlasanPenolakan.trim()) {
+            setModalError("Alasan penolakan wajib diisi ketika menolak dokumentasi");
+            setSavingEdit(false);
+            return;
+          }
+          payload.alasanPenolakan = editAlasanPenolakan.trim();
+        }
       }
 
       const res = await fetch(
@@ -478,9 +505,35 @@ function DataProjectContent() {
 
       setContracts((prev) =>
         prev.map((c) =>
-          c.nomorKontrak === editingContract.nomorKontrak ? { ...c, status: editStatus, ...(payload.dokSales ? { dokSales: payload.dokSales } : {}), ...json.data } : c
+          c.nomorKontrak === editingContract.nomorKontrak
+            ? {
+                ...c,
+                status: editStatus,
+                ...(payload.dokSales ? { dokSales: payload.dokSales } : {}),
+                ...(payload.dokSales === "Ditolak"
+                  ? { alasanPenolakan: payload.alasanPenolakan }
+                  : { alasanPenolakan: "" }),
+                ...json.data,
+              }
+            : c
         )
       );
+
+      if (selectedDetail && selectedDetail.nomorKontrak === editingContract.nomorKontrak) {
+        setSelectedDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: editStatus,
+                ...(payload.dokSales ? { dokSales: payload.dokSales } : {}),
+                ...(payload.dokSales === "Ditolak"
+                  ? { alasanPenolakan: payload.alasanPenolakan }
+                  : { alasanPenolakan: "" }),
+                ...json.data,
+              }
+            : prev
+        );
+      }
 
       setModalSuccess("Status berhasil diperbarui!");
       setTimeout(() => {
@@ -490,6 +543,111 @@ function DataProjectContent() {
       setModalError(err.message || "Gagal menyimpan status");
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  // Quick Actions verifikasi dari Modal Detail Project
+  const handleQuickApprove = async (nk: string) => {
+    setVerifyingDok(true);
+    try {
+      const res = await fetch(`/api/contracts/${encodeURIComponent(nk)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dokSales: "Disetujui" }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal menyetujui dokumentasi");
+
+      setContracts((prev) =>
+        prev.map((c) =>
+          c.nomorKontrak === nk
+            ? {
+                ...c,
+                dokSales: "Disetujui",
+                alasanPenolakan: "",
+                dokVerifikasi: {
+                  ...(c.dokVerifikasi || {}),
+                  status: "DISETUJUI",
+                  verifiedBy: user?.fullName || user?.username || "Admin",
+                  verifiedAt: new Date().toISOString(),
+                },
+              }
+            : c
+        )
+      );
+      setSelectedDetail((prev) =>
+        prev && prev.nomorKontrak === nk
+          ? {
+              ...prev,
+              dokSales: "Disetujui",
+              alasanPenolakan: "",
+              dokVerifikasi: {
+                ...(prev.dokVerifikasi || {}),
+                status: "DISETUJUI",
+                verifiedBy: user?.fullName || user?.username || "Admin",
+                verifiedAt: new Date().toISOString(),
+              },
+            }
+          : prev
+      );
+    } catch (e: any) {
+      alert(e?.message || "Gagal menyetujui dokumentasi");
+    } finally {
+      setVerifyingDok(false);
+    }
+  };
+
+  const handleQuickReject = async (nk: string) => {
+    if (!tolakReason.trim()) return;
+    setVerifyingDok(true);
+    try {
+      const res = await fetch(`/api/contracts/${encodeURIComponent(nk)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dokSales: "Ditolak", alasanPenolakan: tolakReason.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal menolak dokumentasi");
+
+      setContracts((prev) =>
+        prev.map((c) =>
+          c.nomorKontrak === nk
+            ? {
+                ...c,
+                dokSales: "Ditolak",
+                alasanPenolakan: tolakReason.trim(),
+                dokVerifikasi: {
+                  ...(c.dokVerifikasi || {}),
+                  status: "DITOLAK",
+                  alasanPenolakan: tolakReason.trim(),
+                  verifiedBy: user?.fullName || user?.username || "Admin",
+                  verifiedAt: new Date().toISOString(),
+                },
+              }
+            : c
+        )
+      );
+      setSelectedDetail((prev) =>
+        prev && prev.nomorKontrak === nk
+          ? {
+              ...prev,
+              dokSales: "Ditolak",
+              alasanPenolakan: tolakReason.trim(),
+              dokVerifikasi: {
+                ...(prev.dokVerifikasi || {}),
+                status: "DITOLAK",
+                alasanPenolakan: tolakReason.trim(),
+                verifiedBy: user?.fullName || user?.username || "Admin",
+                verifiedAt: new Date().toISOString(),
+              },
+            }
+          : prev
+      );
+      setShowTolakPrompt(false);
+    } catch (e: any) {
+      alert(e?.message || "Gagal menolak dokumentasi");
+    } finally {
+      setVerifyingDok(false);
     }
   };
 
@@ -1072,10 +1230,18 @@ function DataProjectContent() {
 
                       {/* DOK. SALES */}
                       <td className="py-4 px-3.5 whitespace-nowrap">
-                        {dokVal === "Sudah Upload" ? (
+                        {dokVal === "Disetujui" || dokVal === "Sudah Upload" ? (
                           <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            Sudah Upload
+                            {dokVal === "Disetujui" ? "Disetujui" : "Sudah Upload"}
+                          </span>
+                        ) : dokVal === "Ditolak" ? (
+                          <span
+                            className="text-rose-700 bg-rose-50 border border-rose-200/80 px-2.5 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1 cursor-help"
+                            title={c.alasanPenolakan || c.dokVerifikasi?.alasanPenolakan ? `Alasan: ${c.alasanPenolakan || c.dokVerifikasi?.alasanPenolakan}` : "Dokumentasi ditolak"}
+                          >
+                            <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                            Ditolak
                           </span>
                         ) : dokVal === "Proses Verifikasi" ? (
                           <span className="text-amber-700 bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
@@ -1275,14 +1441,32 @@ function DataProjectContent() {
                     Belum Upload — status dokumen dapat diubah setelah sales mengunggah dokumentasi project.
                   </p>
                 ) : (
-                  <select
-                    value={editDokSales}
-                    onChange={(e) => setEditDokSales(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                  >
-                    <option value="Proses Verifikasi">Proses Verifikasi</option>
-                    <option value="Sudah Upload">Sudah Upload</option>
-                  </select>
+                  <div className="space-y-2.5">
+                    <select
+                      value={editDokSales}
+                      onChange={(e) => setEditDokSales(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    >
+                      <option value="Proses Verifikasi">Proses Verifikasi</option>
+                      <option value="Disetujui">Disetujui</option>
+                      <option value="Ditolak">Ditolak</option>
+                    </select>
+
+                    {editDokSales === "Ditolak" && (
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-rose-700">
+                          Alasan Penolakan <span className="text-rose-500">*</span>
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={editAlasanPenolakan}
+                          onChange={(e) => setEditAlasanPenolakan(e.target.value)}
+                          placeholder="Tuliskan alasan penolakan dokumentasi (wajib diisi)..."
+                          className="w-full px-3 py-2 bg-rose-50/40 border border-rose-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-none"
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1393,17 +1577,24 @@ function DataProjectContent() {
                     {/* Dok Sales */}
                     <span
                       className={`px-2.5 py-1 rounded-full text-xs font-semibold border inline-flex items-center gap-1 ${
-                        selectedDetail.dokSales === "Sudah Upload"
+                        selectedDetail.dokSales === "Disetujui" || selectedDetail.dokSales === "Sudah Upload"
                           ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-                          : selectedDetail.dokSales === "Proses Verifikasi"
-                            ? "text-amber-700 bg-amber-50 border-amber-200"
-                            : "text-slate-600 bg-slate-100 border-slate-200"
+                          : selectedDetail.dokSales === "Ditolak"
+                            ? "text-rose-700 bg-rose-50 border-rose-200"
+                            : selectedDetail.dokSales === "Proses Verifikasi"
+                              ? "text-amber-700 bg-amber-50 border-amber-200"
+                              : "text-slate-600 bg-slate-100 border-slate-200"
                       }`}
                     >
-                      {selectedDetail.dokSales === "Sudah Upload" ? (
+                      {selectedDetail.dokSales === "Disetujui" || selectedDetail.dokSales === "Sudah Upload" ? (
                         <>
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          Dok: Sudah Upload
+                          Dok: {selectedDetail.dokSales === "Disetujui" ? "Disetujui" : "Sudah Upload"}
+                        </>
+                      ) : selectedDetail.dokSales === "Ditolak" ? (
+                        <>
+                          <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                          Dok: Ditolak
                         </>
                       ) : selectedDetail.dokSales === "Proses Verifikasi" ? (
                         <>
@@ -1420,6 +1611,41 @@ function DataProjectContent() {
                   </div>
                 </div>
               </div>
+
+              {selectedDetail.dokSales === "Ditolak" && (
+                <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 text-xs text-rose-800 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center gap-1.5 font-bold text-rose-900 text-sm">
+                    <XCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                    <span>Dokumentasi Ditolak oleh Admin</span>
+                  </div>
+                  <div className="text-rose-700 pl-5.5">
+                    <strong>Alasan Penolakan:</strong>{" "}
+                    {selectedDetail.alasanPenolakan || selectedDetail.dokVerifikasi?.alasanPenolakan || "Tidak ada keterangan."}
+                  </div>
+                  {selectedDetail.dokVerifikasi?.verifiedBy && (
+                    <div className="text-[11px] text-rose-500 pl-5.5">
+                      Ditolak oleh {selectedDetail.dokVerifikasi.verifiedBy}
+                      {selectedDetail.dokVerifikasi.verifiedAt ? ` (${fmtDate(selectedDetail.dokVerifikasi.verifiedAt)})` : ""}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(selectedDetail.dokSales === "Disetujui" || selectedDetail.dokSales === "Sudah Upload") && (
+                <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs text-emerald-800 flex items-center justify-between shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <div>
+                      <span className="font-bold text-emerald-900 block">Dokumentasi Disetujui Admin</span>
+                      <span className="text-[11px] text-emerald-700">
+                        {selectedDetail.dokVerifikasi?.verifiedBy
+                          ? `Disetujui oleh ${selectedDetail.dokVerifikasi.verifiedBy}${selectedDetail.dokVerifikasi.verifiedAt ? ` pada ${fmtDate(selectedDetail.dokVerifikasi.verifiedAt)}` : ""}`
+                          : "Dokumentasi telah diverifikasi dan disetujui."}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {selectedDetail.dokSales === "Proses Verifikasi" && selectedDetail.dokVerifikasi?.issues?.length > 0 && (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-800 space-y-1.5">
@@ -1736,6 +1962,90 @@ function DataProjectContent() {
                       ))}
                     </ul>
                   </details>
+                )}
+
+                {/* Panel Aksi Verifikasi Admin */}
+                {selectedDetail.dokSales !== "Belum Upload" && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/90 p-3.5 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                          Tindakan Verifikasi Admin
+                        </span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {selectedDetail.dokSales === "Disetujui" || selectedDetail.dokSales === "Sudah Upload" ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Disetujui
+                            </span>
+                          ) : selectedDetail.dokSales === "Ditolak" ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-700 bg-rose-100/70 px-2 py-0.5 rounded-full">
+                              <XCircle className="w-3.5 h-3.5" /> Ditolak
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-full">
+                              <Clock className="w-3.5 h-3.5" /> Menunggu Verifikasi
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleQuickApprove(selectedDetail.nomorKontrak)}
+                          disabled={verifyingDok || selectedDetail.dokSales === "Disetujui"}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all disabled:opacity-50 active:scale-95 inline-flex items-center gap-1.5"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{selectedDetail.dokSales === "Disetujui" ? "Sudah Disetujui" : "Setujui Dokumentasi"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowTolakPrompt((prev) => !prev);
+                            setTolakReason(selectedDetail.alasanPenolakan || selectedDetail.dokVerifikasi?.alasanPenolakan || "");
+                          }}
+                          disabled={verifyingDok}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-all disabled:opacity-50 active:scale-95 inline-flex items-center gap-1.5"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Tolak...</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {showTolakPrompt && (
+                      <div className="pt-2.5 border-t border-slate-200 space-y-2">
+                        <label className="block text-xs font-bold text-rose-700">
+                          Alasan Penolakan Dokumentasi <span className="text-rose-500">*</span>
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={tolakReason}
+                          onChange={(e) => setTolakReason(e.target.value)}
+                          placeholder="Jelaskan alasan penolakan dokumentasi (wajib diisi, mis. foto barang tidak sesuai)..."
+                          className="w-full px-3 py-2 text-xs bg-white border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 resize-none text-slate-800 placeholder-slate-400"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowTolakPrompt(false)}
+                            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/50 rounded-lg"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickReject(selectedDetail.nomorKontrak)}
+                            disabled={verifyingDok || !tolakReason.trim()}
+                            className="px-3.5 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg disabled:opacity-50 transition-all shadow-xs"
+                          >
+                            {verifyingDok ? "Menyimpan..." : "Konfirmasi Tolak"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {loadingDok ? (

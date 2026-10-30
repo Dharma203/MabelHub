@@ -49,8 +49,25 @@ function project(doc: any, projection?: Record<string, 0 | 1>) {
 
 const cmp = (a: any, b: any) => (a === b ? 0 : a === undefined ? 1 : b === undefined ? -1 : a < b ? -1 : 1);
 
+function setPath(obj: any, path: string, val: any) {
+  const parts = path.split(".");
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    cur = cur[parts[i]] ??= {};
+  }
+  cur[parts[parts.length - 1]] = val;
+}
+
 function applyUpdate(doc: any, update: Record<string, any>) {
-  if (update.$set) Object.assign(doc, structuredClone(update.$set));
+  if (update.$set) {
+    for (const [k, v] of Object.entries(update.$set)) {
+      if (k.includes(".")) {
+        setPath(doc, k, structuredClone(v));
+      } else {
+        doc[k] = structuredClone(v);
+      }
+    }
+  }
   if (update.$unset) for (const k of Object.keys(update.$unset)) delete doc[k];
   if (update.$push) {
     for (const [field, spec] of Object.entries<any>(update.$push)) {
@@ -123,6 +140,22 @@ export function createFakeDb(seed: Record<string, any[]> = {}) {
         if (!hit) return { matchedCount: 0, modifiedCount: 0 };
         applyUpdate(hit, update);
         return { matchedCount: 1, modifiedCount: 1 };
+      },
+      updateMany: async (filter: any, update: any) => {
+        log("updateMany", filter, update);
+        let modifiedCount = 0;
+        for (const hit of docs.filter((d) => matches(d, filter))) {
+          applyUpdate(hit, update);
+          modifiedCount++;
+        }
+        return { matchedCount: modifiedCount, modifiedCount };
+      },
+      findOneAndUpdate: async (filter: any, update: any, opts: any = {}) => {
+        log("findOneAndUpdate", filter, update, opts);
+        const hit = docs.find((d) => matches(d, filter));
+        if (!hit) return null;
+        applyUpdate(hit, update);
+        return project(hit, opts.projection);
       },
       bulkWrite: async (ops: any[], opts: any) => {
         log("bulkWrite", ops, opts);

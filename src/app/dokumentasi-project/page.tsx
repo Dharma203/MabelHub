@@ -401,9 +401,9 @@ function DokumentasiProjectContent() {
       if (!res.ok) throw new Error(json.error || "Gagal mengirim dokumentasi");
 
       setSubmitSuccess(
-        json.verifikasi?.verified === false
-          ? `Dokumentasi tersimpan, namun perlu diverifikasi admin: ${json.verifikasi.issues.join("; ")}`
-          : "Dokumentasi berhasil dikirim dan terverifikasi otomatis!"
+        json.verifikasi?.issues?.length > 0
+          ? `Dokumentasi berhasil dikirim. Catatan verifikasi: ${json.verifikasi.issues.join("; ")} (Menunggu persetujuan admin)`
+          : "Dokumentasi berhasil dikirim! Status saat ini: Proses Verifikasi (menunggu persetujuan admin)."
       );
       if (json.replaced) {
         setSubmitSuccess((prev) => `${prev} (menggantikan dokumentasi sebelumnya; versi lama diarsipkan)`);
@@ -686,6 +686,23 @@ function DokumentasiProjectContent() {
                   </span>
                 </div>
               ) : null}
+
+              {nomorKontrak && (() => {
+                const c = contracts.find((item) => item.nomorKontrak === nomorKontrak);
+                if (c?.dokSales === "Ditolak") {
+                  return (
+                    <div className="flex items-start gap-2 mt-2.5 text-xs text-rose-800 bg-rose-50 p-3 rounded-xl border border-rose-200">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-500 mt-0.5" />
+                      <div>
+                        <strong className="block text-rose-900 font-bold">Dokumentasi Sebelumnya Ditolak Admin</strong>
+                        <span>Alasan penolakan: {c.alasanPenolakan || c.dokVerifikasi?.alasanPenolakan || "Perlu revisi dokumentasi"}.</span>
+                        <p className="text-[11px] text-rose-600 mt-1">Mengirim formulir ini akan mengunggah versi revisi baru untuk diverifikasi kembali oleh admin.</p>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
