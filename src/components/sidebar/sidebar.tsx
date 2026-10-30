@@ -91,6 +91,64 @@ export default function Sidebar() {
     };
   }, [sections]);
 
+  // Determine which single menu item should be active
+  const activeHref = useMemo(() => {
+    if (!pathname) return null;
+
+    // Collect all unique menu item hrefs
+    const allHrefs: string[] = [];
+    sections.forEach((sec) => {
+      if (sec.href) allHrefs.push(sec.href);
+      sec.items.forEach((item) => {
+        if (item.href) allHrefs.push(item.href);
+      });
+    });
+
+    // 1. Exact match with query parameters (if query is specified in href)
+    for (const href of allHrefs) {
+      const [basePath, query] = href.split("?");
+      if (pathname === basePath && query) {
+        const urlParams = new URLSearchParams(query);
+        let allMatch = true;
+        for (const [k, v] of Array.from(urlParams.entries())) {
+          if (searchParams.get(k) !== v) {
+            allMatch = false;
+            break;
+          }
+        }
+        if (allMatch) return href;
+      }
+    }
+
+    // 2. Exact match on pathname
+    const exactMatch = allHrefs.find((href) => {
+      const [basePath] = href.split("?");
+      return pathname === basePath;
+    });
+    if (exactMatch) return exactMatch;
+
+    // 3. Sub-route prefix match (longest matching basePath)
+    const prefixMatches = allHrefs
+      .map((href) => ({ href, basePath: href.split("?")[0] }))
+      .filter(({ basePath }) => basePath !== "/" && pathname.startsWith(basePath + "/"))
+      .sort((a, b) => b.basePath.length - a.basePath.length);
+
+    if (prefixMatches.length > 0) {
+      return prefixMatches[0].href;
+    }
+
+    return null;
+  }, [pathname, searchParams, sections]);
+
+  const isActive = (href: string) => {
+    if (!href || !activeHref) return false;
+    return href === activeHref;
+  };
+
+  const isSectionActive = (section: MenuSection) =>
+    (section.href ? isActive(section.href) : false) ||
+    section.items.some((item) => !!item.href && isActive(item.href));
+
   if (loading) {
     return (
       <aside className="fixed inset-y-0 left-0 z-50 flex w-20 flex-col border-r bg-blue-900 dark:bg-[#0d1f3c] items-center justify-center lg:sticky lg:h-screen">
@@ -113,28 +171,6 @@ export default function Sidebar() {
             : role === "ADMIN SALES"
             ? "Admin Sales"
             : "Sales";
-
-  const isActive = (href: string) => {
-    if (!href) return false;
-    const [basePath, query] = href.split("?");
-    // Check if the current pathname matches the basePath
-    if (pathname !== basePath && !pathname.startsWith(basePath + "/")) {
-      return false;
-    }
-    // If the menu item has a query string, it must perfectly match the current URL's query parameters
-    if (query) {
-       const urlParams = new URLSearchParams(query);
-       for (const [key, value] of Array.from(urlParams.entries())) {
-          if (searchParams.get(key) !== value) return false;
-       }
-       return true;
-    }
-    return true;
-  };
-
-  const isSectionActive = (section: MenuSection) =>
-    (section.href ? isActive(section.href) : false) ||
-    section.items.some(item => !!item.href && isActive(item.href));
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.targetTouches[0].clientX;

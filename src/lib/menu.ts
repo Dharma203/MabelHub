@@ -190,7 +190,12 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
     {
       title: 'PRODUCT HUB',
       icon: 'Package',
-      items: [{ label: 'Data Produk', href: '/produk', icon: 'CheckSquare' }],
+      items: [
+        { label: 'Katalog Produk', href: '/katalog-produk', icon: 'ShoppingBag' },
+        { label: 'Kelola Katalog', href: '/katalog-produk/kelola', icon: 'SlidersHorizontal' },
+        { label: 'Tambah Produk', href: '/katalog-produk/tambah', icon: 'PlusSquare' },
+        { label: 'Dokumen Produk', href: '/produk', icon: 'FileText' },
+      ],
     },
     {
       title: 'SUMMARIZE',
@@ -243,6 +248,14 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/database-prospek',
           icon: 'DatabaseZap',
         },
+      ],
+    },
+    {
+      title: 'PRODUCT HUB',
+      icon: 'Package',
+      items: [
+        { label: 'Katalog Produk', href: '/katalog-produk', icon: 'ShoppingBag' },
+        { label: 'Dokumen Produk', href: '/produk', icon: 'FileText' },
       ],
     },
   ],
@@ -319,6 +332,16 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/data-project',
           icon: 'FolderKanban',
         },
+      ],
+    },
+    {
+      title: 'PRODUCT HUB',
+      icon: 'Package',
+      items: [
+        { label: 'Katalog Produk', href: '/katalog-produk', icon: 'ShoppingBag' },
+        { label: 'Kelola Katalog', href: '/katalog-produk/kelola', icon: 'SlidersHorizontal' },
+        { label: 'Tambah Produk', href: '/katalog-produk/tambah', icon: 'PlusSquare' },
+        { label: 'Dokumen Produk', href: '/produk', icon: 'FileText' },
       ],
     },
   ],
@@ -411,6 +434,14 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
         },
       ],
     },
+    {
+      title: 'PRODUCT HUB',
+      icon: 'Package',
+      items: [
+        { label: 'Katalog Produk', href: '/katalog-produk', icon: 'ShoppingBag' },
+        { label: 'Dokumen Produk', href: '/produk', icon: 'FileText' },
+      ],
+    },
   ],
 
   SALES: [
@@ -476,6 +507,14 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/rekapitulasi-Eproc',
           icon: 'PieChart',
         },
+      ],
+    },
+    {
+      title: 'PRODUCT HUB',
+      icon: 'Package',
+      items: [
+        { label: 'Katalog Produk', href: '/katalog-produk', icon: 'ShoppingBag' },
+        { label: 'Dokumen Produk', href: '/produk', icon: 'FileText' },
       ],
     },
   ],
@@ -548,6 +587,14 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           href: '/rekapitulasi-Eproc',
           icon: 'PieChart',
         },
+      ],
+    },
+    {
+      title: 'PRODUCT HUB',
+      icon: 'Package',
+      items: [
+        { label: 'Katalog Produk', href: '/katalog-produk', icon: 'ShoppingBag' },
+        { label: 'Dokumen Produk', href: '/produk', icon: 'FileText' },
       ],
     },
   ],

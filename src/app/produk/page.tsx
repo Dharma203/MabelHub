@@ -41,7 +41,7 @@ const ALL_CATEGORIES: Category[] = [
     name: "Brochure",
     docCount: 4,
     icon: <BookOpen className="w-7 h-7" />,
-    iconBg: "bg-blue-100 text-blue-600",
+    iconBg: "bg-[#1D80D9]/10 text-[#1D80D9]",
     superAdminOnly: false,
     description: "Brosur produk & layanan",
   },
@@ -160,7 +160,7 @@ function CategoryCard({
   return (
     <div
       onClick={onClick}
-      className="group relative bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 hover:shadow-md hover:ring-blue-200 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col"
+      className="group relative bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 hover:shadow-md hover:ring-[#1D80D9]/30 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col"
     >
       {/* SuperAdmin badge */}
       {cat.superAdminOnly && isSuperAdmin && (
@@ -173,7 +173,7 @@ function CategoryCard({
       )}
 
       {/* Top gradient accent */}
-      <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-400 rounded-t-2xl" />
+      <div className="h-1 w-full bg-gradient-to-r from-[#1D80D9] via-[#3B9AE8] to-[#1769B5] rounded-t-2xl" />
 
       <div className="flex flex-col gap-4 p-6 flex-1">
         {/* Icon */}
@@ -202,7 +202,7 @@ function CategoryCard({
             Terbuka
           </span>
 
-          <span className="flex items-center gap-1 text-xs font-semibold text-blue-600 group-hover:gap-2 transition-all">
+          <span className="flex items-center gap-1 text-xs font-semibold text-[#1D80D9] group-hover:gap-2 transition-all">
             Lihat semua
             <ChevronRight className="w-3.5 h-3.5" />
           </span>
@@ -250,7 +250,7 @@ export default function ProdukPage() {
       name: newCatName,
       description: newCatDesc,
       superAdminOnly: newCatSuperAdmin,
-      iconBg: "bg-blue-100 text-blue-600",
+      iconBg: "bg-[#1D80D9]/10 text-[#1D80D9]",
     };
 
     try {
@@ -295,8 +295,8 @@ export default function ProdukPage() {
     return (
       <div className="min-h-screen bg-blue-50 grid place-items-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-bold text-blue-900 uppercase tracking-widest animate-pulse">
+          <div className="w-10 h-10 border-4 border-[#1D80D9] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-bold text-[#1D80D9] uppercase tracking-widest animate-pulse">
             Loading...
           </p>
         </div>
@@ -305,7 +305,7 @@ export default function ProdukPage() {
   }
 
   return (
-    <div className="min-h-screen bg-blue-50">
+    <div className="min-h-screen bg-[#F6F8FA]">
       <div className="flex-1 p-6">
         <main className="w-full max-w-none">
 
@@ -325,7 +325,7 @@ export default function ProdukPage() {
               {isSuperAdmin && (
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700 transition-colors"
+                  className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-full bg-[#1D80D9] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#1769B5] transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Tambah Kategori
@@ -337,7 +337,7 @@ export default function ProdukPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Cari kategori dokumen..."
-                  className="h-11 w-full rounded-full bg-white pl-11 pr-5 text-sm outline-none ring-1 ring-black/10 focus:ring-2 focus:ring-blue-400 transition"
+                  className="h-11 w-full rounded-full bg-white pl-11 pr-5 text-sm outline-none ring-1 ring-black/10 focus:ring-2 focus:ring-[#1D80D9]/50 transition"
                 />
               </div>
             </div>
@@ -346,8 +346,8 @@ export default function ProdukPage() {
           {/* ── Stats Bar ── */}
           <div className="mb-6 flex flex-wrap gap-3 px-2">
             <div className="bg-white rounded-xl px-5 py-3 shadow-sm ring-1 ring-gray-100 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Package className="w-5 h-5 text-blue-600" />
+              <div className="w-9 h-9 rounded-lg bg-[#1D80D9]/10 flex items-center justify-center">
+                <Package className="w-5 h-5 text-[#1D80D9]" />
               </div>
               <div>
                 <p className="text-xs text-gray-500 font-medium">Total Kategori</p>
@@ -386,7 +386,7 @@ export default function ProdukPage() {
           {visibleCategories.filter((c) => !c.superAdminOnly).length > 0 && (
             <section className="mb-8">
               <div className="flex items-center gap-2 px-2 mb-4">
-                <div className="h-5 w-1 rounded-full bg-blue-500" />
+                <div className="h-5 w-1 rounded-full bg-[#1D80D9]" />
                 <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                   Umum — Tersedia untuk Semua Pengguna
                 </h2>
@@ -463,7 +463,7 @@ export default function ProdukPage() {
                       value={newCatName}
                       onChange={(e) => setNewCatName(e.target.value)}
                       placeholder="Contoh: Proposal"
-                      className="w-full h-11 px-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-400"
+                      className="w-full h-11 px-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#1D80D9]/40"
                     />
                   </div>
                   <div>
@@ -473,7 +473,7 @@ export default function ProdukPage() {
                       value={newCatDesc}
                       onChange={(e) => setNewCatDesc(e.target.value)}
                       placeholder="Penjelasan singkat"
-                      className="w-full h-11 px-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-400"
+                      className="w-full h-11 px-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#1D80D9]/40"
                     />
                   </div>
                   <label className="flex items-center gap-3 mt-2 cursor-pointer">
@@ -496,7 +496,7 @@ export default function ProdukPage() {
                   <button
                     onClick={handleAddCategory}
                     disabled={!newCatName.trim()}
-                    className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold shadow-sm hover:bg-blue-700 disabled:opacity-50 transition"
+                    className="flex-1 py-2.5 rounded-xl bg-[#1D80D9] text-white text-sm font-bold shadow-sm hover:bg-[#1769B5] disabled:opacity-50 transition"
                   >
                     Simpan
                   </button>
