@@ -511,4 +511,27 @@ describe("PUT /api/contracts/[nomorKontrak] — status verifikasi dokumentasi", 
     const res = await put("K-1", { dokSales: "STATUS_NGASAL" });
     expect(res.status).toBe(400);
   });
+
+  it("otomatis mempromosikan status ke DONE PROJECT saat pembayaran lunas dan dokumentasi disetujui", async () => {
+    useDb({
+      contracts: [
+        {
+          nomorKontrak: "K-AUTO-1",
+          status: "PENAGIHAN",
+          nominalKontrak: 10000000,
+          pembayaran: [{ jumlah: 5000000 }],
+          dokSales: "Disetujui",
+          createdAt: new Date(),
+        },
+      ],
+    });
+    // Menambah pembayaran pelunasan
+    const res = await put("K-AUTO-1", {
+      pembayaran: [{ jumlah: 5000000 }, { jumlah: 5000000 }],
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.status).toBe("DONE PROJECT");
+    expect(body.suggestedStatus.status).toBe("DONE PROJECT");
+  });
 });

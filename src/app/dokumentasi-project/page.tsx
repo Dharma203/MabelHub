@@ -26,6 +26,16 @@ import {
   MapPin,
   Clock,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Play,
+  Search,
+  Filter,
+  ExternalLink,
+  Maximize2,
+  LayoutGrid,
+  XCircle,
 } from "lucide-react";
 
 /* ─── Types ─── */
@@ -100,6 +110,72 @@ function getFileExt(file: File): string {
   return ext || "bin";
 }
 
+export type LightboxMedia = {
+  url: string;
+  type: "image" | "video";
+  title: string;
+  subtitle?: string;
+  category?: string;
+  kondisi?: string;
+  kendala?: string;
+};
+
+function fmtDate(d?: string | Date) {
+  if (!d) return "-";
+  try {
+    return new Date(d).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return String(d);
+  }
+}
+
+function extractMediaFromDoc(doc: any): LightboxMedia[] {
+  const list: LightboxMedia[] = [];
+  (doc.barang || []).forEach((b: any, i: number) => {
+    const barangTitle = `${b.unitProduk || `Barang #${i + 1}`} ${b.merekBarang ? `(${b.merekBarang} ${b.tipeBarang || ""})` : ""}`.trim();
+    const subtitle = `Kontrak: ${doc.nomorKontrak} • Sales: ${doc.namaSales || "—"}`;
+
+    if (b.fotoSerahTerima) {
+      list.push({
+        url: b.fotoSerahTerima,
+        type: "image",
+        title: `Foto Serah Terima — ${barangTitle}`,
+        subtitle,
+        category: "Foto Serah Terima",
+        kondisi: b.kondisiBarang,
+        kendala: b.kendala,
+      });
+    }
+    if (b.fotoBarang) {
+      list.push({
+        url: b.fotoBarang,
+        type: "image",
+        title: `Foto Barang — ${barangTitle}`,
+        subtitle,
+        category: "Foto Produk / Barang",
+        kondisi: b.kondisiBarang,
+        kendala: b.kendala,
+      });
+    }
+    if (b.videoBarang) {
+      list.push({
+        url: b.videoBarang,
+        type: "video",
+        title: `Video Dokumentasi — ${barangTitle}`,
+        subtitle,
+        category: "Video Dokumentasi",
+        kondisi: b.kondisiBarang,
+        kendala: b.kendala,
+      });
+    }
+  });
+  return list;
+}
+
 /* ─── Main Content ─── */
 function DokumentasiProjectContent() {
   const router = useRouter();
@@ -145,16 +221,50 @@ function DokumentasiProjectContent() {
   const [submitSuccess, setSubmitSuccess] = useState("");
   const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
 
-  // Auth check
+  // Tab Navigation: "upload" (default di depan) vs "galeri" (hanya admin/superadmin)
+  const [activeTab, setActiveTab] = useState<"upload" | "galeri">("upload");
+
+  // Dokumentasi List for Galeri
+  const [dokumentasiList, setDokumentasiList] = useState<any[]>([]);
+
+  // Galeri Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("Semua");
+  const [filterSales, setFilterSales] = useState("Semua");
+  const [filterMediaType, setFilterMediaType] = useState<"semua" | "foto" | "video">("semua");
+
+  // Lightbox Modal
+  const [lightboxData, setLightboxData] = useState<{
+    items: LightboxMedia[];
+    initialIndex: number;
+  } | null>(null);
+
+  // Role check: hanya role ADMIN dan SUPERADMIN yang bisa melihat galeri & pratinjau
+  const isAdminOrSuperadmin =
+    user?.role === "SUPERADMIN" || user?.role === "ADMIN";
+
+  // Auth check: semua role yang login dapat mengakses form pengiriman dokumentasi
   useEffect(() => {
     if (!sessionLoading) {
       if (!user) {
         router.replace("/");
-      } else if (user.role !== "SUPERADMIN" && user.role !== "ADMIN") {
-        router.replace("/dashboard-response");
       }
     }
   }, [user, sessionLoading, router]);
+
+  // Enforce role: user non-admin tidak dapat mengakses tab galeri
+  useEffect(() => {
+    if (!isAdminOrSuperadmin && activeTab === "galeri") {
+      setActiveTab("upload");
+    }
+  }, [isAdminOrSuperadmin, activeTab]);
+
+  // Auto-select nama sales jika user login adalah sales
+  useEffect(() => {
+    if (user?.role === "SALES" && user.fullName && !namaSales) {
+      setNamaSales(user.fullName);
+    }
+  }, [user, namaSales]);
 
   // Fetch initial data
   const fetchInitialData = useCallback(async () => {
@@ -186,6 +296,10 @@ function DokumentasiProjectContent() {
       if (statsJson.stats) {
         setStats(statsJson.stats);
       }
+
+      if (Array.isArray(statsJson.data)) {
+        setDokumentasiList(statsJson.data);
+      }
     } catch {
       // silently fail
     } finally {
@@ -198,6 +312,88 @@ function DokumentasiProjectContent() {
     setRefreshing(true);
     await fetchInitialData();
   };
+
+  const handleOpenDocMedia = (doc: any, mediaUrl?: string) => {
+    const list = extractMediaFromDoc(doc);
+    if (list.length === 0) return;
+    const foundIdx = mediaUrl ? list.findIndex((m) => m.url === mediaUrl) : 0;
+    setLightboxData({
+      items: list,
+      initialIndex: foundIdx >= 0 ? foundIdx : 0,
+    });
+  };
+
+  const handleReviseContract = (item: any) => {
+    setNamaSales(item.namaSales || "");
+    setNomorKontrak(item.nomorKontrak || "");
+    setActiveTab("upload");
+  };
+
+  const handlePreviewLocalFile = (media: LightboxMedia) => {
+    setLightboxData({
+      items: [media],
+      initialIndex: 0,
+    });
+  };
+
+  const salesListInDok = useMemo(() => {
+    const set = new Set<string>();
+    dokumentasiList.forEach((d) => {
+      if (d.namaSales) set.add(d.namaSales);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "id-ID"));
+  }, [dokumentasiList]);
+
+  const filteredDokList = useMemo(() => {
+    return dokumentasiList.filter((item) => {
+      const contract = contracts.find((c) => c.nomorKontrak === item.nomorKontrak);
+      const dokStatus =
+        contract?.dokSales ||
+        (item.verifikasi?.status === "DISETUJUI"
+          ? "Disetujui"
+          : item.verifikasi?.status === "DITOLAK"
+            ? "Ditolak"
+            : "Proses Verifikasi");
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchKontrak = item.nomorKontrak?.toLowerCase().includes(q);
+        const matchSales = item.namaSales?.toLowerCase().includes(q);
+        const matchPengadaan = (item.entityProject || contract?.namaPengadaan || "").toLowerCase().includes(q);
+        const matchInstansi = (contract?.instansi || "").toLowerCase().includes(q);
+        const matchBarang = (item.barang || []).some((b: any) =>
+          b.unitProduk?.toLowerCase().includes(q) ||
+          b.merekBarang?.toLowerCase().includes(q) ||
+          b.tipeBarang?.toLowerCase().includes(q)
+        );
+        if (!matchKontrak && !matchSales && !matchPengadaan && !matchInstansi && !matchBarang) {
+          return false;
+        }
+      }
+
+      if (filterStatus !== "Semua") {
+        if (filterStatus === "Disetujui") {
+          if (dokStatus !== "Disetujui" && dokStatus !== "Sudah Upload") return false;
+        } else {
+          if (dokStatus !== filterStatus) return false;
+        }
+      }
+
+      if (filterSales !== "Semua") {
+        if (item.namaSales?.toLowerCase() !== filterSales.toLowerCase()) return false;
+      }
+
+      if (filterMediaType === "video") {
+        const hasVideo = (item.barang || []).some((b: any) => !!b.videoBarang);
+        if (!hasVideo) return false;
+      } else if (filterMediaType === "foto") {
+        const hasPhoto = (item.barang || []).some((b: any) => !!b.fotoSerahTerima || !!b.fotoBarang);
+        if (!hasPhoto) return false;
+      }
+
+      return true;
+    });
+  }, [dokumentasiList, contracts, searchQuery, filterStatus, filterSales, filterMediaType]);
 
   useEffect(() => {
     if (user) fetchInitialData();
@@ -488,82 +684,540 @@ function DokumentasiProjectContent() {
         </div>
       </div>
 
-      {/* ─── Stats Cards Grid ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
-            <ClipboardList className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Total Kontrak
+      {/* ─── Stats Cards Grid (Khusus Admin & Superadmin) ─── */}
+      {isAdminOrSuperadmin && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
+            <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+              <ClipboardList className="w-5 h-5" />
             </div>
-            <div className="text-2xl font-black text-slate-900 mt-0.5">
-              {stats.totalKontrak}
+            <div>
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Total Kontrak
+              </div>
+              <div className="text-2xl font-black text-slate-900 mt-0.5">
+                {stats.totalKontrak}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Belum Direport
+              </div>
+              <div className="text-2xl font-black text-amber-600 mt-0.5">
+                {stats.belumDireport}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+              <CheckSquare className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Sudah Direport
+              </div>
+              <div className="text-2xl font-black text-emerald-600 mt-0.5">
+                {stats.sudahDireport}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Total Sales
+              </div>
+              <div className="text-2xl font-black text-slate-900 mt-0.5">
+                {stats.salesCount}
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
-            <Clock className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Belum Direport
-            </div>
-            <div className="text-2xl font-black text-amber-600 mt-0.5">
-              {stats.belumDireport}
-            </div>
-          </div>
+      {/* ─── Navigation Tabs: Form Upload (di depan) vs Galeri & Pratinjau ─── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div className="flex items-center gap-2">
+          {/* Tab 1: Form Pengiriman / Upload (di posisi depan/pertama) */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("upload")}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all ${
+              activeTab === "upload"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            }`}
+          >
+            <Upload className="w-4 h-4" />
+            <span>Form Pengiriman / Upload</span>
+          </button>
+
+          {/* Tab 2: Galeri & Pratinjau (Hanya bisa dilihat oleh role ADMIN & SUPERADMIN) */}
+          {isAdminOrSuperadmin && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("galeri")}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all ${
+                activeTab === "galeri"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span>Galeri & Pratinjau</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
+                  activeTab === "galeri"
+                    ? "bg-white/25 text-white"
+                    : "bg-slate-100 text-slate-700"
+                }`}
+              >
+                {dokumentasiList.length}
+              </span>
+            </button>
+          )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
-            <CheckSquare className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Sudah Direport
-            </div>
-            <div className="text-2xl font-black text-emerald-600 mt-0.5">
-              {stats.sudahDireport}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 md:p-5 flex items-center gap-4 transition-all hover:shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Total Sales
-            </div>
-            <div className="text-2xl font-black text-slate-900 mt-0.5">
-              {stats.salesCount}
-            </div>
-          </div>
+        <div className="text-xs text-slate-500 font-medium px-2 hidden sm:block">
+          {activeTab === "galeri" && isAdminOrSuperadmin
+            ? `Menampilkan ${filteredDokList.length} dari ${dokumentasiList.length} project`
+            : "Form upload bukti fisik serah terima barang"}
         </div>
       </div>
 
-      {/* ─── Alerts ─── */}
-      {submitError && (
-        <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 text-rose-600 text-sm font-semibold flex items-center gap-2.5 shadow-xs">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <span>{submitError}</span>
-        </div>
-      )}
+      {activeTab === "galeri" && isAdminOrSuperadmin ? (
+        /* ─── Galeri Dokumentasi Tab Content ─── */
+        <div className="space-y-5">
+          {/* Controls Bar: Search & Filter */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+              {/* Search Input */}
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari no. kontrak, sales, instansi, produk..."
+                  className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
 
-      {submitSuccess && (
-        <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-600 text-sm font-semibold flex items-center gap-2.5 shadow-xs">
-          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-          <span>{submitSuccess}</span>
-        </div>
-      )}
+              {/* Status Filter */}
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white"
+              >
+                <option value="Semua">Semua Status</option>
+                <option value="Disetujui">Disetujui</option>
+                <option value="Proses Verifikasi">Proses Verifikasi</option>
+                <option value="Ditolak">Ditolak</option>
+              </select>
 
-      {/* ─── Form Container ─── */}
-      <div className="space-y-6">
+              {/* Sales Filter */}
+              {salesListInDok.length > 0 && (
+                <select
+                  value={filterSales}
+                  onChange={(e) => setFilterSales(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white max-w-[160px] truncate"
+                >
+                  <option value="Semua">Semua Sales</option>
+                  {salesListInDok.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* Media Type Filter */}
+              <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setFilterMediaType("semua")}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    filterMediaType === "semua"
+                      ? "bg-white text-slate-900 shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Semua
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterMediaType("foto")}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    filterMediaType === "foto"
+                      ? "bg-white text-slate-900 shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Foto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterMediaType("video")}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    filterMediaType === "video"
+                      ? "bg-white text-slate-900 shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Video
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("upload")}
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Upload Baru</span>
+            </button>
+          </div>
+
+          {/* Cards Grid */}
+          {filteredDokList.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                <ImageIcon className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-800">
+                  {dokumentasiList.length === 0
+                    ? "Belum Ada Dokumentasi Project"
+                    : "Tidak Ditemukan Dokumentasi yang Cocok"}
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {dokumentasiList.length === 0
+                    ? "Sales belum mengunggah foto atau video serah terima untuk kontrak manapun."
+                    : "Coba ubah kata kunci pencarian atau sesuaikan filter status dan sales."}
+                </p>
+              </div>
+              <div className="pt-2">
+                {dokumentasiList.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("upload")}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Upload Dokumentasi Pertama</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setFilterStatus("Semua");
+                      setFilterSales("Semua");
+                      setFilterMediaType("semua");
+                    }}
+                    className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    Reset Filter
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              {filteredDokList.map((doc, docIdx) => {
+                const contract = contracts.find((c) => c.nomorKontrak === doc.nomorKontrak);
+                const dokStatus =
+                  contract?.dokSales ||
+                  (doc.verifikasi?.status === "DISETUJUI"
+                    ? "Disetujui"
+                    : doc.verifikasi?.status === "DITOLAK"
+                      ? "Ditolak"
+                      : "Proses Verifikasi");
+                const allMedia = extractMediaFromDoc(doc);
+                const hasRejection =
+                  dokStatus === "Ditolak" ||
+                  doc.verifikasi?.status === "DITOLAK" ||
+                  contract?.alasanPenolakan ||
+                  doc.verifikasi?.alasanPenolakan;
+                const rejectionReason =
+                  contract?.alasanPenolakan || doc.verifikasi?.alasanPenolakan || "Perlu revisi dokumentasi";
+
+                return (
+                  <div
+                    key={`${doc.nomorKontrak}-${docIdx}`}
+                    className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group"
+                  >
+                    {/* Card Header */}
+                    <div className="p-4 border-b border-slate-100 bg-slate-50/60 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-600 block">
+                            Nomor Kontrak
+                          </span>
+                          <span className="font-mono font-bold text-slate-900 text-sm">
+                            {doc.nomorKontrak}
+                          </span>
+                        </div>
+
+                        {/* Status Badge */}
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border inline-flex items-center gap-1 ${
+                            dokStatus === "Disetujui" || dokStatus === "Sudah Upload"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : dokStatus === "Ditolak"
+                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
+                          }`}
+                        >
+                          {dokStatus === "Disetujui" || dokStatus === "Sudah Upload" ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>Disetujui</span>
+                            </>
+                          ) : dokStatus === "Ditolak" ? (
+                            <>
+                              <XCircle className="w-3 h-3 text-rose-600" />
+                              <span>Ditolak</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="w-3 h-3 text-amber-500" />
+                              <span>Proses Verifikasi</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                        <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
+                          <Users className="w-3.5 h-3.5 text-slate-400" />
+                          {doc.namaSales || "Sales"}
+                        </span>
+                        {doc.tanggalReport && (
+                          <span className="inline-flex items-center gap-1 text-slate-500">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            {fmtDate(doc.tanggalReport)}
+                          </span>
+                        )}
+                        {(doc.entityProject || contract?.namaPengadaan) && (
+                          <span className="text-[11px] text-slate-500 truncate max-w-[220px]" title={doc.entityProject || contract?.namaPengadaan}>
+                            • {doc.entityProject || contract?.namaPengadaan}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Rejection Alert if Ditolak */}
+                      {hasRejection && (
+                        <div className="rounded-xl bg-rose-50 border border-rose-200 p-2.5 text-xs text-rose-800 space-y-0.5">
+                          <div className="flex items-center gap-1 font-bold text-rose-900">
+                            <XCircle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
+                            <span>Alasan Penolakan:</span>
+                          </div>
+                          <p className="text-[11px] text-rose-700 pl-4">{rejectionReason}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card Body: Barang & Media Gallery */}
+                    <div className="p-4 space-y-4 flex-1">
+                      {(doc.barang || []).map((b: any, bIdx: number) => {
+                        const hasSerah = !!b.fotoSerahTerima;
+                        const hasBarang = !!b.fotoBarang;
+                        const hasVideo = !!b.videoBarang;
+                        const mediaCount = (hasSerah ? 1 : 0) + (hasBarang ? 1 : 0) + (hasVideo ? 1 : 0);
+
+                        return (
+                          <div
+                            key={bIdx}
+                            className="rounded-xl border border-slate-100 bg-slate-50/50 p-3 space-y-2.5"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-slate-800 truncate">
+                                {b.unitProduk || `Barang #${bIdx + 1}`}
+                                {b.merekBarang ? ` (${b.merekBarang} ${b.tipeBarang || ""})` : ""}
+                              </span>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-white text-slate-700 rounded border border-slate-200">
+                                  {b.jumlahUnit || 0} Unit
+                                </span>
+                                <span
+                                  className={`px-1.5 py-0.5 text-[10px] font-bold rounded uppercase border ${
+                                    b.kondisiBarang === "BARU"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "bg-rose-50 text-rose-700 border-rose-200"
+                                  }`}
+                                >
+                                  {b.kondisiBarang || "—"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {b.kendala && (
+                              <p className="text-[11px] text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100">
+                                <strong>Kendala:</strong> {b.kendala}
+                              </p>
+                            )}
+
+                            {/* Media Grid */}
+                            {mediaCount > 0 ? (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {/* Foto Serah Terima */}
+                                {hasSerah && (
+                                  <div
+                                    onClick={() => handleOpenDocMedia(doc, b.fotoSerahTerima)}
+                                    className="relative group/thumb aspect-video rounded-lg overflow-hidden bg-slate-100 border border-slate-200/80 cursor-pointer shadow-2xs hover:shadow-xs transition-all"
+                                  >
+                                    <img
+                                      src={b.fotoSerahTerima}
+                                      alt="Serah Terima"
+                                      className="w-full h-full object-cover transition-transform duration-200 group-hover/thumb:scale-105"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                                      <Eye className="w-3 h-3" />
+                                      <span>Lihat</span>
+                                    </div>
+                                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold backdrop-blur-xs">
+                                      Serah Terima
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Foto Barang */}
+                                {hasBarang && (
+                                  <div
+                                    onClick={() => handleOpenDocMedia(doc, b.fotoBarang)}
+                                    className="relative group/thumb aspect-video rounded-lg overflow-hidden bg-slate-100 border border-slate-200/80 cursor-pointer shadow-2xs hover:shadow-xs transition-all"
+                                  >
+                                    <img
+                                      src={b.fotoBarang}
+                                      alt="Foto Barang"
+                                      className="w-full h-full object-cover transition-transform duration-200 group-hover/thumb:scale-105"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                                      <Eye className="w-3 h-3" />
+                                      <span>Lihat</span>
+                                    </div>
+                                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold backdrop-blur-xs">
+                                      Barang
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Video Barang */}
+                                {hasVideo && (
+                                  <div
+                                    onClick={() => handleOpenDocMedia(doc, b.videoBarang)}
+                                    className="relative group/thumb aspect-video rounded-lg overflow-hidden bg-slate-900 border border-slate-800 cursor-pointer shadow-2xs hover:shadow-xs transition-all flex items-center justify-center"
+                                  >
+                                    <video
+                                      src={b.videoBarang}
+                                      className="w-full h-full object-cover opacity-80 group-hover/thumb:opacity-100"
+                                    />
+                                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center text-white">
+                                      <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center group-hover/thumb:scale-110 transition-transform">
+                                        <Play className="w-3.5 h-3.5 fill-white text-white translate-x-0.5" />
+                                      </div>
+                                    </div>
+                                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold backdrop-blur-xs">
+                                      Video
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-slate-400 italic">
+                                Belum ada berkas media dilampirkan.
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Card Footer Actions */}
+                    <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-slate-500">
+                        {allMedia.length} berkas media
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        {hasRejection && (
+                          <button
+                            type="button"
+                            onClick={() => handleReviseContract(doc)}
+                            className="px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
+                          >
+                            Unggah Revisi
+                          </button>
+                        )}
+                        {allMedia.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDocMedia(doc)}
+                            className="px-3 py-1 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 rounded-lg transition-colors inline-flex items-center gap-1"
+                          >
+                            <Maximize2 className="w-3 h-3" />
+                            <span>Buka Galeri</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ─── Upload Form Tab Content ─── */
+        <>
+          {/* Alerts */}
+          {submitError && (
+            <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 text-rose-600 text-sm font-semibold flex items-center gap-2.5 shadow-xs">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          {submitSuccess && (
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-600 text-sm font-semibold flex items-center justify-between gap-2.5 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                <span>{submitSuccess}</span>
+              </div>
+              {isAdminOrSuperadmin && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("galeri")}
+                  className="text-xs font-bold underline hover:text-emerald-800 flex-shrink-0"
+                >
+                  Lihat di Galeri &rarr;
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Form Container */}
+          <div className="space-y-6">
         {/* ─ Section 1: INFO LAPORAN ─ */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
@@ -983,6 +1637,7 @@ function DokumentasiProjectContent() {
                       onChange={(f) =>
                         updateBarang(idx, "fotoSerahTerimaFile", f)
                       }
+                      onPreview={handlePreviewLocalFile}
                     />
                     <FileUploadBox
                       label="Foto Barang"
@@ -990,6 +1645,7 @@ function DokumentasiProjectContent() {
                       accept="image/*"
                       file={item.fotoBarangFile}
                       onChange={(f) => updateBarang(idx, "fotoBarangFile", f)}
+                      onPreview={handlePreviewLocalFile}
                     />
                     <FileUploadBox
                       label="Video Barang"
@@ -997,6 +1653,7 @@ function DokumentasiProjectContent() {
                       accept="video/*"
                       file={item.videoBarangFile}
                       onChange={(f) => updateBarang(idx, "videoBarangFile", f)}
+                      onPreview={handlePreviewLocalFile}
                     />
                   </div>
                 </div>
@@ -1042,6 +1699,17 @@ function DokumentasiProjectContent() {
           </button>
         </div>
       </div>
+      </>
+      )}
+
+      {/* Lightbox Modal */}
+      {lightboxData && (
+        <LightboxModal
+          items={lightboxData.items}
+          initialIndex={lightboxData.initialIndex}
+          onClose={() => setLightboxData(null)}
+        />
+      )}
 
       <ConfirmModal
         open={showReplaceConfirm}
@@ -1066,6 +1734,198 @@ function DokumentasiProjectContent() {
   );
 }
 
+/* ─── Lightbox Modal Component ─── */
+function LightboxModal({
+  items,
+  initialIndex = 0,
+  onClose,
+}: {
+  items: LightboxMedia[];
+  initialIndex?: number;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(initialIndex);
+  const current = items[index];
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") {
+        setIndex((prev) => (prev > 0 ? prev - 1 : items.length - 1));
+      }
+      if (e.key === "ArrowRight") {
+        setIndex((prev) => (prev < items.length - 1 ? prev + 1 : 0));
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [items.length, onClose]);
+
+  if (!current) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex flex-col bg-black/95 backdrop-blur-md animate-in fade-in duration-200 select-none"
+      onClick={onClose}
+    >
+      {/* Top Header */}
+      <div
+        className="flex items-center justify-between px-4 py-3 bg-slate-900/80 border-b border-white/10 text-white z-10 flex-shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 min-w-0 pr-3">
+          {current.category && (
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-600/90 text-white flex-shrink-0">
+              {current.category}
+            </span>
+          )}
+          <div className="truncate">
+            <h4 className="text-xs sm:text-sm font-bold truncate text-white">
+              {current.title}
+            </h4>
+            {current.subtitle && (
+              <p className="text-[11px] text-slate-400 truncate">
+                {current.subtitle}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <span className="text-xs font-semibold text-slate-300 px-2.5 py-1 bg-white/10 rounded-lg border border-white/10">
+            {index + 1} / {items.length}
+          </span>
+          <a
+            href={current.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-400 hover:text-blue-300 font-semibold px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-all inline-flex items-center gap-1"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Buka Asli</span>
+          </a>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+            title="Tutup (Esc)"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Preview Container */}
+      <div
+        className="relative flex-1 flex items-center justify-center p-4 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Previous Button */}
+        {items.length > 1 && (
+          <button
+            type="button"
+            onClick={() => setIndex((prev) => (prev > 0 ? prev - 1 : items.length - 1))}
+            className="absolute left-4 z-20 w-11 h-11 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center border border-white/20 transition-all hover:scale-110 active:scale-95 shadow-xl"
+            title="Sebelumnya (Panah Kiri)"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+        )}
+
+        {/* Media Content */}
+        <div className="max-w-5xl max-h-[75vh] w-full flex items-center justify-center">
+          {current.type === "video" ? (
+            <video
+              key={current.url}
+              src={current.url}
+              controls
+              autoPlay
+              className="max-w-full max-h-[75vh] rounded-2xl shadow-2xl bg-black"
+            />
+          ) : (
+            <img
+              key={current.url}
+              src={current.url}
+              alt={current.title}
+              className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200"
+            />
+          )}
+        </div>
+
+        {/* Next Button */}
+        {items.length > 1 && (
+          <button
+            type="button"
+            onClick={() => setIndex((prev) => (prev < items.length - 1 ? prev + 1 : 0))}
+            className="absolute right-4 z-20 w-11 h-11 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center border border-white/20 transition-all hover:scale-110 active:scale-95 shadow-xl"
+            title="Berikutnya (Panah Kanan)"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        )}
+      </div>
+
+      {/* Bottom Footer Info & Thumbnails */}
+      <div
+        className="px-4 py-3 bg-slate-900/90 border-t border-white/10 z-10 flex-shrink-0 space-y-2.5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {(current.kondisi || current.kendala) && (
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+            {current.kondisi && (
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                  current.kondisi === "BARU"
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                    : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                }`}
+              >
+                Kondisi: {current.kondisi}
+              </span>
+            )}
+            {current.kendala && (
+              <span className="text-rose-300 text-xs font-medium">
+                Kendala: {current.kendala}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Thumbnails strip */}
+        {items.length > 1 && (
+          <div className="flex items-center justify-center gap-2 overflow-x-auto py-1 max-w-2xl mx-auto scrollbar-thin">
+            {items.map((it, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setIndex(i)}
+                className={`relative w-12 h-10 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${
+                  i === index
+                    ? "border-blue-500 scale-105 shadow-md"
+                    : "border-white/20 opacity-50 hover:opacity-100"
+                }`}
+              >
+                {it.type === "video" ? (
+                  <div className="w-full h-full bg-slate-800 flex items-center justify-center text-white">
+                    <Video className="w-4 h-4 text-violet-400" />
+                  </div>
+                ) : (
+                  <img
+                    src={it.url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── File Upload Box Component ─── */
 function FileUploadBox({
   label,
@@ -1073,66 +1933,122 @@ function FileUploadBox({
   accept,
   file,
   onChange,
+  onPreview,
 }: {
   label: string;
   icon: React.ReactNode;
   accept: string;
   file: File | null;
   onChange: (f: File | null) => void;
+  onPreview?: (media: LightboxMedia) => void;
 }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const isVideo = accept.includes("video") || (file && file.type.startsWith("video/"));
+
   return (
     <div className="space-y-1.5">
       <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
         {label}
       </span>
-      <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-blue-400 bg-white hover:bg-blue-50/40 rounded-xl p-4 cursor-pointer transition-all min-h-[110px] group">
-        {file ? (
-          <div className="text-center w-full px-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-2">
-              <CheckSquare className="w-4 h-4" />
+
+      {file && previewUrl ? (
+        <div className="border border-slate-200 rounded-xl p-2.5 bg-white space-y-2 shadow-2xs">
+          <div
+            onClick={() => {
+              if (onPreview) {
+                onPreview({
+                  url: previewUrl,
+                  type: isVideo ? "video" : "image",
+                  title: `${label}: ${file.name}`,
+                  subtitle: `Ukuran: ${(file.size / 1024 / 1024).toFixed(2)} MB`,
+                  category: label,
+                });
+              }
+            }}
+            className="relative aspect-video w-full rounded-lg overflow-hidden bg-slate-900 group cursor-pointer flex items-center justify-center border border-slate-100"
+            title="Klik untuk membuka pratinjau (Lightbox)"
+          >
+            {isVideo ? (
+              <video src={previewUrl} className="w-full h-full object-cover" />
+            ) : (
+              <img
+                src={previewUrl}
+                alt={file.name}
+                className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+              />
+            )}
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5 backdrop-blur-[2px]">
+              <Eye className="w-4 h-4" />
+              <span>Pratinjau Lightbox</span>
             </div>
-            <div className="text-xs text-slate-800 font-bold truncate max-w-[180px] mx-auto">
-              {file.name}
+            <div className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs flex items-center gap-1">
+              {isVideo ? <Video className="w-3 h-3 text-violet-400" /> : <ImageIcon className="w-3 h-3 text-emerald-400" />}
+              <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
             </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">
-              {(file.size / 1024 / 1024).toFixed(2)} MB
-            </div>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onChange(null);
-              }}
-              className="mt-2 text-[10px] text-rose-500 hover:text-rose-700 font-bold hover:underline"
-            >
-              Hapus / Ganti File
-            </button>
           </div>
-        ) : (
-          <>
-            <div className="p-2 rounded-xl bg-slate-50 group-hover:bg-blue-50 group-hover:scale-105 transition-all">
-              {icon}
+
+          <div className="flex items-center justify-between gap-2 px-1">
+            <span className="text-xs font-bold text-slate-800 truncate" title={file.name}>
+              {file.name}
+            </span>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <label className="text-[11px] text-blue-600 hover:text-blue-800 font-bold cursor-pointer hover:underline">
+                Ganti
+                <input
+                  type="file"
+                  accept={accept}
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    if (f) onChange(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => onChange(null)}
+                className="text-[11px] text-rose-500 hover:text-rose-700 font-bold hover:underline"
+              >
+                Hapus
+              </button>
             </div>
-            <span className="text-xs font-semibold text-slate-600 mt-2">
-              Pilih file
-            </span>
-            <span className="text-[10px] text-slate-400 mt-0.5">
-              Klik atau drag file ke sini
-            </span>
-          </>
-        )}
-        <input
-          type="file"
-          accept={accept}
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0] || null;
-            onChange(f);
-            e.target.value = "";
-          }}
-        />
-      </label>
+          </div>
+        </div>
+      ) : (
+        <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-blue-400 bg-white hover:bg-blue-50/40 rounded-xl p-4 cursor-pointer transition-all min-h-[110px] group">
+          <div className="p-2 rounded-xl bg-slate-50 group-hover:bg-blue-50 group-hover:scale-105 transition-all">
+            {icon}
+          </div>
+          <span className="text-xs font-semibold text-slate-600 mt-2">
+            Pilih file
+          </span>
+          <span className="text-[10px] text-slate-400 mt-0.5">
+            Klik atau drag file ke sini
+          </span>
+          <input
+            type="file"
+            accept={accept}
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0] || null;
+              onChange(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      )}
     </div>
   );
 }

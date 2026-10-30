@@ -411,6 +411,17 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
         },
       ],
     },
+    {
+      title: 'KONTRAK',
+      icon: 'FileSignature',
+      items: [
+        {
+          label: 'Dokumentasi Project',
+          href: '/dokumentasi-project',
+          icon: 'FileText',
+        },
+      ],
+    },
   ],
 
   SALES: [
@@ -475,6 +486,17 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           label: 'Tracking E-Procurement',
           href: '/rekapitulasi-Eproc',
           icon: 'PieChart',
+        },
+      ],
+    },
+    {
+      title: 'KONTRAK',
+      icon: 'FileSignature',
+      items: [
+        {
+          label: 'Dokumentasi Project',
+          href: '/dokumentasi-project',
+          icon: 'FileText',
         },
       ],
     },
@@ -547,6 +569,17 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           label: 'Tracking E-Procurement',
           href: '/rekapitulasi-Eproc',
           icon: 'PieChart',
+        },
+      ],
+    },
+    {
+      title: 'KONTRAK',
+      icon: 'FileSignature',
+      items: [
+        {
+          label: 'Dokumentasi Project',
+          href: '/dokumentasi-project',
+          icon: 'FileText',
         },
       ],
     },

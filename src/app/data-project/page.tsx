@@ -30,7 +30,9 @@ import {
   Plus,
   Trash2,
   Wallet,
+  Sparkles,
 } from "lucide-react";
+import { getSuggestedProjectStatus } from "@/lib/project-status-helper";
 
 export type PembayaranItem = {
   id: string;
@@ -454,7 +456,13 @@ function DataProjectContent() {
   // Open Edit Modal (hanya status)
   const openEditModal = (c: Contract) => {
     setEditingContract(c);
-    setEditStatus(c.status || "PENAGIHAN");
+    const suggestion = getSuggestedProjectStatus(c);
+    // Jika proyek memenuhi syarat DONE PROJECT tapi status saat ini belum, otomatis prioritaskan DONE PROJECT
+    const initialStatus =
+      !suggestion.isMatch && suggestion.status === "DONE PROJECT"
+        ? "DONE PROJECT"
+        : c.status || "PENAGIHAN";
+    setEditStatus(initialStatus);
     const dokVal =
       c.dokSales === "Ditolak"
         ? "Ditolak"
@@ -465,6 +473,36 @@ function DataProjectContent() {
     setEditAlasanPenolakan(c.alasanPenolakan || c.dokVerifikasi?.alasanPenolakan || "");
     setModalError("");
     setModalSuccess("");
+  };
+
+  // Terapkan usulan status otomatis langsung (one-click)
+  const handleApplySuggestedStatus = async (contract: Contract, targetStatus: string) => {
+    try {
+      const res = await fetch(
+        `/api/contracts/${encodeURIComponent(contract.nomorKontrak)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: targetStatus }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal memperbarui status");
+
+      setContracts((prev) =>
+        prev.map((c) =>
+          c.nomorKontrak === contract.nomorKontrak ? { ...c, status: targetStatus } : c
+        )
+      );
+      if (selectedDetail && selectedDetail.nomorKontrak === contract.nomorKontrak) {
+        setSelectedDetail((prev) => (prev ? { ...prev, status: targetStatus } : null));
+      }
+      if (editingContract && editingContract.nomorKontrak === contract.nomorKontrak) {
+        setEditStatus(targetStatus);
+      }
+    } catch (err: any) {
+      alert(err.message || "Gagal menerapkan usulan status");
+    }
   };
 
   // Save Modal (hanya update status)
@@ -550,10 +588,25 @@ function DataProjectContent() {
   const handleQuickApprove = async (nk: string) => {
     setVerifyingDok(true);
     try {
+      // Periksa apakah proyek sudah lunas sehingga bisa langsung menjadi DONE PROJECT
+      const currentContract = contracts.find((c) => c.nomorKontrak === nk);
+      const totalBayar = (currentContract?.pembayaran || []).reduce(
+        (s, p) => s + (Number(p.jumlah) || 0),
+        0
+      );
+      const sisa = Math.max(0, (currentContract?.nominalKontrak || 0) - totalBayar);
+      const isLunas = (currentContract?.nominalKontrak || 0) > 0 && sisa <= 0;
+      const shouldAutoDone = isLunas && currentContract?.status !== "DONE PROJECT";
+
+      const payload: any = { dokSales: "Disetujui" };
+      if (shouldAutoDone) {
+        payload.status = "DONE PROJECT";
+      }
+
       const res = await fetch(`/api/contracts/${encodeURIComponent(nk)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dokSales: "Disetujui" }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Gagal menyetujui dokumentasi");
@@ -564,6 +617,7 @@ function DataProjectContent() {
             ? {
                 ...c,
                 dokSales: "Disetujui",
+                ...(shouldAutoDone ? { status: "DONE PROJECT" } : {}),
                 alasanPenolakan: "",
                 dokVerifikasi: {
                   ...(c.dokVerifikasi || {}),
@@ -580,6 +634,7 @@ function DataProjectContent() {
           ? {
               ...prev,
               dokSales: "Disetujui",
+              ...(shouldAutoDone ? { status: "DONE PROJECT" } : {}),
               alasanPenolakan: "",
               dokVerifikasi: {
                 ...(prev.dokVerifikasi || {}),
@@ -696,14 +751,30 @@ function DataProjectContent() {
 
       const updatedPayments = [...existingPayments, paymentItem];
 
+      // Periksa apakah pembayaran ini membuat kontrak lunas & memenuhi syarat DONE PROJECT
+      const totalBayar = updatedPayments.reduce((s, p) => s + (Number(p.jumlah) || 0), 0);
+      const sisa = Math.max(0, (targetContract.nominalKontrak || 0) - totalBayar);
+      const isLunas = (targetContract.nominalKontrak || 0) > 0 && sisa <= 0;
+      const dokApproved =
+        targetContract.dokSales === "Disetujui" ||
+        targetContract.dokSales === "Sudah Upload" ||
+        targetContract.dokSales === "Proses Verifikasi";
+
+      const shouldAutoDone = isLunas && dokApproved && targetContract.status !== "DONE PROJECT";
+
+      const payload: any = {
+        pembayaran: updatedPayments,
+      };
+      if (shouldAutoDone) {
+        payload.status = "DONE PROJECT";
+      }
+
       const res = await fetch(
         `/api/contracts/${encodeURIComponent(targetContract.nomorKontrak)}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            pembayaran: updatedPayments,
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -714,23 +785,43 @@ function DataProjectContent() {
       setContracts((prev) =>
         prev.map((c) =>
           c.nomorKontrak === targetContract.nomorKontrak
-            ? { ...c, pembayaran: updatedPayments }
+            ? {
+                ...c,
+                pembayaran: updatedPayments,
+                ...(shouldAutoDone ? { status: "DONE PROJECT" } : {}),
+              }
             : c
         )
       );
 
       if (selectedDetail && selectedDetail.nomorKontrak === targetContract.nomorKontrak) {
         setSelectedDetail((prev) =>
-          prev ? { ...prev, pembayaran: updatedPayments } : null
+          prev
+            ? {
+                ...prev,
+                pembayaran: updatedPayments,
+                ...(shouldAutoDone ? { status: "DONE PROJECT" } : {}),
+              }
+            : null
         );
       }
       if (paymentContract && paymentContract.nomorKontrak === targetContract.nomorKontrak) {
         setPaymentContract((prev) =>
-          prev ? { ...prev, pembayaran: updatedPayments } : null
+          prev
+            ? {
+                ...prev,
+                pembayaran: updatedPayments,
+                ...(shouldAutoDone ? { status: "DONE PROJECT" } : {}),
+              }
+            : null
         );
       }
 
-      setPaymentSuccess("Pembayaran berhasil dicatat!");
+      setPaymentSuccess(
+        shouldAutoDone
+          ? "Pembayaran berhasil dicatat! Status project otomatis diperbarui menjadi DONE PROJECT (Lunas & Dokumentasi Lengkap)."
+          : "Pembayaran berhasil dicatat!"
+      );
       setPaymentAmount(0);
       setPaymentNote("");
     } catch (err: any) {
@@ -1258,22 +1349,50 @@ function DataProjectContent() {
 
                       {/* STATUS */}
                       <td className="py-4 px-3.5 whitespace-nowrap">
-                        {statusVal === "DONE PROJECT" ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            DONE PROJECT
-                          </span>
-                        ) : statusVal === "PENAGIHAN" ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                            PENAGIHAN
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-50 text-slate-500 border border-slate-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                            {statusVal}
-                          </span>
-                        )}
+                        <div className="flex flex-col items-start gap-1">
+                          {statusVal === "DONE PROJECT" ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              DONE PROJECT
+                            </span>
+                          ) : statusVal === "PENAGIHAN" ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                              PENAGIHAN
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-50 text-slate-500 border border-slate-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                              {statusVal}
+                            </span>
+                          )}
+
+                          {/* Usulan Otomatis jika status saat ini berbeda dengan rekomendasi sistem */}
+                          {(() => {
+                            const suggestion = getSuggestedProjectStatus(c);
+                            if (suggestion.isMatch) return null;
+                            return (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleApplySuggestedStatus(c, suggestion.status);
+                                }}
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border transition-all inline-flex items-center gap-1 shadow-2xs hover:scale-105 active:scale-95 ${
+                                  suggestion.status === "DONE PROJECT"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                                    : suggestion.status === "PENDING"
+                                      ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
+                                      : "bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100"
+                                }`}
+                                title={`Usulan Otomatis: ${suggestion.status} (${suggestion.reason}) — Klik untuk terapkan langsung`}
+                              >
+                                <Sparkles className="w-2.5 h-2.5" />
+                                <span>Saran: {suggestion.status}</span>
+                              </button>
+                            );
+                          })()}
+                        </div>
                       </td>
 
                       {/* AKSI BUTTONS */}
@@ -1414,6 +1533,69 @@ function DataProjectContent() {
                   Nilai: {fmtCurrency(editingContract.nominalKontrak)}
                 </div>
               </div>
+
+              {/* Usulan Otomatis Status Sistem */}
+              {(() => {
+                const suggestion = getSuggestedProjectStatus(editingContract);
+                const isSelected = editStatus === suggestion.status;
+                return (
+                  <div
+                    className={`p-3.5 rounded-xl border space-y-1.5 transition-all ${
+                      suggestion.status === "DONE PROJECT"
+                        ? "bg-emerald-50/90 border-emerald-200"
+                        : suggestion.status === "PENDING"
+                          ? "bg-amber-50/90 border-amber-200"
+                          : "bg-blue-50/90 border-blue-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                        <Sparkles
+                          className={`w-3.5 h-3.5 ${
+                            suggestion.status === "DONE PROJECT"
+                              ? "text-emerald-600"
+                              : suggestion.status === "PENDING"
+                                ? "text-amber-600"
+                                : "text-blue-600"
+                          }`}
+                        />
+                        <span>Usulan Otomatis Sistem</span>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide ${
+                          suggestion.status === "DONE PROJECT"
+                            ? "bg-emerald-600 text-white"
+                            : suggestion.status === "PENDING"
+                              ? "bg-amber-500 text-white"
+                              : "bg-blue-600 text-white"
+                        }`}
+                      >
+                        {suggestion.status}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-600 leading-snug">
+                      {suggestion.reason}
+                    </p>
+
+                    {!isSelected ? (
+                      <button
+                        type="button"
+                        onClick={() => setEditStatus(suggestion.status)}
+                        className="mt-1 text-xs font-bold text-blue-700 hover:text-blue-900 bg-white hover:bg-blue-50 border border-blue-300 rounded-lg px-2.5 py-1 transition-all inline-flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Terapkan Usulan ({suggestion.status})</span>
+                      </button>
+                    ) : (
+                      <div className="mt-1 text-[11px] font-bold text-emerald-700 inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Status yang dipilih sudah sesuai usulan sistem</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Status Select */}
               <div>
@@ -1608,6 +1790,23 @@ function DataProjectContent() {
                         </>
                       )}
                     </span>
+
+                    {/* Usulan Status Otomatis jika status saat ini belum sesuai rekomendasi */}
+                    {(() => {
+                      const suggestion = getSuggestedProjectStatus(selectedDetail);
+                      if (suggestion.isMatch) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => handleApplySuggestedStatus(selectedDetail, suggestion.status)}
+                          className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all inline-flex items-center gap-1.5 animate-pulse"
+                          title={suggestion.reason}
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Terapkan Usulan: {suggestion.status}</span>
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

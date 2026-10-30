@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
 import { DOK_AKTIF_FILTER } from "@/lib/dokumentasi-arsip";
+import { getSuggestedProjectStatus } from "@/lib/project-status-helper";
 
 export const dynamic = "force-dynamic";
 
@@ -49,11 +50,15 @@ export async function GET(
       ? currentDok
       : "Sudah Upload";
 
+  const contractData = {
+    ...doc,
+    dokSales,
+  };
+  const suggestedStatus = getSuggestedProjectStatus(contractData);
+
   return NextResponse.json({
-    data: {
-      ...doc,
-      dokSales,
-    },
+    data: contractData,
+    suggestedStatus,
   });
 }
 
@@ -181,6 +186,31 @@ export async function PUT(
       createdAt: p.createdAt ? new Date(p.createdAt) : now,
       createdBy: String(p.createdBy || gate.session.fullName || gate.session.username || "Admin"),
     }));
+  }
+
+  // Otomatisasi status project (DONE PROJECT / PENAGIHAN / PENDING)
+  const effectiveNominal = setPayload.nominalKontrak !== undefined ? setPayload.nominalKontrak : existing.nominalKontrak;
+  const effectivePembayaran = setPayload.pembayaran !== undefined ? setPayload.pembayaran : existing.pembayaran;
+  const effectiveDokSales = setPayload.dokSales !== undefined ? setPayload.dokSales : existing.dokSales;
+
+  if (body.autoStatus === true) {
+    const suggested = getSuggestedProjectStatus({
+      status: existing.status,
+      nominalKontrak: effectiveNominal,
+      pembayaran: effectivePembayaran,
+      dokSales: effectiveDokSales,
+    });
+    setPayload.status = suggested.status;
+  } else if (body.status === undefined && (setPayload.pembayaran !== undefined || setPayload.dokSales !== undefined)) {
+    const suggested = getSuggestedProjectStatus({
+      status: existing.status,
+      nominalKontrak: effectiveNominal,
+      pembayaran: effectivePembayaran,
+      dokSales: effectiveDokSales,
+    });
+    if (suggested.status === "DONE PROJECT" && existing.status !== "DONE PROJECT") {
+      setPayload.status = "DONE PROJECT";
+    }
   }
 
   const FIELD_LABELS: Record<string, string> = {
@@ -396,7 +426,12 @@ export async function PUT(
     );
   }
 
-  return NextResponse.json({ data: updated });
+  const suggestedStatus = getSuggestedProjectStatus({
+    ...updated,
+    dokSales: setPayload.dokSales !== undefined ? setPayload.dokSales : existing.dokSales,
+  });
+
+  return NextResponse.json({ data: updated, suggestedStatus });
 }
 
 export async function DELETE(
