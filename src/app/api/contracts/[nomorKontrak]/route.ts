@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import clientPromise, { getDbName } from "@/lib/mongodb";
 import { assertAdminOrSuperadmin } from "@/lib/auth-server";
+import { DOK_AKTIF_FILTER } from "@/lib/dokumentasi-arsip";
+import { getSuggestedProjectStatus } from "@/lib/project-status-helper";
 
 export const dynamic = "force-dynamic";
 
@@ -38,17 +40,25 @@ export async function GET(
 
   const hasDok = await db
     .collection("dokumentasi_project")
-    .findOne({ nomorKontrak: nk });
+    .findOne({ nomorKontrak: nk, ...DOK_AKTIF_FILTER });
+
+  const currentDok = String(doc.dokSales ?? "").trim();
+  const validDok = ["Proses Verifikasi", "Disetujui", "Ditolak", "Sudah Upload"];
+  const dokSales = !hasDok
+    ? "Belum Upload"
+    : validDok.includes(currentDok)
+      ? currentDok
+      : "Sudah Upload";
+
+  const contractData = {
+    ...doc,
+    dokSales,
+  };
+  const suggestedStatus = getSuggestedProjectStatus(contractData);
 
   return NextResponse.json({
-    data: {
-      ...doc,
-      dokSales: !hasDok
-        ? "Belum Upload"
-        : doc.dokSales === "Proses Verifikasi"
-          ? "Proses Verifikasi"
-          : "Sudah Upload",
-    },
+    data: contractData,
+    suggestedStatus,
   });
 }
 
@@ -96,11 +106,31 @@ export async function PUT(
     }
   }
 
+  const VALID_DOK_STATUSES = [
+    "Belum Upload",
+    "Proses Verifikasi",
+    "Disetujui",
+    "Ditolak",
+    "Sudah Upload",
+  ];
+
   if (
     setPayload.dokSales !== undefined &&
-    !["Belum Upload", "Proses Verifikasi", "Sudah Upload"].includes(setPayload.dokSales)
+    !VALID_DOK_STATUSES.includes(setPayload.dokSales)
   ) {
     return NextResponse.json({ error: "Status dokumen tidak valid" }, { status: 400 });
+  }
+
+  // Jika menolak dokumentasi, alasan penolakan wajib diisi
+  if (setPayload.dokSales === "Ditolak") {
+    const alasan = String(body.alasanPenolakan ?? "").trim();
+    if (!alasan) {
+      return NextResponse.json(
+        { error: "Alasan penolakan wajib diisi ketika menolak dokumentasi" },
+        { status: 400 },
+      );
+    }
+    setPayload.alasanPenolakan = alasan;
   }
 
   if (body.nominalKontrak !== undefined) {
@@ -144,6 +174,43 @@ export async function PUT(
       tanggalBerakhir: String(body.penagihan?.tanggalBerakhir ?? "").trim(),
       nominalPenagihan: Number(body.penagihan?.nominalPenagihan) || 0,
     };
+  }
+
+  // Update pembayaran (embedded array)
+  if (body.pembayaran !== undefined && Array.isArray(body.pembayaran)) {
+    setPayload.pembayaran = body.pembayaran.map((p: any) => ({
+      id: String(p.id || `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`),
+      tanggal: String(p.tanggal ?? "").trim(),
+      jumlah: Number(p.jumlah) || 0,
+      keterangan: String(p.keterangan ?? "").trim(),
+      createdAt: p.createdAt ? new Date(p.createdAt) : now,
+      createdBy: String(p.createdBy || gate.session.fullName || gate.session.username || "Admin"),
+    }));
+  }
+
+  // Otomatisasi status project (DONE PROJECT / PENAGIHAN / PENDING)
+  const effectiveNominal = setPayload.nominalKontrak !== undefined ? setPayload.nominalKontrak : existing.nominalKontrak;
+  const effectivePembayaran = setPayload.pembayaran !== undefined ? setPayload.pembayaran : existing.pembayaran;
+  const effectiveDokSales = setPayload.dokSales !== undefined ? setPayload.dokSales : existing.dokSales;
+
+  if (body.autoStatus === true) {
+    const suggested = getSuggestedProjectStatus({
+      status: existing.status,
+      nominalKontrak: effectiveNominal,
+      pembayaran: effectivePembayaran,
+      dokSales: effectiveDokSales,
+    });
+    setPayload.status = suggested.status;
+  } else if (body.status === undefined && (setPayload.pembayaran !== undefined || setPayload.dokSales !== undefined)) {
+    const suggested = getSuggestedProjectStatus({
+      status: existing.status,
+      nominalKontrak: effectiveNominal,
+      pembayaran: effectivePembayaran,
+      dokSales: effectiveDokSales,
+    });
+    if (suggested.status === "DONE PROJECT" && existing.status !== "DONE PROJECT") {
+      setPayload.status = "DONE PROJECT";
+    }
   }
 
   const FIELD_LABELS: Record<string, string> = {
@@ -240,19 +307,68 @@ export async function PUT(
     }
   }
 
+  if (setPayload.pembayaran !== undefined) {
+    const oldArr: any[] = Array.isArray(existing.pembayaran) ? existing.pembayaran : [];
+    const newArr: any[] = setPayload.pembayaran;
+    const oldSum = oldArr.reduce((acc, p) => acc + (Number(p.jumlah) || 0), 0);
+    const newSum = newArr.reduce((acc, p) => acc + (Number(p.jumlah) || 0), 0);
+    if (oldSum !== newSum || oldArr.length !== newArr.length) {
+      changes.push({
+        field: "pembayaran",
+        label: "Pencatatan Pembayaran",
+        oldValue: `${oldArr.length} pembayaran (Total: Rp ${oldSum.toLocaleString("id-ID")})`,
+        newValue: `${newArr.length} pembayaran (Total: Rp ${newSum.toLocaleString("id-ID")})`,
+      });
+    }
+  }
+
+  const adminName = gate.session.fullName || gate.session.username || "Admin";
+
+  if (setPayload.dokSales !== undefined) {
+    if (setPayload.dokSales === "Disetujui" || setPayload.dokSales === "Sudah Upload") {
+      setPayload.alasanPenolakan = "";
+      setPayload.dokVerifikasi = {
+        ...(existing.dokVerifikasi || {}),
+        status: "DISETUJUI",
+        verifiedBy: adminName,
+        verifiedAt: now,
+        alasanPenolakan: "",
+      };
+    } else if (setPayload.dokSales === "Ditolak") {
+      const alasan = String(body.alasanPenolakan ?? "").trim();
+      setPayload.alasanPenolakan = alasan;
+      setPayload.dokVerifikasi = {
+        ...(existing.dokVerifikasi || {}),
+        status: "DITOLAK",
+        alasanPenolakan: alasan,
+        verifiedBy: adminName,
+        verifiedAt: now,
+      };
+      changes.push({
+        field: "alasanPenolakan",
+        label: "Alasan Penolakan",
+        oldValue: existing.alasanPenolakan || "-",
+        newValue: alasan,
+      });
+    } else if (setPayload.dokSales === "Proses Verifikasi") {
+      setPayload.alasanPenolakan = "";
+      setPayload.dokVerifikasi = {
+        ...(existing.dokVerifikasi || {}),
+        status: "PERLU_DIPERIKSA",
+        alasanPenolakan: "",
+      };
+    }
+  }
+
   const updateQuery: any = {
     $set: setPayload,
   };
-
-  if (setPayload.dokSales === "Sudah Upload") {
-    updateQuery.$unset = { dokVerifikasi: "" };
-  }
 
   if (changes.length > 0) {
     const historyEntry = {
       id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       at: now,
-      by: gate.session.fullName || gate.session.username || "Admin",
+      by: adminName,
       role: gate.session.role || "ADMIN",
       action: "UPDATE",
       changes,
@@ -281,7 +397,41 @@ export async function PUT(
     );
   }
 
-  return NextResponse.json({ data: updated });
+  if (
+    setPayload.dokSales &&
+    ["Disetujui", "Sudah Upload", "Ditolak", "Proses Verifikasi"].includes(setPayload.dokSales)
+  ) {
+    const dokStatus =
+      setPayload.dokSales === "Ditolak"
+        ? "DITOLAK"
+        : setPayload.dokSales === "Disetujui" || setPayload.dokSales === "Sudah Upload"
+          ? "DISETUJUI"
+          : "PERLU_DIPERIKSA";
+
+    const dokUpdate: Record<string, any> = {
+      "verifikasi.status": dokStatus,
+      "verifikasi.verifiedBy": adminName,
+      "verifikasi.verifiedAt": now,
+      updatedAt: now,
+    };
+    if (setPayload.dokSales === "Ditolak") {
+      dokUpdate["verifikasi.alasanPenolakan"] = String(body.alasanPenolakan ?? "").trim();
+    } else {
+      dokUpdate["verifikasi.alasanPenolakan"] = "";
+    }
+
+    await db.collection("dokumentasi_project").updateMany(
+      { nomorKontrak: nk, ...DOK_AKTIF_FILTER },
+      { $set: dokUpdate },
+    );
+  }
+
+  const suggestedStatus = getSuggestedProjectStatus({
+    ...updated,
+    dokSales: setPayload.dokSales !== undefined ? setPayload.dokSales : existing.dokSales,
+  });
+
+  return NextResponse.json({ data: updated, suggestedStatus });
 }
 
 export async function DELETE(
