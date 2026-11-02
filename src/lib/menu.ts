@@ -67,6 +67,11 @@ export const MENUS_BY_ROLE: Record<Role, MenuSection[]> = {
           icon: 'Book',
         },
         {
+          label: 'Realisasi',
+          href: '/realisasi-plan',
+          icon: 'Check',
+        },
+        {
           label: 'Tracking',
           href: '/tracking',
           icon: 'BarChart',
