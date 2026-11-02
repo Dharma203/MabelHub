@@ -25,16 +25,10 @@ export function validateFormFieldsB2B(data: {
     { value: data.requestor, label: 'Penginput' },
     { value: data.jenisEntitas, label: 'Jenis Entitas'},
     { value: data.namaEntitas, label: 'Nama Entitas'},
-    { value: data.bidangUsaha, label: 'Bidang Usaha'},
     { value: data.provinsi, label: 'Provinsi' },
     { value: data.kota, label: 'Kota' },
-    { value: data.alamat, label: 'Alamat' },
+    { value: data.bidangUsaha, label: 'Bidang Usaha'},
     { value: data.ring, label: 'RING'},
-    { value: data.produkRelevan, label: 'Produk Relevan'},
-    { value: data.merekTayang, label: 'Merek Tayang'},
-    { value: data.brandOwner, label: 'Brand Owenr'},
-    { value: data.sumberData, label: 'Sumber Data'},
-    { value: data.salesInternal, label: 'Sales Internal' },
   ]
 
   for (const field of requiredHeader) {

@@ -15,8 +15,6 @@ type EditModalProps = {
   currentUserRole?: string
 }
 
-
-
 export default function EditVisitModal({
   isOpen,
   editId,
@@ -54,6 +52,9 @@ export default function EditVisitModal({
     reschedule_note: '',
     company_id: '',
   })
+  const isPhoneOptional = ['visit akuisisi', 'stay office'].includes(
+    form.kegiatan_status.trim().toLowerCase(),
+  )
 
   // Track the owner of the visit data
   const [ownerId, setOwnerId] = useState('')
@@ -133,7 +134,6 @@ export default function EditVisitModal({
     }
   }, [isOpen, editId, onClose])
 
-
   async function pickContactPhone() {
     // Contact Picker API — works on Android Chrome
     if ('contacts' in navigator && 'ContactsManager' in window) {
@@ -162,7 +162,9 @@ export default function EditVisitModal({
     if (navigator.clipboard?.readText) {
       try {
         const clipText = await navigator.clipboard.readText()
-        const cleaned = clipText.replace(/[^0-9+\s\-]/g, '').replace(/[\s\-]/g, '')
+        const cleaned = clipText
+          .replace(/[^0-9+\s\-]/g, '')
+          .replace(/[\s\-]/g, '')
         if (cleaned && /^[+]?\d{8,15}$/.test(cleaned)) {
           setForm((prev) => ({ ...prev, pic_phone: cleaned }))
           return
@@ -175,17 +177,21 @@ export default function EditVisitModal({
     // Final fallback: instruct user
     alert(
       'Browser ini tidak mendukung pemilihan kontak langsung.\n\n' +
-      'Cara mengambil nomor dari Kontak:\n' +
-      '1. Buka aplikasi Kontak di HP\n' +
-      '2. Pilih kontak yang diinginkan\n' +
-      '3. Tekan & tahan nomor HP → Salin\n' +
-      '4. Kembali ke sini, tap tombol 📇 untuk paste otomatis\n' +
-      '   atau paste manual ke kolom Nomor PIC'
+        'Cara mengambil nomor dari Kontak:\n' +
+        '1. Buka aplikasi Kontak di HP\n' +
+        '2. Pilih kontak yang diinginkan\n' +
+        '3. Tekan & tahan nomor HP → Salin\n' +
+        '4. Kembali ke sini, tap tombol 📇 untuk paste otomatis\n' +
+        '   atau paste manual ke kolom Nomor PIC',
     )
   }
 
   async function handleSave() {
     if (!editId) return
+    if (!isPhoneOptional && !form.pic_phone.trim()) {
+      alert('Nomor PIC wajib diisi untuk kegiatan ini.')
+      return
+    }
     setSaving(true)
     try {
       const isPicChanged =
@@ -440,12 +446,18 @@ export default function EditVisitModal({
               <div>
                 <label className='mb-1 block text-sm font-bold text-black'>
                   Nomor PIC
+                  {!isPhoneOptional && (
+                    <span className='text-red-500'> *</span>
+                  )}
                 </label>
                 <div className='flex gap-1'>
                   <input
                     value={form.pic_phone}
                     onChange={(e) =>
-                      setForm((prev) => ({ ...prev, pic_phone: e.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        pic_phone: e.target.value,
+                      }))
                     }
                     placeholder='08XXX'
                     type='text'
