@@ -166,50 +166,81 @@ function KatalogProdukContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F6F8FA] text-slate-800 pb-16">
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-[1520px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xl font-medium text-black">
-              <span className="text-black">Katalog Produk</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 ml-auto">
-            <button
-              onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
-              className="lg:hidden flex items-center gap-2 px-3 py-2 text-xl font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer"
-            >
-              <Filter className="w-4 h-4" />
-              Filter
-            </button>
-
-            {canAddProduct && (
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/katalog-produk/kelola"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 active:bg-slate-950 text-white text-xs font-bold rounded-lg shadow-2xs transition-all duration-150 cursor-pointer"
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span>Kelola Katalog</span>
-                </Link>
-
-                <Link
-                  href="/katalog-produk/tambah"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#d32f2f] hover:bg-[#b71c1c] active:bg-[#9a1616] text-white text-xs font-bold rounded-lg shadow-sm transition-all duration-150 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
-                  <span>Tambah Produk</span>
-                </Link>
+    <div className="min-h-screen bg-blue-50 text-slate-800 pb-16">
+      <div className="flex">
+        <div className="flex-1 min-w-0 p-4 sm:p-6">
+          <div className="max-w-[1520px] mx-auto">
+            {/* HEADER */}
+            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="ml-2 sm:ml-4 px-2 sm:px-4 pt-2 pb-2 space-y-1">
+                <h2 className="text-3xl font-extrabold text-black drop-shadow-sm uppercase">
+                  KATALOG PRODUK
+                </h2>
+                <p className="text-sm text-neutral-600">
+                  Daftar dan Pengelolaan Informasi Katalog Produk & Komoditas
+                </p>
               </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* Main Content Layout */}
-      <div className="max-w-[1520px] mx-auto px-4 sm:px-6 py-5">
-        <div className="flex gap-6 items-start">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative w-full md:w-80">
+                  <input
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Search..."
+                    className="h-11 w-full rounded-full bg-white px-5 pr-11 text-sm outline-none ring-1 ring-black/10 focus:ring-2 focus:ring-black/20 shadow-xs"
+                  />
+                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M10.5 18.5a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M16.5 16.5 21 21"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+                  className="lg:hidden flex items-center gap-2 px-3 py-2 text-sm font-semibold bg-white hover:bg-slate-50 text-slate-700 rounded-lg border border-slate-200 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Filter className="w-4 h-4" />
+                  Filter
+                </button>
+
+                {canAddProduct && (
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href="/katalog-produk/kelola"
+                      className="inline-flex items-center gap-1.5 h-11 px-4 bg-gray-600 hover:bg-slate-900 active:bg-slate-950 text-white text-m font-bold rounded-xl shadow-xs transition-all duration-150 cursor-pointer"
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                      <span>Kelola Katalog</span>
+                    </Link>
+
+                    <Link
+                      href="/katalog-produk/tambah"
+                      className="inline-flex items-center gap-2 h-11 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-m font-bold rounded-xl shadow-xs transition-all duration-150 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4 stroke-[2.5]" />
+                      <span>Tambah Produk</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Main Content Layout */}
+            <div className="flex gap-6 items-start">
           {/* ── Left Sidebar Filter ── */}
           <aside
             className={`
@@ -236,7 +267,7 @@ function KatalogProdukContent() {
                 </span>
                 <button
                   onClick={handleResetFilters}
-                  className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer"
+                  className="text-sm text-red-600 hover:text-red-700 font-semibold cursor-pointer"
                 >
                   Reset
                 </button>
@@ -244,7 +275,7 @@ function KatalogProdukContent() {
 
               {/* Cari Produk dalam Koleksi */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">
+                <label className="text-sm font-bold text-slate-700">
                   Cari Produk dalam Koleksi
                 </label>
                 <div className="relative">
@@ -264,11 +295,11 @@ function KatalogProdukContent() {
 
               {/* Jenis Produk */}
               <div className="pt-2 border-t border-slate-100 space-y-2">
-                <span className="text-xs font-bold text-slate-700 block">Jenis Produk</span>
+                <span className="text-sm font-bold text-slate-700 block">Jenis Produk</span>
                 {["Barang", "Jasa", "Produk Digital"].map((item) => (
                   <label
                     key={item}
-                    className="flex items-center gap-2.5 text-xs text-slate-600 hover:text-slate-900 cursor-pointer select-none"
+                    className="flex items-center gap-2.5 text-sm text-slate-600 hover:text-slate-900 cursor-pointer select-none"
                   >
                     <input
                       type="checkbox"
@@ -284,7 +315,7 @@ function KatalogProdukContent() {
               {/* TKDN + BMP */}
               <div className="pt-2 border-t border-slate-100 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700">TKDN + BMP</span>
+                  <span className="text-sm font-bold text-slate-700">TKDN + BMP</span>
                   <span className="text-[10px] text-slate-400">Minimum (%)</span>
                 </div>
                 <input
@@ -295,13 +326,13 @@ function KatalogProdukContent() {
                     setMinTkdn(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 focus:border-red-500 rounded-lg outline-none transition-all"
+                  className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-200 focus:border-red-500 rounded-lg outline-none transition-all"
                 />
               </div>
 
               {/* Label Produk */}
               <div className="pt-2 border-t border-slate-100 space-y-2">
-                <span className="text-xs font-bold text-slate-700 block">Label Produk</span>
+                <span className="text-sm font-bold text-slate-700 block">Label Produk</span>
                 {[
                   { id: "PDN", label: "PDN" },
                   { id: "Import", label: "Import" },
@@ -310,7 +341,7 @@ function KatalogProdukContent() {
                 ].map((item) => (
                   <label
                     key={item.id}
-                    className="flex items-center gap-2.5 text-xs text-slate-600 hover:text-slate-900 cursor-pointer select-none"
+                    className="flex items-center gap-2.5 text-sm text-slate-600 hover:text-slate-900 cursor-pointer select-none"
                   >
                     <input
                       type="checkbox"
@@ -325,11 +356,11 @@ function KatalogProdukContent() {
 
               {/* Jenis Penyedia */}
               <div className="pt-2 border-t border-slate-100 space-y-2">
-                <span className="text-xs font-bold text-slate-700 block">Jenis Penyedia</span>
+                <span className="text-sm font-bold text-slate-700 block">Jenis Penyedia</span>
                 {["UMKK", "Non UMKK", "Official Vendor"].map((item) => (
                   <label
                     key={item}
-                    className="flex items-center gap-2.5 text-xs text-slate-600 hover:text-slate-900 cursor-pointer select-none"
+                    className="flex items-center gap-2.5 text-sm text-slate-600 hover:text-slate-900 cursor-pointer select-none"
                   >
                     <input
                       type="checkbox"
@@ -344,11 +375,11 @@ function KatalogProdukContent() {
 
               {/* Lokasi Pengiriman */}
               <div className="pt-2 border-t border-slate-100 space-y-2">
-                <span className="text-xs font-bold text-slate-700 block">Lokasi Pengiriman</span>
+                <span className="text-sm font-bold text-slate-700 block">Lokasi Pengiriman</span>
                 {(showMoreLokasi ? LOCATIONS : LOCATIONS.slice(0, 5)).map((item) => (
                   <label
                     key={item}
-                    className="flex items-center gap-2.5 text-xs text-slate-600 hover:text-slate-900 cursor-pointer select-none"
+                    className="flex items-center gap-2.5 text-sm text-slate-600 hover:text-slate-900 cursor-pointer select-none"
                   >
                     <input
                       type="checkbox"
@@ -362,15 +393,15 @@ function KatalogProdukContent() {
                 <button
                   type="button"
                   onClick={() => setShowMoreLokasi(!showMoreLokasi)}
-                  className="text-[11px] text-red-600 hover:text-red-700 font-semibold cursor-pointer block pt-1"
+                  className="text-m text-red-600 hover:text-red-700 font-semibold cursor-pointer block pt-1"
                 >
                   {showMoreLokasi ? "Tampilkan Lebih Sedikit" : "Lihat Selengkapnya"}
                 </button>
               </div>
 
               {/* Harga */}
-              <div className="pt-2 border-t border-slate-100 space-y-2">
-                <span className="text-xs font-bold text-slate-700 block">Harga</span>
+              <div className="pt-1.5 border-t border-slate-100 space-y-1">
+                <span className="text-sm font-bold text-slate-700 block">Harga</span>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-slate-400 w-12">Terendah:</span>
@@ -414,9 +445,9 @@ function KatalogProdukContent() {
           {/* ── Right Product Grid Area ── */}
           <main className="flex-1 min-w-0">
             {/* Filter tags & Sorting Top Bar */}
-            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="bg-white rounded-xl border border-slate-200 p-4.5 shadow-2xs mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-500 font-medium">
+                <span className="text-m text-slate-500 font-medium">
                   Menampilkan <strong className="text-slate-800">{products.length}</strong> produk dari total{" "}
                   <strong className="text-slate-800">{total}</strong>
                 </span>
@@ -477,7 +508,7 @@ function KatalogProdukContent() {
               </div>
 
               {/* Sorting dropdown */}
-              <div className="flex items-center gap-2 ml-auto text-xs">
+              <div className="flex items-center gap-2 ml-auto text-m">
                 <span className="text-slate-500 font-medium">Urutkan:</span>
                 <select
                   value={sort}
@@ -485,7 +516,7 @@ function KatalogProdukContent() {
                     setSort(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:border-red-500 cursor-pointer"
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-red-500 cursor-pointer"
                 >
                   <option value="paling_sesuai">Paling Sesuai</option>
                   <option value="harga_asc">Harga Terendah</option>
@@ -576,13 +607,13 @@ function KatalogProdukContent() {
                     <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
                       <div className="space-y-1">
                         <h4
-                          className="text-xs font-medium text-slate-800 line-clamp-2 group-hover:text-red-600 transition-colors"
+                          className="text-xl font-medium text-slate-800 line-clamp-2 group-hover:text-blue-600 transition-colors"
                           title={item.namaProduk}
                         >
                           {item.namaProduk}
                         </h4>
 
-                        <div className="text-sm font-extrabold text-slate-900">
+                        <div className="text-xl font-bold text-slate-900">
                           {formatRupiah(item.hargaProduk)}
                         </div>
                       </div>
@@ -678,6 +709,8 @@ function KatalogProdukContent() {
         </div>
       </div>
     </div>
+  </div>
+</div>
   );
 }
 
@@ -685,8 +718,8 @@ export default function KatalogProdukPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#F6F8FA] flex items-center justify-center p-6">
-          <div className="w-8 h-8 border-3 border-red-600 border-t-transparent rounded-full animate-spin" />
+        <div className="min-h-screen bg-blue-50 flex items-center justify-center p-6">
+          <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
         </div>
       }
     >
