@@ -212,12 +212,12 @@ export default function SingleProductPage({
   return (
     <div className="min-h-screen bg-blue-50 text-slate-800 pb-16">
       <div className="flex">
-        <div className="flex-1 min-w-0 p-4 sm:p-6">
+        <div className="flex-1 min-w-0 p-4 sm:px-6 sm:pt-3 sm:pb-8">
           <div className="max-w-[1520px] mx-auto">
             {/* ── HEADER (mengikuti gaya plan-activity) ── */}
-            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="ml-2 sm:ml-4 px-2 sm:px-4 pt-2 pb-4 space-y-1">
-                <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="ml-1 sm:ml-2 px-1 sm:px-2 pt-0.5 pb-0.5 space-y-0.5">
+                <div className="flex items-center gap-2 text-xs text-slate-500 mb-0.5">
                   <Link
                     href="/katalog-produk"
                     className="hover:text-blue-600 font-medium flex items-center gap-1 transition-colors"
@@ -248,7 +248,7 @@ export default function SingleProductPage({
                 {canManage && (
                   <Link
                     href={`/katalog-produk/tambah?id=${product._id}`}
-                    className="inline-flex items-center gap-1.5 h-10 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-1.5 h-10 px-4 bg-blue-700 hover:bg-blue-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
                   >
                     <Edit className="w-3.5 h-3.5" />
                     <span>Edit Produk</span>
@@ -296,7 +296,7 @@ export default function SingleProductPage({
 
             {/* ── Draft Notice Banner (Only for Admin when viewing Draft product) ── */}
             {product.statusDraf && (
-              <div className="mb-6 bg-amber-500 text-white px-4 py-2.5 rounded-xl shadow-xs text-xs font-bold flex flex-wrap items-center justify-between gap-2">
+              <div className="mb-3 bg-amber-500 text-white px-4 py-2.5 rounded-xl shadow-xs text-xs font-bold flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded bg-amber-700 text-amber-100 text-[10px] uppercase font-black">
                     Status: Draf
@@ -315,11 +315,11 @@ export default function SingleProductPage({
             )}
 
             {/* ── Main Detail Grid ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
               {/* ═══════════════════════════════════════════
-                  LEFT COLUMN: Image Showcase & Main Modal Card (STICKY & COMPACT)
+                  LEFT COLUMN: Image Showcase & Main Spec Card (STICKY)
                  ═══════════════════════════════════════════ */}
-              <div className="lg:col-span-6 xl:col-span-5 space-y-3 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto pr-1">
+              <div className="space-y-3 lg:sticky lg:top-2 lg:self-start">
             {/* Image Showcase Card */}
             <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs space-y-2">
               <div className="relative aspect-16/10 w-full bg-slate-50 rounded-lg overflow-hidden border border-slate-100 flex items-center justify-center max-h-[240px]">
@@ -464,51 +464,13 @@ export default function SingleProductPage({
                   </span>
                 </div>
               </div>
-
-              {/* Internal Actions */}
-              <div className="space-y-1.5 pt-1">
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Cetak Lembar Spesifikasi
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
-                >
-                  {copiedLink ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      Tautan Disalin!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      Salin Tautan Produk
-                    </>
-                  )}
-                </button>
-
-                <Link
-                  href="/katalog-produk"
-                  className="w-full flex items-center justify-center gap-1.5 py-1 px-3 text-slate-500 hover:text-slate-800 text-xs font-medium rounded-lg transition-colors"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  Kembali ke Daftar Produk
-                </Link>
-              </div>
             </div>
               </div>
 
               {/* ═══════════════════════════════════════════
-                  RIGHT COLUMN: Vendor, Informasi PDN, & Specifications Tabs
+                  RIGHT COLUMN: Vendor, Informasi PDN, & Specifications Tabs (SCROLLABLE)
                  ═══════════════════════════════════════════ */}
-              <div className="lg:col-span-6 xl:col-span-7 space-y-4">
+              <div className="space-y-3 lg:max-h-[calc(100vh-4.25rem)] lg:overflow-y-auto pr-1.5">
             {/* Vendor / Penyedia Card */}
             <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
