@@ -186,6 +186,41 @@ export async function PUT(
       createdAt: p.createdAt ? new Date(p.createdAt) : now,
       createdBy: String(p.createdBy || gate.session.fullName || gate.session.username || "Admin"),
     }));
+
+    // Validasi: total pembayaran tidak boleh melebihi nominal kontrak
+    const effectiveNominalForValidation = setPayload.nominalKontrak !== undefined
+      ? setPayload.nominalKontrak
+      : (Number(existing.nominalKontrak) || 0);
+
+    if (effectiveNominalForValidation > 0) {
+      const totalPembayaran = setPayload.pembayaran.reduce(
+        (acc: number, p: any) => acc + (Number(p.jumlah) || 0),
+        0
+      );
+      if (totalPembayaran > effectiveNominalForValidation) {
+        return NextResponse.json(
+          {
+            error: `Total pembayaran (Rp ${totalPembayaran.toLocaleString("id-ID")}) melebihi nominal kontrak (Rp ${effectiveNominalForValidation.toLocaleString("id-ID")})`,
+          },
+          { status: 400 },
+        );
+      }
+    }
+  }
+
+  // Update audit log pembayaran
+  if (body.pembayaranAudit !== undefined && Array.isArray(body.pembayaranAudit)) {
+    setPayload.pembayaranAudit = body.pembayaranAudit.map((a: any) => ({
+      id: String(a.id || `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`),
+      action: String(a.action || "EDIT"),
+      paymentId: String(a.paymentId || ""),
+      tanggal: a.tanggal ? new Date(a.tanggal) : now,
+      user: String(a.user || gate.session.fullName || gate.session.username || "Admin"),
+      role: String(a.role || gate.session.role || "ADMIN"),
+      oldData: a.oldData || {},
+      newData: a.newData || undefined,
+      reason: a.reason ? String(a.reason).trim() : undefined,
+    }));
   }
 
   // Otomatisasi status project (DONE PROJECT / PENAGIHAN / PENDING)
