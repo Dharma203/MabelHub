@@ -489,3 +489,61 @@ export function findSubCategoryConfig(mainCatId: string, subCatId: string): SubC
   const sub = main.subcategories.find((s) => s.id === subCatId) || main.subcategories[0];
   return sub;
 }
+
+// ─── Log Produk & Riwayat Stok ──────────────────────────────────────────────
+export interface StockLogItem {
+  id?: string;
+  tanggal: string;
+  tipe: "tambah" | "kurang" | "awal" | "penyesuaian";
+  jumlahPerubahan: number;
+  stokSebelum: number;
+  stokSesudah: number;
+  catatan?: string;
+  user?: string;
+}
+
+// ─── Helper Perhitungan Umur Produk ──────────────────────────────────────────
+export function hitungUmurProduk(tanggalMasuk?: string | Date | null): string {
+  if (!tanggalMasuk) return "-";
+  const start = new Date(tanggalMasuk);
+  if (isNaN(start.getTime())) return "-";
+
+  const now = new Date();
+  const dStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const dNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const diffTime = dNow.getTime() - dStart.getTime();
+  if (diffTime < 0) return "Baru dijadwalkan";
+
+  const totalDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  if (totalDays === 0) return "Hari ini (Baru masuk)";
+  if (totalDays < 30) return `${totalDays} hari`;
+
+  const months = Math.floor(totalDays / 30);
+  const remainingDays = totalDays % 30;
+
+  if (totalDays < 365) {
+    if (remainingDays === 0) return `${months} bulan`;
+    return `${months} bulan ${remainingDays} hari`;
+  }
+
+  const years = Math.floor(totalDays / 365);
+  const remainingMonths = Math.floor((totalDays % 365) / 30);
+  if (remainingMonths === 0) return `${years} tahun`;
+  return `${years} tahun ${remainingMonths} bulan`;
+}
+
+// ─── Helper Format Tanggal Indonesia ─────────────────────────────────────────
+export function formatTanggalIndo(dateStr?: string | Date | null): string {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return String(dateStr);
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(d);
+}
+
