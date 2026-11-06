@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 
 const ALL_CATEGORIES = [
-  { id: "brochure", name: "Brochure", docCount: 4, iconBg: "bg-blue-100 text-blue-600", superAdminOnly: false, description: "Brosur produk & layanan" },
-  { id: "catalogue", name: "Catalogue", docCount: 4, iconBg: "bg-purple-100 text-purple-600", superAdminOnly: false, description: "Katalog produk lengkap" },
-  { id: "company-profile", name: "Company Profile", docCount: 5, iconBg: "bg-orange-100 text-orange-600", superAdminOnly: false, description: "Profil perusahaan resmi" },
-  { id: "datasheet", name: "Datasheet", docCount: 2, iconBg: "bg-pink-100 text-pink-600", superAdminOnly: false, description: "Lembar data teknis produk" },
-  { id: "presentation-materials", name: "Presentation Materials", docCount: 6, iconBg: "bg-violet-100 text-violet-600", superAdminOnly: false, description: "Materi presentasi sales" },
-  { id: "pricelist", name: "Pricelist", docCount: 1, iconBg: "bg-emerald-100 text-emerald-600", superAdminOnly: false, description: "Daftar harga produk & jasa" },
-  { id: "id-kit", name: "ID KIT", docCount: 4, iconBg: "bg-rose-100 text-rose-600", superAdminOnly: false, description: "Identitas visual & kit brand" },
-  { id: "tools", name: "Tools", docCount: 3, iconBg: "bg-cyan-100 text-cyan-600", superAdminOnly: false, description: "Alat bantu & template kerja" },
-  { id: "certification", name: "Certification", docCount: 10, iconBg: "bg-yellow-100 text-yellow-600", superAdminOnly: true, description: "Sertifikat & akreditasi resmi" },
-  { id: "legalitas", name: "Legalitas", docCount: 4, iconBg: "bg-indigo-100 text-indigo-600", superAdminOnly: true, description: "Dokumen legal & perizinan" },
+  { id: "brochure", name: "Brochure", docCount: 0, iconBg: "bg-[#1D80D9]/10 text-[#1D80D9]", superAdminOnly: false, isLocked: false, description: "Brosur produk & layanan" },
+  { id: "catalogue", name: "Catalogue", docCount: 0, iconBg: "bg-purple-100 text-purple-600", superAdminOnly: false, isLocked: false, description: "Katalog produk lengkap" },
+  { id: "company-profile", name: "Company Profile", docCount: 0, iconBg: "bg-orange-100 text-orange-600", superAdminOnly: false, isLocked: false, description: "Profil perusahaan resmi" },
+  { id: "datasheet", name: "Datasheet", docCount: 0, iconBg: "bg-pink-100 text-pink-600", superAdminOnly: false, isLocked: false, description: "Lembar data teknis produk" },
+  { id: "presentation-materials", name: "Presentation Materials", docCount: 0, iconBg: "bg-violet-100 text-violet-600", superAdminOnly: false, isLocked: false, description: "Materi presentasi sales" },
+  { id: "pricelist", name: "Pricelist", docCount: 0, iconBg: "bg-emerald-100 text-emerald-600", superAdminOnly: false, isLocked: false, description: "Daftar harga produk & jasa" },
+  { id: "id-kit", name: "ID KIT", docCount: 0, iconBg: "bg-rose-100 text-rose-600", superAdminOnly: false, isLocked: false, description: "Identitas visual & kit brand" },
+  { id: "tools", name: "Tools", docCount: 0, iconBg: "bg-cyan-100 text-cyan-600", superAdminOnly: false, isLocked: false, description: "Alat bantu & template kerja" },
+  { id: "certification", name: "Certification", docCount: 0, iconBg: "bg-yellow-100 text-yellow-600", superAdminOnly: true, isLocked: false, description: "Sertifikat & akreditasi resmi" },
+  { id: "legalitas", name: "Legalitas", docCount: 0, iconBg: "bg-indigo-100 text-indigo-600", superAdminOnly: true, isLocked: false, description: "Dokumen legal & perizinan" },
 ];
 
 export async function GET() {
@@ -19,6 +19,7 @@ export async function GET() {
     const client = await clientPromise;
     const db = client.db("MabelHub");
     const col = db.collection("product_categories");
+    const docCol = db.collection("product_documents");
 
     let categories = await col.find({}).toArray();
 
@@ -28,15 +29,21 @@ export async function GET() {
       categories = await col.find({}).toArray();
     }
 
-    // Map _id to string or remove it to avoid client-side warning, and ensure id exists
-    const formattedCategories = categories.map((cat: any) => ({
-      id: cat.id,
-      name: cat.name,
-      docCount: cat.docCount || 0,
-      iconBg: cat.iconBg || "bg-blue-100 text-blue-600",
-      superAdminOnly: cat.superAdminOnly || false,
-      description: cat.description || "",
-    }));
+    // Map categories with actual docCount and isLocked
+    const formattedCategories = await Promise.all(
+      categories.map(async (cat: any) => {
+        const actualDocCount = await docCol.countDocuments({ categoryId: cat.id });
+        return {
+          id: cat.id,
+          name: cat.name,
+          docCount: actualDocCount,
+          iconBg: cat.iconBg || "bg-[#1D80D9]/10 text-[#1D80D9]",
+          superAdminOnly: cat.superAdminOnly || false,
+          isLocked: cat.isLocked || false,
+          description: cat.description || "",
+        };
+      })
+    );
 
     return NextResponse.json(formattedCategories);
   } catch (error) {
@@ -48,7 +55,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { id, name, description, superAdminOnly, iconBg } = body;
+    const { id, name, description, superAdminOnly, iconBg, isLocked } = body;
 
     if (!id || !name) {
       return NextResponse.json({ error: "ID and name are required" }, { status: 400 });
@@ -69,7 +76,8 @@ export async function POST(req: Request) {
       name,
       description: description || "",
       superAdminOnly: superAdminOnly || false,
-      iconBg: iconBg || "bg-blue-100 text-blue-600",
+      isLocked: isLocked || false,
+      iconBg: iconBg || "bg-[#1D80D9]/10 text-[#1D80D9]",
       docCount: 0,
       createdAt: new Date(),
     };
