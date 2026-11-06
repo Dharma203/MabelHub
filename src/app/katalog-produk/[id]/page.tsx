@@ -497,7 +497,7 @@ return (
 
 <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
 
-<p className="text-xs font-semibold text-slate-500">Memuat data produk...</p>
+<p className="text-sm font-semibold text-slate-500">Memuat data produk...</p>
 
 </div>
 
@@ -517,7 +517,7 @@ return (
 
 <h2 className="text-base font-bold text-slate-800">Produk Tidak Ditemukan</h2>
 
-<p className="text-xs text-slate-500 max-w-sm">
+<p className="text-sm text-slate-500 max-w-sm">
 
 Produk yang Anda cari tidak tersedia atau telah dihapus dari katalog internal.
 
@@ -527,7 +527,7 @@ Produk yang Anda cari tidak tersedia atau telah dihapus dari katalog internal.
 
 href="/katalog-produk"
 
-className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors"
+className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors"
 
 >
 
@@ -555,13 +555,11 @@ return (
 
 <div className="max-w-[1520px] mx-auto">
 
-{/* ── HEADER (mengikuti gaya plan-activity) ── */}
-
 <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 
 <div className="ml-1 sm:ml-2 px-1 sm:px-2 pt-0.5 pb-0.5 space-y-0.5">
 
-<div className="flex items-center gap-2 text-xs text-slate-500 mb-0.5">
+<div className="flex items-center gap-2 text-sm text-slate-500 mb-0.5">
 
 <Link
 
@@ -571,15 +569,9 @@ className="hover:text-blue-600 font-medium flex items-center gap-1 transition-co
 
 >
 
-<ArrowLeft className="w-3.5 h-3.5" />
-
 <span>Katalog Produk</span>
 
 </Link>
-
-<ChevronRight className="w-3 h-3 text-slate-400" />
-
-<span className="text-slate-600">{product.kategori || "Produk"}</span>
 
 {product.subKategori && (
 
@@ -619,7 +611,7 @@ DETAIL PRODUK
 
 href={`/katalog-produk/tambah?id=${product._id}`}
 
-className="inline-flex items-center gap-1.5 h-10 px-4 bg-blue-700 hover:bg-blue-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+className="inline-flex items-center gap-1.5 h-10 px-4 bg-blue-700 hover:bg-blue-900 text-white rounded-xl text-sm font-bold transition-all shadow-xs cursor-pointer"
 
 >
 
@@ -635,7 +627,7 @@ className="inline-flex items-center gap-1.5 h-10 px-4 bg-blue-700 hover:bg-blue-
 
 onClick={handleCopyLink}
 
-className="inline-flex items-center gap-1.5 h-10 px-3.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-medium shadow-xs transition-colors cursor-pointer"
+className="inline-flex items-center gap-1.5 h-10 px-3.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-sm font-medium shadow-xs transition-colors cursor-pointer"
 
 title="Salin Tautan"
 
@@ -669,7 +661,7 @@ title="Salin Tautan"
 
 onClick={handlePrint}
 
-className="inline-flex items-center gap-1.5 h-10 px-3.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-medium shadow-xs transition-colors cursor-pointer"
+className="inline-flex items-center gap-1.5 h-10 px-3.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-sm font-medium shadow-xs transition-colors cursor-pointer"
 
 title="Cetak Spesifikasi"
 
@@ -687,7 +679,7 @@ title="Cetak Spesifikasi"
 
 onClick={() => setShowDeleteModal(true)}
 
-className="inline-flex items-center justify-center w-10 h-10 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-medium shadow-xs transition-colors cursor-pointer"
+className="inline-flex items-center justify-center w-10 h-10 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-sm font-medium shadow-xs transition-colors cursor-pointer"
 
 title="Hapus Produk"
 
@@ -707,7 +699,7 @@ title="Hapus Produk"
 
 {product.statusDraf && (
 
-<div className="mb-3 bg-amber-500 text-white px-4 py-2.5 rounded-xl shadow-xs text-xs font-bold flex flex-wrap items-center justify-between gap-2">
+<div className="mb-3 bg-amber-500 text-white px-4 py-2.5 rounded-xl shadow-xs text-sm font-bold flex flex-wrap items-center justify-between gap-2">
 
 <div className="flex items-center gap-2">
 
@@ -727,7 +719,7 @@ Status: Draf
 
 href={`/katalog-produk/tambah?id=${product._id}`}
 
-className="px-3 py-1 bg-white text-amber-900 hover:bg-amber-50 rounded-lg text-xs font-extrabold transition-colors"
+className="px-3 py-1 bg-white text-amber-900 hover:bg-amber-50 rounded-lg text-sm font-extrabold transition-colors"
 
 >
 
@@ -777,7 +769,7 @@ className="w-full h-full object-contain max-h-[230px]"
 
 />
 
-                <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 hover:bg-black/80 text-white text-[10px] font-bold rounded-lg backdrop-blur-xs flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-none">
+                <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 hover:bg-black/80 text-white text-sm font-bold rounded-lg backdrop-blur-xs flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-none">
 
                   <Maximize2 className="w-3 h-3" />
 
@@ -979,7 +971,7 @@ setSelectedVariants((prev) => ({ ...prev, [v.nama]: opt }))
 
 }
 
-className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+className={`px-2.5 py-1 text-sm font-semibold rounded-lg border transition-all cursor-pointer ${
 
 isSelected
 
@@ -1095,7 +1087,7 @@ RIGHT COLUMN: Vendor, Informasi PDN, & Specifications Tabs (SCROLLABLE)
 
 </span>
 
-<h3 className="text-xs font-bold text-slate-900 uppercase tracking-tight truncate max-w-[200px] sm:max-w-xs">
+<h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight truncate max-w-[200px] sm:max-w-xs">
 
 {product.namaPenyedia || "Penyedia Terdaftar LKPP"}
 
@@ -1145,7 +1137,7 @@ TKDN+BMP: {(product.nilaiTkdn || 0) + (product.nilaiBmp || 0) > 0
 
 </div>
 
-<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
 
 <div className="bg-slate-50/70 p-2 rounded-lg border border-slate-100">
 
@@ -1197,13 +1189,13 @@ TKDN+BMP: {(product.nilaiTkdn || 0) + (product.nilaiBmp || 0) > 0
 
 </div>
 
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[11px] pt-0.5 text-slate-600">
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 font-bold text-sm pt-0.5 text-slate-600">
 
 <div className="flex items-center justify-between">
 
 <span className="text-slate-400">Pemilik Sertifikat:</span>
 
-<span className="font-medium text-slate-700 truncate max-w-[180px]">{product.pemilikSertifikat || "-"}</span>
+<span className="font-bold text-slate-700 truncate max-w-[180px]">{product.pemilikSertifikat || "-"}</span>
 
 </div>
 
@@ -1211,7 +1203,7 @@ TKDN+BMP: {(product.nilaiTkdn || 0) + (product.nilaiBmp || 0) > 0
 
 <span className="text-slate-400">Lokasi Produksi:</span>
 
-<span className="font-medium text-slate-700 truncate max-w-[180px]">{product.lokasiProduksi || "Indonesia"}</span>
+<span className="font-bold text-slate-700 truncate max-w-[180px]">{product.lokasiProduksi || "Indonesia"}</span>
 
 </div>
 
@@ -1229,7 +1221,7 @@ TKDN+BMP: {(product.nilaiTkdn || 0) + (product.nilaiBmp || 0) > 0
 
 onClick={() => setActiveTab("detail")}
 
-className={`py-2 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+className={`py-2 px-3 text-sm font-bold border-b-2 transition-colors cursor-pointer ${
 
 activeTab === "detail"
 
@@ -1249,7 +1241,7 @@ Detail Produk
 
 onClick={() => setActiveTab("pendukung")}
 
-className={`py-2 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+className={`py-2 px-3 text-sm font-bold border-b-2 transition-colors cursor-pointer ${
 
 activeTab === "pendukung"
 
@@ -1269,7 +1261,7 @@ Info Pendukung
 
 onClick={() => setActiveTab("riwayatStok")}
 
-className={`py-2 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+className={`py-2 px-3 text-sm font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
 
 activeTab === "riwayatStok"
 
@@ -1297,7 +1289,7 @@ activeTab === "riwayatStok"
 
 {/* Specs List */}
 
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1 gap-x-6 text-xs">
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1 gap-x-6 text-sm">
 
 <div className="flex items-start justify-between py-1 border-b border-slate-100/80">
 
@@ -1457,7 +1449,7 @@ Spesifikasi Teknis ({product.subKategori || product.kategori})
 
 </h4>
 
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1 gap-x-6 text-xs bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1 gap-x-6 text-sm bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
 
 {Object.entries(product.spesifikasiDetail)
 
@@ -1499,7 +1491,7 @@ return (
 
 <p
 
-className={`text-xs text-slate-600 leading-relaxed whitespace-pre-line ${
+className={`text-sm text-slate-600 leading-relaxed whitespace-pre-line ${
 
 !isDescExpanded ? "line-clamp-3" : ""
 
@@ -1521,7 +1513,7 @@ type="button"
 
 onClick={() => setIsDescExpanded(!isDescExpanded)}
 
-className="text-xs font-bold text-red-600 hover:text-red-700 cursor-pointer block pt-0.5"
+className="text-sm font-bold text-red-600 hover:text-red-700 cursor-pointer block pt-0.5"
 
 >
 
@@ -1537,11 +1529,11 @@ className="text-xs font-bold text-red-600 hover:text-red-700 cursor-pointer bloc
 
 ) : activeTab === "pendukung" ? (
 
-<div className="space-y-3 text-xs">
+<div className="space-y-3 text-sm">
 
 <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
 
-<h4 className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+<h4 className="font-bold text-slate-800 flex items-center gap-1.5 text-sm">
 
 <Award className="w-3.5 h-3.5 text-blue-600" />
 
@@ -1561,7 +1553,7 @@ Produk ini telah melalui verifikasi kepatuhan sertifikat Tingkat Komponen Dalam 
 
 <div className="space-y-1">
 
-<h4 className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+<h4 className="font-bold text-slate-800 flex items-center gap-1.5 text-sm">
 
 <Wrench className="w-3.5 h-3.5 text-emerald-600" />
 
@@ -1587,7 +1579,7 @@ Layanan Tambahan
 
 <div className="space-y-1 pt-1.5 border-t border-slate-100">
 
-<h4 className="font-bold text-slate-800 text-xs">Tautan Video Produk:</h4>
+<h4 className="font-bold text-slate-800 text-sm">Tautan Video Produk:</h4>
 
 <a
 
@@ -1617,7 +1609,7 @@ className="text-blue-600 hover:underline flex items-center gap-1 text-[11px]"
 
 /* ── TAB 3: Riwayat Stok / Log Produk ── */
 
-<div className="space-y-3.5 text-xs">
+<div className="space-y-3.5 text-sm">
 
 {/* Header Summary & Tombol Quick Adjust */}
 
@@ -1663,7 +1655,7 @@ setShowStockModal(true);
 
 }}
 
-className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors cursor-pointer shadow-2xs"
 
 >
 
@@ -1731,7 +1723,7 @@ log.tipe === "tambah" || log.jumlahPerubahan > 0
 
 </span>
 
-<span className="font-bold text-slate-900 text-xs">
+<span className="font-bold text-slate-900 text-sm">
 
 {log.catatan || (log.jumlahPerubahan > 0 ? `Penambahan stok (+${log.jumlahPerubahan})` : `Pengurangan stok (${log.jumlahPerubahan})`)}
 
@@ -1789,7 +1781,7 @@ Perubahan: <strong className="text-slate-700">{log.stokSebelum}</strong> →{" "
 
 <Boxes className="w-8 h-8 text-slate-300 mx-auto" />
 
-<p className="text-slate-500 font-medium text-xs">
+<p className="text-slate-500 font-medium text-sm">
 
 Belum ada catatan riwayat perubahan stok untuk produk ini.
 
@@ -1839,7 +1831,7 @@ Belum ada catatan riwayat perubahan stok untuk produk ini.
 
 <h3 className="text-sm font-black text-slate-900">Sesuaikan Stok Produk</h3>
 
-<p className="text-xs text-slate-500">Catat penambahan atau pengurangan stok</p>
+<p className="text-sm text-slate-500">Catat penambahan atau pengurangan stok</p>
 
 </div>
 
@@ -1861,7 +1853,7 @@ className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
 
 </div>
 
-<div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+<div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm space-y-1">
 
 <div className="text-slate-500">Produk:</div>
 
@@ -1881,7 +1873,7 @@ Stok saat ini: <strong>{product.jumlahStok || 0} {product.satuanProduk || "Unit"
 
 <div className="space-y-1.5">
 
-<label className="text-xs font-bold text-slate-700 block">Jenis Penyesuaian:</label>
+<label className="text-sm font-bold text-slate-700 block">Jenis Penyesuaian:</label>
 
 <div className="grid grid-cols-2 gap-2">
 
@@ -1891,7 +1883,7 @@ type="button"
 
 onClick={() => setStockActionType("tambah")}
 
-className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+className={`py-2 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
 
 stockActionType === "tambah"
 
@@ -1915,7 +1907,7 @@ type="button"
 
 onClick={() => setStockActionType("kurang")}
 
-className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+className={`py-2 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
 
 stockActionType === "kurang"
 
@@ -1941,7 +1933,7 @@ stockActionType === "kurang"
 
 <div className="space-y-1.5">
 
-<label className="text-xs font-bold text-slate-700 block">
+<label className="text-sm font-bold text-slate-700 block">
 
 Jumlah ({product.satuanProduk || "Unit"}):
 
@@ -1961,7 +1953,7 @@ value={stockAmount}
 
 onChange={(e) => setStockAmount(e.target.value)}
 
-className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-bold text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
 
 />
 
@@ -1971,7 +1963,7 @@ className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-x
 
 <div className="space-y-1.5">
 
-<label className="text-xs font-bold text-slate-700 block">
+<label className="text-sm font-bold text-slate-700 block">
 
 Catatan / Keterangan (Opsional):
 
@@ -1987,7 +1979,7 @@ value={stockNote}
 
 onChange={(e) => setStockNote(e.target.value)}
 
-className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
 
 />
 
@@ -1997,7 +1989,7 @@ className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-x
 
 {stockAmount && parseInt(stockAmount, 10) > 0 && (
 
-<div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs flex items-center justify-between font-bold text-blue-900">
+<div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm flex items-center justify-between font-bold text-blue-900">
 
 <span>Estimasi Stok Baru:</span>
 
@@ -2027,7 +2019,7 @@ onClick={() => setShowStockModal(false)}
 
 disabled={updatingStock}
 
-className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-sm font-bold text-slate-700 transition-colors cursor-pointer"
 
 >
 
@@ -2041,7 +2033,7 @@ type="submit"
 
 disabled={updatingStock || !stockAmount}
 
-className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
 
 >
 
@@ -2101,7 +2093,7 @@ onClick={(e) => e.stopPropagation()}
 
 {allImages.length > 1 && (
 
-<p className="text-xs text-slate-400">
+<p className="text-sm text-slate-400">
 
 Gambar {activeImageIndex + 1} dari {allImages.length}
 
@@ -2117,7 +2109,7 @@ type="button"
 
 onClick={() => setShowFullscreenImage(false)}
 
-className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0"
+className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer flex items-center gap-1.5 text-sm font-bold shrink-0"
 
 title="Tutup (Esc)"
 
@@ -2277,13 +2269,13 @@ activeImageIndex === idx
 
 <h3 className="text-sm font-black text-slate-900">Konfirmasi Hapus Produk</h3>
 
-<p className="text-xs text-slate-500">Tindakan ini tidak dapat dibatalkan</p>
+<p className="text-sm text-slate-500">Tindakan ini tidak dapat dibatalkan</p>
 
 </div>
 
 </div>
 
-<div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+<div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm space-y-1">
 
 <div className="text-slate-500">Nama Produk:</div>
 
@@ -2301,7 +2293,7 @@ SKU: {product.sku}
 
 </div>
 
-<p className="text-xs text-slate-600 leading-relaxed">
+<p className="text-sm text-slate-600 leading-relaxed">
 
 Apakah Anda yakin ingin menghapus produk ini dari katalog? Seluruh spesifikasi teknis, riwayat draf, varian, dan harga akan dihapus secara permanen.
 
@@ -2317,7 +2309,7 @@ onClick={() => setShowDeleteModal(false)}
 
 disabled={deleting}
 
-className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-sm font-bold text-slate-700 transition-colors cursor-pointer"
 
 >
 
@@ -2333,7 +2325,7 @@ onClick={handleDeleteProduct}
 
 disabled={deleting}
 
-className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-2"
+className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-2"
 
 >
 

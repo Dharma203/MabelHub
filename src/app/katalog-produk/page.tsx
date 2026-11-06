@@ -909,7 +909,7 @@ function KatalogProdukContent() {
               {/* Sisi Kanan: Pagination (Limit & Navigasi Halaman) & Urutkan */}
               <div className="flex flex-wrap items-center gap-2.5 sm:gap-3.5 ml-auto">
                 {/* Selector Limit Per Halaman */}
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <div className="flex items-center gap-1.5 text-sm text-slate-500">
                   <span className="hidden md:inline">Tampilkan:</span>
                   <select
                     value={limit}
