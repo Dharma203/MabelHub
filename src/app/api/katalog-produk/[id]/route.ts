@@ -69,16 +69,72 @@ export async function PUT(
       return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
     }
 
+    const client = await clientPromise;
+    const db = client.db(getDbName());
+    const col = db.collection("katalog_produk");
+
+    const currentProduct = await col.findOne({ _id: new ObjectId(id) });
+    if (!currentProduct) {
+      return NextResponse.json(
+        { error: "Produk tidak ditemukan" },
+        { status: 404 }
+      );
+    }
+
     const body = await req.json();
     const updateData = { ...body };
     delete updateData._id;
     updateData.updatedAt = new Date().toISOString();
 
-    const client = await clientPromise;
-    const db = client.db(getDbName());
-    const result = await db
-      .collection("katalog_produk")
-      .updateOne({ _id: new ObjectId(id) }, { $set: updateData });
+    // Logika pencatatan log riwayat stok
+    let existingLogs = Array.isArray(currentProduct.riwayatStok)
+      ? [...currentProduct.riwayatStok]
+      : [];
+
+    // Jika ada aksi cepat penyesuaian stok (quick adjustment)
+    if (body.quickAdjustmentStok !== undefined && typeof body.quickAdjustmentStok === "number") {
+      const delta = body.quickAdjustmentStok;
+      const oldStock = Number(currentProduct.jumlahStok) || 0;
+      const newStock = Math.max(0, oldStock + delta);
+      updateData.jumlahStok = newStock;
+
+      const logItem = {
+        id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        tanggal: new Date().toISOString(),
+        tipe: delta > 0 ? "tambah" : "kurang",
+        jumlahPerubahan: delta,
+        stokSebelum: oldStock,
+        stokSesudah: newStock,
+        catatan: body.catatanPerubahanStok || (delta > 0 ? `Penambahan stok (+${delta})` : `Pengurangan stok (${delta})`),
+        user: auth.session.fullName || auth.session.username || "Admin",
+      };
+      existingLogs.unshift(logItem);
+      updateData.riwayatStok = existingLogs;
+      delete updateData.quickAdjustmentStok;
+      delete updateData.catatanPerubahanStok;
+    } else if (body.jumlahStok !== undefined) {
+      const newStock = Number(body.jumlahStok) || 0;
+      const oldStock = Number(currentProduct.jumlahStok) || 0;
+      const diff = newStock - oldStock;
+
+      if (diff !== 0) {
+        const logItem = {
+          id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          tanggal: new Date().toISOString(),
+          tipe: diff > 0 ? "tambah" : "kurang",
+          jumlahPerubahan: diff,
+          stokSebelum: oldStock,
+          stokSesudah: newStock,
+          catatan: body.catatanPerubahanStok || (diff > 0 ? `Penambahan stok (+${diff})` : `Pengurangan stok (${diff})`),
+          user: auth.session.fullName || auth.session.username || "Admin",
+        };
+        existingLogs.unshift(logItem);
+        updateData.riwayatStok = existingLogs;
+      }
+      delete updateData.catatanPerubahanStok;
+    }
+
+    const result = await col.updateOne({ _id: new ObjectId(id) }, { $set: updateData });
 
     if (result.matchedCount === 0) {
       return NextResponse.json(
