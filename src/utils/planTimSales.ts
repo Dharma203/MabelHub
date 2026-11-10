@@ -17,13 +17,15 @@ export const planTimSalesNames = [
   'Hery Nugraha',
   'Mugi Khairul',
   'Meliany Anggraini',
+  'Ema Dwi Jayanti',
+  'Denden Permana'
 ]
 
 export function createInitialPlanTimSalesTargets(): PlanTimSalesTarget[] {
   return planTimSalesNames.map((nama_sales, index) => ({
     id: String(index + 1),
     nama_sales,
-    visit_target: index === 0 ? '63' : '147',
+    visit_target: index === 0 ? '70' : '140',
     demo_target: '0',
     sph_target: '0',
     sph_deal_target: '0',

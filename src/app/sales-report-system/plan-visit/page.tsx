@@ -16,14 +16,54 @@ function PlanVisitContent() {
   const [visitTargets, setVisitTargets] = useState(
     createInitialPlanVisitsSalesTargets,
   )
+  const [salesNames, setSalesNames] = useState(planVisitSalesNames)
   const router = useRouter()
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    if (!sessionStorage.getItem('sales-report-plan-tim-draft')) {
+    const raw = sessionStorage.getItem('sales-report-plan-tim-draft')
+    if (!raw) {
       alert('Isi Plan Tim terlebih dahulu.')
       router.replace('/sales-report-system/plan-tim')
+      return
     }
+
+    let names: string[]
+    try {
+      const draft: unknown = JSON.parse(raw)
+      const targets =
+        draft && typeof draft === 'object' && 'sales_targets' in draft
+          ? draft.sales_targets
+          : null
+      names = Array.isArray(targets)
+        ? [...new Set(
+            targets.flatMap((target) =>
+              target &&
+              typeof target === 'object' &&
+              'nama_sales' in target &&
+              typeof target.nama_sales === 'string' &&
+              planVisitSalesNames.includes(target.nama_sales)
+                ? [target.nama_sales]
+                : [],
+            ),
+          )]
+        : []
+    } catch (error) {
+      console.error('Error reading Plan Tim draft:', error)
+      names = []
+    }
+
+    if (!names.length) {
+      sessionStorage.removeItem('sales-report-plan-tim-draft')
+      alert('Data target sales tidak valid. Silakan isi ulang Plan Tim.')
+      router.replace('/sales-report-system/plan-tim')
+      return
+    }
+
+    // Sync the browser draft created by the previous form step.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSalesNames(names)
+    setVisitTargets(createInitialPlanVisitsSalesTargets(names))
   }, [router])
 
   const handleKirim = () => {
@@ -125,7 +165,7 @@ function PlanVisitContent() {
                           }
                           options={[
                             { value: '', label: '-- Pilih sales --' },
-                            ...planVisitSalesNames
+                            ...salesNames
                               .filter(
                                 (name) =>
                                   name === row.nama_sales ||

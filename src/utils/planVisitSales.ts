@@ -1,3 +1,5 @@
+import { planTimSalesNames } from '@/utils/planTimSales'
+
 export type PlanVisitSalesTarget = {
   id: string
   nama_sales: string
@@ -9,15 +11,7 @@ export type PlanVisitSalesTarget = {
 
 export type PlanVisitSalesEntry = Omit<PlanVisitSalesTarget, 'id'>
 
-export const planVisitSalesNames = [
-  'Arie Muhamad Fajar',
-  'Beffry Rizkana',
-  'Ferrie Ferdinal',
-  'Toni Ramdan',
-  'Hery Nugraha',
-  'Mugi Khairul',
-  'Meliany Anggraini',
-]
+export const planVisitSalesNames = planTimSalesNames
 
 export const planVisitSegmenNames = [
   'B2G-R1',
@@ -33,11 +27,12 @@ export const planVisitTypes = ['Visit', 'Follow Up']
 
 export function normalizePlanVisitSales(
   value: unknown,
+  allowedSalesNames: readonly string[] = planVisitSalesNames,
 ): PlanVisitSalesEntry[] | null {
   if (
     !Array.isArray(value) ||
     value.length === 0 ||
-    value.length > planVisitSalesNames.length
+    value.length > allowedSalesNames.length
   ) {
     return null
   }
@@ -67,7 +62,7 @@ export function normalizePlanVisitSales(
       note: item.note.trim(),
     }
     if (
-      !planVisitSalesNames.includes(entry.nama_sales) ||
+      !allowedSalesNames.includes(entry.nama_sales) ||
       !planVisitSegmenNames.includes(entry.segmentasi) ||
       !planVisitTypes.includes(entry.tipe_visit) ||
       !entry.nama_perusahaan ||
@@ -83,8 +78,10 @@ export function normalizePlanVisitSales(
   return entries
 }
 
-export function createInitialPlanVisitsSalesTargets(): PlanVisitSalesTarget[] {
-  return planVisitSalesNames.map((nama_sales, index) => ({
+export function createInitialPlanVisitsSalesTargets(
+  salesNames: readonly string[] = planVisitSalesNames,
+): PlanVisitSalesTarget[] {
+  return salesNames.map((nama_sales, index) => ({
     id: String(index + 1),
     nama_sales,
     segmentasi: '',

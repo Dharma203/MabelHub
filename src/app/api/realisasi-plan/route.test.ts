@@ -5,6 +5,10 @@ import { GET, POST } from './route'
 import clientPromise from '@/lib/mongodb'
 
 const mockVisitCount = { value: 3 }
+const mockVisitQuery = { status: '' }
+const mockSavedRealization: { value: { sales: unknown[] } | null } = {
+  value: null,
+}
 
 jest.mock('@/lib/auth-server', () => ({
   assertLoggedIn: () => ({
@@ -22,17 +26,35 @@ jest.mock('@/lib/mongodb', () => ({
           ? { findOne: jest.fn().mockImplementation(() => mockPlan) }
           : name === 'VisitActivity'
             ? {
-                aggregate: jest.fn(() => ({
-                  toArray: jest.fn().mockImplementation(() =>
-                    Promise.resolve(
-                      mockVisitCount.value
-                        ? [{ _id: 'Sales A', count: mockVisitCount.value }]
-                        : [],
-                    ),
-                  ),
-                })),
+                aggregate: jest.fn(
+                  (pipeline: { $match?: Record<string, unknown> }[]) => {
+                    const statusMatch = pipeline.find(
+                      (stage) =>
+                        stage.$match &&
+                        Object.hasOwn(stage.$match, 'status_visit'),
+                    )?.$match?.status_visit
+                    mockVisitQuery.status =
+                      typeof statusMatch === 'string' ? statusMatch : ''
+                    return {
+                      toArray: jest.fn().mockImplementation(() =>
+                        Promise.resolve(
+                          mockVisitCount.value
+                            ? [{ _id: 'Sales A', count: mockVisitCount.value }]
+                            : [],
+                        ),
+                      ),
+                    }
+                  },
+                ),
               }
-            : { findOne: jest.fn().mockResolvedValue(null), insertOne: jest.fn().mockResolvedValue({ insertedId: 'realization-1' }) },
+            : name === 'sales-report-realizations'
+              ? {
+                  findOne: jest.fn().mockImplementation(() =>
+                    Promise.resolve(mockSavedRealization.value),
+                  ),
+                  insertOne: jest.fn().mockResolvedValue({ insertedId: 'realization-1' }),
+                }
+              : { findOne: jest.fn().mockResolvedValue(null), insertOne: jest.fn().mockResolvedValue({ insertedId: 'realization-1' }) },
       ),
     }),
   }),
@@ -62,6 +84,8 @@ const mockPlan = {
 describe('GET /api/realisasi-plan', () => {
   beforeEach(() => {
     mockVisitCount.value = 3
+    mockVisitQuery.status = ''
+    mockSavedRealization.value = null
   })
 
   it('counts VisitActivity by sales for the plan month and year', async () => {
@@ -78,22 +102,50 @@ describe('GET /api/realisasi-plan', () => {
     })
     const collection = (await clientPromise).db().collection
     expect(collection).toHaveBeenCalledWith('VisitActivity')
+    expect(mockVisitQuery.status).toBe('Visited')
   })
 
-  it('uses the plan visit count when the month has no VisitActivity records', async () => {
+  it('returns zero when there are no matching visited activities', async () => {
     mockVisitCount.value = 0
     const response = await GET(new Request(
       `http://localhost/api/realisasi-plan?code=${mockPlan.code_submit}`,
     ))
 
     expect(await response.json()).toMatchObject({
-      counts: { 'Sales A': 1 },
-      sources: { 'Sales A': 'Plan Visit' },
+      counts: { 'Sales A': 0 },
+      sources: { 'Sales A': 'Belum ada data' },
+    })
+  })
+
+  it('returns saved realisasi-plan sales values for tracking', async () => {
+    mockSavedRealization.value = {
+      sales: [
+        {
+          nama_sales: 'Sales A',
+          visit: 4,
+          demo: 2,
+          sph: 1,
+          closing: 1,
+          revenue: 500,
+        },
+      ],
+    }
+
+    const response = await GET(new Request(
+      `http://localhost/api/realisasi-plan?code=${mockPlan.code_submit}`,
+    ))
+
+    expect(await response.json()).toMatchObject({
+      realization: { sales: [{ nama_sales: 'Sales A', visit: 4, revenue: 500 }] },
     })
   })
 })
 
 describe('POST /api/realisasi-plan', () => {
+  beforeEach(() => {
+    mockSavedRealization.value = null
+  })
+
   it('stores realization values against the selected plan', async () => {
     const response = await POST(new Request('http://localhost/api/realisasi-plan', {
       method: 'POST',

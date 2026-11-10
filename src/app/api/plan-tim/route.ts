@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { normalizePlanVisitSales } from '@/utils/planVisitSales'
+import {
+  planTimSalesNames,
+  sumPlanTimSalesTargets,
+} from '@/utils/planTimSales'
 
 type PlanTimHeader = {
   code_submit: string
@@ -63,11 +67,19 @@ function isPlanTimHeader(value: unknown): value is PlanTimHeader {
         typeof row === 'object' &&
         typeof row.nama_sales === 'string' &&
         row.nama_sales.trim().length > 0 &&
+        planTimSalesNames.includes(row.nama_sales.trim()) &&
         salesTargetFields.every(
-          (field) => typeof row[field] === 'string',
+          (field) =>
+            typeof row[field] === 'string' &&
+            (field === 'note' ||
+              (row[field].trim() !== '' &&
+                Number.isFinite(Number(row[field])) &&
+                Number(row[field]) >= 0)),
         ),
     ) &&
-    new Set(data.sales_targets.map((row) => row.nama_sales)).size ===
+    new Set(
+      data.sales_targets.map((row) => row.nama_sales.trim().toLowerCase()),
+    ).size ===
       data.sales_targets.length
 
   return (
@@ -94,9 +106,15 @@ export async function POST(req: Request) {
       )
     }
 
+    const salesTotals = sumPlanTimSalesTargets(
+      header.sales_targets.map((row, index) => ({ ...row, id: String(index) })),
+    )
     const salesVisit =
       body && typeof body === 'object' && 'sales_visit' in body
-        ? normalizePlanVisitSales(body.sales_visit)
+        ? normalizePlanVisitSales(
+            body.sales_visit,
+            header.sales_targets.map((row) => row.nama_sales),
+          )
         : null
     if (!salesVisit) {
       return NextResponse.json(
@@ -116,12 +134,12 @@ export async function POST(req: Request) {
       periodOf: header.periodOf,
       month: header.month,
       year: header.year,
-      total_active_sales: header.total_active_sales,
-      visit_target: header.visit_target,
-      demo_target: header.demo_target,
-      sph_target: header.sph_target,
-      sph_deal_target: header.sph_deal_target,
-      revenue: header.revenue,
+      total_active_sales: String(header.sales_targets.length),
+      visit_target: String(salesTotals.visit_target),
+      demo_target: String(salesTotals.demo_target),
+      sph_target: String(salesTotals.sph_target),
+      sph_deal_target: String(salesTotals.sph_deal_target),
+      revenue: String(salesTotals.revenue),
       sales_targets: header.sales_targets,
       sales_visit: salesVisit,
       created_at: new Date(),

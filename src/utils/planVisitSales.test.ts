@@ -1,4 +1,14 @@
-import { normalizePlanVisitSales } from '@/utils/planVisitSales'
+import {
+  createInitialPlanVisitsSalesTargets,
+  normalizePlanVisitSales,
+  planVisitSalesNames,
+} from '@/utils/planVisitSales'
+import { planTimSalesNames } from '@/utils/planTimSales'
+
+it('uses the same nine sales names as plan targets', () => {
+  expect(planVisitSalesNames).toEqual(planTimSalesNames)
+  expect(createInitialPlanVisitsSalesTargets()).toHaveLength(9)
+})
 
 it('normalizes valid visit rows and rejects incomplete entries', () => {
   const entry = {
@@ -51,4 +61,11 @@ it('normalizes valid visit rows and rejects incomplete entries', () => {
   ).toHaveLength(2)
 
   expect(normalizePlanVisitSales([entry, entry])).toBeNull()
+
+  const addedSales = [
+    { ...entry, nama_sales: 'Ema Dwi Jayanti' },
+    { ...entry, nama_sales: 'Denden Permana' },
+  ]
+  expect(normalizePlanVisitSales(addedSales)).toHaveLength(2)
+  expect(normalizePlanVisitSales(addedSales, ['Ema Dwi Jayanti'])).toBeNull()
 })

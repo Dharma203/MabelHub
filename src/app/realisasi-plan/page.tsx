@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useState, type ReactNode } from 'react'
+import SearchableSelect from '@/components/ui/SearchableSelect'
 import {
   Check,
   ChevronLeft,
@@ -43,6 +44,11 @@ type Plan = {
     note: string
   }[]
 }
+
+type PlanOption = Pick<
+  Plan,
+  'code_submit' | 'leaderName' | 'period' | 'month' | 'year'
+>
 
 type SaleRealization = {
   nama_sales: string
@@ -147,53 +153,80 @@ function Metric({
 }: {
   label: string
   plan: string
-  actual?: number
+  actual: number
   money?: boolean
 }) {
   const target = Number(plan) || 0
-  const amount = actual ?? target
-  const percent = target ? Math.min((amount / target) * 100, 100) : 0
+  const percent = target ? Math.min((actual / target) * 100, 100) : 0
   return (
     <div className='rounded-xl border border-sky-200 bg-sky-50 p-4'>
       <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>
         {label}
       </p>
       <p className='mt-1 font-bold text-sky-900'>
-        {money ? formatRupiah(amount) : formatNumber(amount)}
+        {money ? formatRupiah(target) : formatNumber(target)}
         <span className='ml-1 text-sm font-normal text-slate-500'>
-          / {money ? formatRupiah(target) : formatNumber(target)}
+          / {money ? formatRupiah(actual) : formatNumber(actual)}
         </span>
       </p>
-      {actual !== undefined && (
-        <>
-          <p
-            className={`mt-1 text-xs font-semibold ${percent >= 100 ? 'text-emerald-600' : 'text-amber-600'}`}
-          >
-            {Math.round(target ? (amount / target) * 100 : 0)}%
-          </p>
-          <div className='mt-2 h-1.5 rounded-full bg-slate-200'>
-            <div
-              className={`h-1.5 rounded-full ${percent >= 100 ? 'bg-emerald-500' : 'bg-sky-600'}`}
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-        </>
-      )}
+      <p
+        className={`mt-1 text-xs font-semibold ${percent >= 100 ? 'text-emerald-600' : 'text-amber-600'}`}
+      >
+        {Math.round(target ? (actual / target) * 100 : 0)}%
+      </p>
+      <div className='mt-2 h-1.5 rounded-full bg-slate-200'>
+        <div
+          className={`h-1.5 rounded-full ${percent >= 100 ? 'bg-emerald-500' : 'bg-sky-600'}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
     </div>
   )
 }
 
 export default function RealisasiPlanPage() {
   const [code, setCode] = useState('')
+  const [period, setPeriod] = useState('')
+  const [plans, setPlans] = useState<PlanOption[]>([])
   const [plan, setPlan] = useState<Plan | null>(null)
   const [sales, setSales] = useState<SaleRealization[]>([])
   const [visits, setVisits] = useState<VisitRealization[]>([])
   const [teamNote, setTeamNote] = useState('')
   const [step, setStep] = useState(0)
+  const [searching, setSearching] = useState(false)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+
+  const searchPlans = async () => {
+    if (!period) {
+      setError('Pilih periode terlebih dahulu.')
+      return
+    }
+    setSearching(true)
+    setError('')
+    setPlans([])
+    setCode('')
+    try {
+      const response = await fetch(
+        `/api/list-plan?${new URLSearchParams({ period })}`,
+        { cache: 'no-store' },
+      )
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Gagal mencari plan.')
+      setPlans(data.plans)
+      if (!data.plans.length) setError('Data plan tidak ditemukan.')
+    } catch (searchError) {
+      setError(
+        searchError instanceof Error
+          ? searchError.message
+          : 'Gagal mencari data plan.',
+      )
+    } finally {
+      setSearching(false)
+    }
+  }
 
   const loadPlan = async (value: string) => {
     if (!value.trim()) {
@@ -226,7 +259,9 @@ export default function RealisasiPlanPage() {
       )
       const actualData = await actualResponse.json()
       if (!actualResponse.ok) {
-        throw new Error(actualData.error || 'Realisasi visit tidak dapat dimuat.')
+        throw new Error(
+          actualData.error || 'Realisasi visit tidak dapat dimuat.',
+        )
       }
       setPlan(selected)
       setCode(selected.code_submit)
@@ -355,38 +390,82 @@ export default function RealisasiPlanPage() {
       <div className='mb-6'>
         <h1 className='text-2xl font-bold text-slate-900'>Input Realisasi</h1>
         <p className='mt-1 text-sm text-slate-500'>
-          Masukkan realisasi berdasarkan kode submit plan. Data plan dimuat
-          otomatis sebagai acuan.
+          Pilih periode dan kode submit plan untuk memuat data acuan realisasi.
         </p>
       </div>
 
       <section className='mb-5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm'>
         {!plan ? (
           <div className='p-5'>
-            <label
-              htmlFor='plan-code'
-              className='mb-2 block text-sm font-semibold text-slate-700'
-            >
-              Kode Submit Plan
-            </label>
-            <div className='flex flex-col gap-2 sm:flex-row'>
-              <input
-                id='plan-code'
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                onKeyDown={(event) => event.key === 'Enter' && loadPlan(code)}
-                placeholder='Contoh: ARI-BL-X-NOV-2026'
-                className='h-11 min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-100'
-              />
+            <div className='grid grid-cols-1 items-end gap-3 md:grid-cols-[1fr_auto]'>
+              <div>
+                <label
+                  htmlFor='plan-period'
+                  className='mb-1 block text-sm font-medium text-slate-700'
+                >
+                  Periode
+                </label>
+                <SearchableSelect
+                  inputId='plan-period'
+                  value={period}
+                  onChange={(value) => {
+                    setPeriod(value)
+                    setPlans([])
+                    setCode('')
+                    setError('')
+                  }}
+                  isDisabled={searching || loading}
+                  options={[
+                    { value: 'Mingguan', label: 'Mingguan' },
+                    { value: 'Bulanan', label: 'Bulanan' },
+                    { value: 'Triwulan', label: 'Triwulan' },
+                    { value: 'Kuartal', label: 'Kuartal' },
+                  ]}
+                  placeholder='Pilih periode'
+                />
+              </div>
               <button
                 type='button'
-                onClick={() => loadPlan(code)}
-                disabled={loading}
-                className='inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-800 px-5 text-sm font-semibold text-white hover:bg-sky-900 disabled:opacity-60'
+                onClick={searchPlans}
+                disabled={!period || searching || loading}
+                className='inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50'
               >
-                <Search size={16} /> {loading ? 'Memuat...' : 'Muat Plan'}
+                <Search size={16} /> {searching ? 'Mencari...' : 'Cari Kode'}
               </button>
             </div>
+
+            {plans.length > 0 && (
+              <div className='mt-4 grid grid-cols-1 items-end gap-3 md:grid-cols-[1fr_auto]'>
+                <div>
+                  <label
+                    htmlFor='plan-code'
+                    className='mb-1 block text-sm font-medium text-slate-700'
+                  >
+                    Pilih Kode Submit
+                  </label>
+                  <SearchableSelect
+                    inputId='plan-code'
+                    value={code}
+                    onChange={setCode}
+                    placeholder='Pilih kode submit'
+                    isDisabled={loading}
+                    options={plans.map((item) => ({
+                      value: item.code_submit,
+                      label: `${item.code_submit} (${item.leaderName} · ${item.period} · ${item.month} ${item.year})`,
+                    }))}
+                  />
+                </div>
+                <button
+                  type='button'
+                  onClick={() => loadPlan(code)}
+                  disabled={!code || loading || searching}
+                  className='inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-800 px-5 text-sm font-semibold text-white hover:bg-sky-900 disabled:cursor-not-allowed disabled:opacity-50'
+                >
+                  <ClipboardList size={16} />{' '}
+                  {loading ? 'Membuka...' : 'Buka Plan'}
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -419,11 +498,32 @@ export default function RealisasiPlanPage() {
               </button>
             </div>
             <div className='grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5'>
-              <Metric label='Plan Visit' plan={plan.visit_target} />
-              <Metric label='Plan Demo' plan={plan.demo_target} />
-              <Metric label='Plan SPH' plan={plan.sph_target} />
-              <Metric label='Plan Closing' plan={plan.sph_deal_target} />
-              <Metric label='Plan Revenue' plan={plan.revenue} money />
+              <Metric
+                label='Plan Visit'
+                plan={plan.visit_target}
+                actual={totals.visit}
+              />
+              <Metric
+                label='Plan Demo'
+                plan={plan.demo_target}
+                actual={totals.demo}
+              />
+              <Metric
+                label='Plan SPH'
+                plan={plan.sph_target}
+                actual={totals.sph}
+              />
+              <Metric
+                label='Plan Closing'
+                plan={plan.sph_deal_target}
+                actual={totals.closing}
+              />
+              <Metric
+                label='Plan Revenue'
+                plan={plan.revenue}
+                actual={totals.revenue}
+                money
+              />
             </div>
           </>
         )}
@@ -572,7 +672,11 @@ export default function RealisasiPlanPage() {
                                   <td className='min-w-28 px-2 py-2'>
                                     <input
                                       aria-label={`${field} ${row.nama_sales}`}
-                                      title={field === 'visit' ? `Sumber: ${row.visitSource}` : undefined}
+                                      title={
+                                        field === 'visit'
+                                          ? `Sumber: ${row.visitSource}`
+                                          : undefined
+                                      }
                                       type='number'
                                       min='0'
                                       step={field === 'revenue' ? 'any' : '1'}

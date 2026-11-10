@@ -22,6 +22,15 @@ type SalesTarget = {
   revenue: string
 }
 
+type SalesRealization = {
+  nama_sales: string
+  visit: number
+  demo: number
+  sph: number
+  closing: number
+  revenue: number
+}
+
 type Plan = {
   code_submit: string
   leaderName: string
@@ -35,6 +44,7 @@ type Plan = {
   sph_deal_target: string
   revenue: string
   sales_targets: SalesTarget[]
+  realization: { sales: SalesRealization[] } | null
   revised: boolean
 }
 
@@ -84,7 +94,22 @@ export default function TrackingPage() {
       .then(async (response) => {
         const data = await response.json()
         if (!response.ok) throw new Error(data.error || 'Gagal memuat data plan.')
-        setPlans(data.plans ?? [])
+        const plans = await Promise.all(
+          (data.plans ?? []).map(async (plan: Plan) => {
+            const realizationResponse = await fetch(
+              `/api/realisasi-plan?${new URLSearchParams({ code: plan.code_submit })}`,
+              { signal: controller.signal, cache: 'no-store' },
+            )
+            const realizationData = await realizationResponse.json()
+            if (!realizationResponse.ok) {
+              throw new Error(
+                realizationData.error || 'Gagal memuat data realisasi.',
+              )
+            }
+            return { ...plan, realization: realizationData.realization }
+          }),
+        )
+        setPlans(plans)
       })
       .catch((caught: unknown) => {
         if (caught instanceof Error && caught.name === 'AbortError') return
@@ -124,13 +149,52 @@ export default function TrackingPage() {
           visit: sum.visit + valueOf(plan.visit_target),
           demo: sum.demo + valueOf(plan.demo_target),
           closing: sum.closing + valueOf(plan.sph_deal_target),
+          actualRevenue:
+            sum.actualRevenue +
+            (plan.realization?.sales ?? []).reduce(
+              (total, sale) => total + valueOf(sale.revenue),
+              0,
+            ),
+          actualVisit:
+            sum.actualVisit +
+            (plan.realization?.sales ?? []).reduce(
+              (total, sale) => total + valueOf(sale.visit),
+              0,
+            ),
+          actualDemo:
+            sum.actualDemo +
+            (plan.realization?.sales ?? []).reduce(
+              (total, sale) => total + valueOf(sale.demo),
+              0,
+            ),
+          actualClosing:
+            sum.actualClosing +
+            (plan.realization?.sales ?? []).reduce(
+              (total, sale) => total + valueOf(sale.closing),
+              0,
+            ),
         }),
-        { revenue: 0, visit: 0, demo: 0, closing: 0 },
+        {
+          revenue: 0,
+          visit: 0,
+          demo: 0,
+          closing: 0,
+          actualRevenue: 0,
+          actualVisit: 0,
+          actualDemo: 0,
+          actualClosing: 0,
+        },
       ),
     [shownPlans],
   )
   const salesRows = shownPlans.flatMap((plan) =>
-    (plan.sales_targets ?? []).map((sales) => ({ ...sales, plan })),
+    (plan.sales_targets ?? []).map((sales) => ({
+      ...sales,
+      plan,
+      actual: plan.realization?.sales.find(
+        (row) => row.nama_sales === sales.nama_sales,
+      ),
+    })),
   )
   const yearOptions = Array.from({ length: 3 }, (_, index) =>
     String(Number(currentYear) - index),
@@ -147,28 +211,32 @@ export default function TrackingPage() {
 
   const stats = [
     {
-      label: 'Total Plan Submit',
+      label: 'Total Kode Submit',
       value: formatNumber(shownPlans.length),
       icon: ClipboardList,
       tone: 'text-blue-700 bg-blue-100',
+      detail: `${shownPlans.filter((plan) => plan.realization).length} ada realisasi`,
     },
     {
-      label: 'Target Revenue',
-      value: formatRupiah(totals.revenue),
+      label: 'Realisasi Revenue',
+      value: formatRupiah(totals.actualRevenue),
       icon: DollarSign,
       tone: 'text-emerald-700 bg-emerald-100',
+      detail: `Plan: ${formatRupiah(totals.revenue)} | Ach: ${totals.revenue ? Math.round((totals.actualRevenue / totals.revenue) * 100) : 0}%`,
     },
     {
-      label: 'Target Visit',
-      value: formatNumber(totals.visit),
+      label: 'Realisasi Visit',
+      value: formatNumber(totals.actualVisit),
       icon: Footprints,
       tone: 'text-amber-700 bg-amber-100',
+      detail: `Plan: ${formatNumber(totals.visit)} | Ach: ${totals.visit ? Math.round((totals.actualVisit / totals.visit) * 100) : 0}%`,
     },
     {
-      label: 'Target Closing',
-      value: formatNumber(totals.closing),
+      label: 'Realisasi Closing',
+      value: formatNumber(totals.actualClosing),
       icon: Target,
       tone: 'text-violet-700 bg-violet-100',
+      detail: `Plan: ${formatNumber(totals.closing)} | Ach: ${totals.closing ? Math.round((totals.actualClosing / totals.closing) * 100) : 0}%`,
     },
   ]
 
@@ -184,7 +252,7 @@ export default function TrackingPage() {
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            {loading ? 'Memuat data' : 'Data plan'}
+            {loading ? 'Memuat data' : 'Data realisasi'}
           </span>
         </div>
 
@@ -264,7 +332,7 @@ export default function TrackingPage() {
         )}
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {stats.map(({ label, value, icon: Icon, tone }) => (
+          {stats.map(({ label, value, icon: Icon, tone, detail }) => (
             <article
               key={label}
               className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
@@ -277,7 +345,7 @@ export default function TrackingPage() {
               </p>
               <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
               <p className="mt-1 text-xs text-slate-400">
-                {loading ? 'Memuat...' : `${shownPlans.length} plan terpilih`}
+                {loading ? 'Memuat...' : detail}
               </p>
             </article>
           ))}
@@ -293,28 +361,58 @@ export default function TrackingPage() {
                 Pencapaian Tim (Plan &amp; Realisasi)
               </h2>
               <p className="text-xs text-slate-500">
-                Target berasal dari plan submit. Data realisasi belum tersedia.
+                Persentase realisasi terhadap target plan.
               </p>
             </div>
           </div>
-          <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="space-y-4 p-5">
             {[
-              ['Revenue', formatRupiah(totals.revenue)],
-              ['Visit', formatNumber(totals.visit)],
-              ['Demo', formatNumber(totals.demo)],
-              ['Closing SPH', formatNumber(totals.closing)],
-            ].map(([label, target]) => (
-              <div key={label} className="rounded-lg border border-slate-100 bg-slate-50 p-4">
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="font-semibold text-slate-700">{label}</span>
-                  <span className="text-xs text-slate-400">Realisasi —</span>
+              {
+                label: 'Revenue',
+                plan: totals.revenue,
+                actual: totals.actualRevenue,
+                money: true,
+              },
+              {
+                label: 'Visit',
+                plan: totals.visit,
+                actual: totals.actualVisit,
+              },
+              {
+                label: 'Demo',
+                plan: totals.demo,
+                actual: totals.actualDemo,
+              },
+              {
+                label: 'Closing SPH',
+                plan: totals.closing,
+                actual: totals.actualClosing,
+              },
+            ].map(({ label, plan, actual, money }) => {
+              const percent = plan ? Math.round((actual / plan) * 100) : 0
+              return (
+                <div key={label}>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="font-semibold text-slate-800">{label}</span>
+                    <span className="flex gap-3">
+                      <span className="text-emerald-600">
+                        Plan: {money ? formatRupiah(plan) : formatNumber(plan)}
+                      </span>
+                      <span className="text-sky-800">
+                        Real: {money ? formatRupiah(actual) : formatNumber(actual)}
+                      </span>
+                      <strong className="text-red-500">{percent}%</strong>
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-200">
+                    <div
+                      className="h-2 rounded-full bg-red-500"
+                      style={{ width: `${Math.min(percent, 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="mt-3 h-2 rounded-full bg-slate-200" />
-                <p className="mt-2 text-xs text-slate-500">
-                  Target: <span className="font-semibold text-emerald-700">{target}</span>
-                </p>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </section>
 
@@ -328,7 +426,7 @@ export default function TrackingPage() {
                 Tabel Ringkasan Per Periode
               </h2>
               <p className="text-xs text-slate-500">
-                Daftar submit plan dan target tim pada periode terpilih
+                Daftar kode submit dan realisasi pada periode terpilih
               </p>
             </div>
           </div>
@@ -336,7 +434,7 @@ export default function TrackingPage() {
             <table className="w-full min-w-[1050px] text-left text-xs">
               <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
                 <tr>
-                  {['#', 'Kode Submit', 'Leader', 'Periode', 'Bulan / Tahun', 'Target Revenue', 'Target Visit', 'Target Demo', 'Target Closing', 'Status'].map((head) => (
+                  {['#', 'Kode Submit', 'Leader', 'Periode', 'Bulan / Tahun', 'Plan Revenue', 'Real Revenue', '% Ach Revenue', 'Plan Visit', 'Real Visit', '% Ach Visit', 'Status'].map((head) => (
                     <th key={head} className="whitespace-nowrap px-4 py-3 font-semibold">{head}</th>
                   ))}
                 </tr>
@@ -350,19 +448,21 @@ export default function TrackingPage() {
                     <td className="px-4 py-3">{plan.period}</td>
                     <td className="whitespace-nowrap px-4 py-3">{plan.month} {plan.year}</td>
                     <td className="whitespace-nowrap px-4 py-3 font-semibold text-emerald-700">{formatRupiah(valueOf(plan.revenue))}</td>
-                    <td className="px-4 py-3">{formatNumber(valueOf(plan.visit_target))}</td>
-                    <td className="px-4 py-3">{formatNumber(valueOf(plan.demo_target))}</td>
-                    <td className="px-4 py-3">{formatNumber(valueOf(plan.sph_deal_target))}</td>
+                    <td className="whitespace-nowrap px-4 py-3">{plan.realization ? formatRupiah((plan.realization.sales ?? []).reduce((sum, sale) => sum + valueOf(sale.revenue), 0)) : '—'}</td>
+                    <td className="px-4 py-3 font-semibold text-red-500">{plan.realization ? `${valueOf(plan.revenue) ? Math.round(((plan.realization.sales ?? []).reduce((sum, sale) => sum + valueOf(sale.revenue), 0) / valueOf(plan.revenue)) * 100) : 0}%` : '—'}</td>
+                    <td className="px-4 py-3 text-emerald-700">{formatNumber(valueOf(plan.visit_target))}</td>
+                    <td className="px-4 py-3">{plan.realization ? formatNumber((plan.realization.sales ?? []).reduce((sum, sale) => sum + valueOf(sale.visit), 0)) : '—'}</td>
+                    <td className="px-4 py-3 font-semibold text-red-500">{plan.realization ? `${valueOf(plan.visit_target) ? Math.round(((plan.realization.sales ?? []).reduce((sum, sale) => sum + valueOf(sale.visit), 0) / valueOf(plan.visit_target)) * 100) : 0}%` : '—'}</td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-medium text-emerald-700">
-                        <CheckCircle2 size={12} /> {plan.revised ? 'Direvisi' : 'Ada Plan'}
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium ${plan.realization ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                        <CheckCircle2 size={12} /> {plan.realization ? 'Ada Realisasi' : 'Belum'}
                       </span>
                     </td>
                   </tr>
                 ))}
                 {!loading && shownPlans.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
+                    <td colSpan={12} className="px-4 py-10 text-center text-slate-500">
                       Tidak ada plan pada filter ini.
                     </td>
                   </tr>
@@ -380,7 +480,7 @@ export default function TrackingPage() {
             <div>
               <h2 className="font-semibold text-slate-900">Detail Per Sales</h2>
               <p className="text-xs text-slate-500">
-                Perbandingan target per sales dari plan yang dipilih
+                Perbandingan plan dan realisasi per sales
               </p>
             </div>
           </div>
@@ -388,7 +488,7 @@ export default function TrackingPage() {
             <table className="w-full min-w-[1050px] text-left text-xs">
               <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
                 <tr>
-                  {['#', 'Nama Sales', 'Leader', 'Periode', 'Target Visit', 'Target Demo', 'Target SPH', 'Target Closing', 'Target Revenue', 'Realisasi'].map((head) => (
+                  {['#', 'Nama Sales', 'Leader', 'Periode', 'P.Visit', 'R.Visit', '%', 'P.Revenue', 'R.Revenue', '%', 'Status'].map((head) => (
                     <th key={head} className="whitespace-nowrap px-4 py-3 font-semibold">{head}</th>
                   ))}
                 </tr>
@@ -401,16 +501,17 @@ export default function TrackingPage() {
                     <td className="whitespace-nowrap px-4 py-3">{row.plan.leaderName}</td>
                     <td className="whitespace-nowrap px-4 py-3">{row.plan.period} {row.plan.month} {row.plan.year}</td>
                     <td className="px-4 py-3 text-emerald-700">{formatNumber(valueOf(row.visit_target))}</td>
-                    <td className="px-4 py-3 text-emerald-700">{formatNumber(valueOf(row.demo_target))}</td>
-                    <td className="px-4 py-3 text-emerald-700">{formatNumber(valueOf(row.sph_target))}</td>
-                    <td className="px-4 py-3 text-emerald-700">{formatNumber(valueOf(row.sph_deal_target))}</td>
+                    <td className="px-4 py-3">{row.actual ? formatNumber(valueOf(row.actual.visit)) : '—'}</td>
+                    <td className="px-4 py-3 font-semibold text-red-500">{row.actual ? `${valueOf(row.visit_target) ? Math.round((valueOf(row.actual.visit) / valueOf(row.visit_target)) * 100) : 0}%` : '—'}</td>
                     <td className="whitespace-nowrap px-4 py-3 font-medium text-emerald-700">{formatRupiah(valueOf(row.revenue))}</td>
-                    <td className="px-4 py-3 text-slate-400">—</td>
+                    <td className="whitespace-nowrap px-4 py-3">{row.actual ? formatRupiah(valueOf(row.actual.revenue)) : '—'}</td>
+                    <td className="px-4 py-3 font-semibold text-red-500">{row.actual ? `${valueOf(row.revenue) ? Math.round((valueOf(row.actual.revenue) / valueOf(row.revenue)) * 100) : 0}%` : '—'}</td>
+                    <td className="px-4 py-3">{row.actual ? <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-700">✓</span> : '—'}</td>
                   </tr>
                 ))}
                 {!loading && salesRows.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
+                    <td colSpan={11} className="px-4 py-10 text-center text-slate-500">
                       Belum ada rincian target sales.
                     </td>
                   </tr>
