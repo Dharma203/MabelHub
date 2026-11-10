@@ -154,6 +154,21 @@ export async function POST(req: Request) {
         ? Number(body.hargaSetelahPajak)
         : Math.round(harga + (harga * persenPajak) / 100);
 
+    const jumlahStokAwal = Number(body.jumlahStok) || 0;
+    const tanggalMasuk = body.tanggalMasukKatalog || new Date().toISOString().split("T")[0];
+    const initialLog = [
+      {
+        id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        tanggal: new Date().toISOString(),
+        tipe: "awal",
+        jumlahPerubahan: jumlahStokAwal,
+        stokSebelum: 0,
+        stokSesudah: jumlahStokAwal,
+        catatan: body.catatanPerubahanStok || "Stok awal produk didaftarkan ke katalog",
+        user: auth.session.fullName || auth.session.username || "Admin",
+      },
+    ];
+
     const newProduct = {
       namaProduk: body.namaProduk,
       kategori: body.kategori || "Umum",
@@ -168,8 +183,10 @@ export async function POST(req: Request) {
       persenPajak,
       hargaSetelahPajak,
       minimumPembelian: Number(body.minimumPembelian) || 1,
-      jumlahStok: Number(body.jumlahStok) || 0,
+      jumlahStok: jumlahStokAwal,
       satuanProduk: body.satuanProduk || "Unit",
+      tanggalMasukKatalog: tanggalMasuk,
+      riwayatStok: initialLog,
       terjual: 0,
       tkdnBmp: (Number(body.nilaiTkdn) || 0) + (Number(body.nilaiBmp) || 0) || Number(body.tkdnBmp) || 0,
       nilaiTkdn: Number(body.nilaiTkdn) || 0,

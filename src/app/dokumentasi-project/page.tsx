@@ -259,9 +259,10 @@ function DokumentasiProjectContent() {
     }
   }, [isAdminOrSuperadmin, activeTab]);
 
-  // Auto-select nama sales jika user login adalah sales
+  // Auto-select nama sales jika user login adalah sales atau leader
   useEffect(() => {
-    if (user?.role === "SALES" && user.fullName && !namaSales) {
+    const userRole = (user?.role || "").toUpperCase();
+    if ((userRole === "SALES" || userRole === "LEADER") && user?.fullName && !namaSales) {
       setNamaSales(user.fullName);
     }
   }, [user, namaSales]);
@@ -399,21 +400,15 @@ function DokumentasiProjectContent() {
     if (user) fetchInitialData();
   }, [user, fetchInitialData]);
 
-  // Dropdown options: Tampilkan semua user (tanpa filter role & tanpa harus sudah punya kontrak)
+  // Dropdown options: Hanya menampilkan user dengan role SALES dan LEADER
   const salesOptions = useMemo(() => {
     const map = new Map<string, string>();
 
-    // 1. Masukkan semua user yang terdaftar di sistem
     salesUsers.forEach((u) => {
-      const name = (u.fullName || "").trim();
-      if (name) map.set(name.toLowerCase(), name);
-    });
-
-    // 2. Masukkan juga nama marketing dari kontrak jika ada yang belum terdaftar di users
-    contracts.forEach((c) => {
-      const m = (c.marketing || "").trim();
-      if (m && !map.has(m.toLowerCase())) {
-        map.set(m.toLowerCase(), m);
+      const role = (u.role || "").toUpperCase().trim();
+      if (role === "SALES" || role === "LEADER") {
+        const name = (u.fullName || "").trim();
+        if (name) map.set(name.toLowerCase(), name);
       }
     });
 
@@ -423,7 +418,7 @@ function DokumentasiProjectContent() {
         value: name,
         label: name,
       }));
-  }, [salesUsers, contracts]);
+  }, [salesUsers]);
 
   // Kontrak yang tersedia hanya yang diajukan oleh sales yang dipilih
   const availableContracts = useMemo(() => {
@@ -1258,9 +1253,27 @@ function DokumentasiProjectContent() {
                 </label>
                 <input
                   type="date"
-                  className={inputCls}
+                  className={`${inputCls} cursor-pointer`}
                   value={tanggalReport}
                   onChange={(e) => setTanggalReport(e.target.value)}
+                  onClick={(e) => {
+                    if ("showPicker" in HTMLInputElement.prototype) {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {
+                        // ignore if already showing or not supported
+                      }
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      if ("showPicker" in HTMLInputElement.prototype) {
+                        try {
+                          e.currentTarget.showPicker();
+                        } catch (err) {}
+                      }
+                    }
+                  }}
                 />
               </div>
             </div>

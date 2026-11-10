@@ -19,6 +19,10 @@ import {
   Package,
   Plus,
   X,
+  Lock,
+  Unlock,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -29,8 +33,8 @@ type Category = {
   docCount: number;
   icon?: React.ReactNode;
   iconBg: string;
-  superAdminOnly: boolean;
   description: string;
+  isLocked?: boolean;
 };
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -39,97 +43,84 @@ const ALL_CATEGORIES: Category[] = [
   {
     id: "brochure",
     name: "Brochure",
-    docCount: 4,
+    docCount: 0,
     icon: <BookOpen className="w-7 h-7" />,
     iconBg: "bg-[#1D80D9]/10 text-[#1D80D9]",
-    superAdminOnly: false,
     description: "Brosur produk & layanan",
   },
   {
     id: "catalogue",
     name: "Catalogue",
-    docCount: 4,
+    docCount: 0,
     icon: <ShoppingBag className="w-7 h-7" />,
     iconBg: "bg-purple-100 text-purple-600",
-    superAdminOnly: false,
     description: "Katalog produk lengkap",
   },
   {
     id: "company-profile",
     name: "Company Profile",
-    docCount: 5,
+    docCount: 0,
     icon: <Briefcase className="w-7 h-7" />,
     iconBg: "bg-orange-100 text-orange-600",
-    superAdminOnly: false,
     description: "Profil perusahaan resmi",
   },
   {
     id: "datasheet",
     name: "Datasheet",
-    docCount: 2,
+    docCount: 0,
     icon: <FileText className="w-7 h-7" />,
     iconBg: "bg-pink-100 text-pink-600",
-    superAdminOnly: false,
     description: "Lembar data teknis produk",
   },
   {
     id: "presentation-materials",
     name: "Presentation Materials",
-    docCount: 6,
+    docCount: 0,
     icon: <Monitor className="w-7 h-7" />,
     iconBg: "bg-violet-100 text-violet-600",
-    superAdminOnly: false,
     description: "Materi presentasi sales",
   },
   {
     id: "pricelist",
     name: "Pricelist",
-    docCount: 1,
+    docCount: 0,
     icon: <Tag className="w-7 h-7" />,
     iconBg: "bg-emerald-100 text-emerald-600",
-    superAdminOnly: false,
     description: "Daftar harga produk & jasa",
   },
   {
     id: "id-kit",
     name: "ID KIT",
-    docCount: 4,
+    docCount: 0,
     icon: <Layers className="w-7 h-7" />,
     iconBg: "bg-rose-100 text-rose-600",
-    superAdminOnly: false,
     description: "Identitas visual & kit brand",
   },
   {
     id: "tools",
     name: "Tools",
-    docCount: 3,
+    docCount: 0,
     icon: <Wrench className="w-7 h-7" />,
     iconBg: "bg-cyan-100 text-cyan-600",
-    superAdminOnly: false,
     description: "Alat bantu & template kerja",
   },
-  // ── SuperAdmin only ──
   {
     id: "certification",
     name: "Certification",
-    docCount: 10,
+    docCount: 0,
     icon: <Award className="w-7 h-7" />,
     iconBg: "bg-yellow-100 text-yellow-600",
-    superAdminOnly: true,
     description: "Sertifikat & akreditasi resmi",
   },
   {
     id: "legalitas",
     name: "Legalitas",
-    docCount: 4,
+    docCount: 0,
     icon: <Shield className="w-7 h-7" />,
     iconBg: "bg-indigo-100 text-indigo-600",
-    superAdminOnly: true,
     description: "Dokumen legal & perizinan",
   },
 ];
-
-// ─── Category Card ─────────────────────────────────────────────────────────────
 
 // ─── Helper Icon ─────────────────────────────────────────────────────────────────
 const getCategoryIcon = (id: string) => {
@@ -152,57 +143,112 @@ function CategoryCard({
   cat,
   onClick,
   isSuperAdmin,
+  onToggleLock,
+  onDelete,
 }: {
   cat: Category;
   onClick: () => void;
   isSuperAdmin: boolean;
+  onToggleLock?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }) {
+  const isLocked = cat.isLocked || false;
+
   return (
     <div
       onClick={onClick}
-      className="group relative bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 hover:shadow-md hover:ring-[#1D80D9]/30 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col"
+      className="group relative bg-white rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:border-[#1D80D9]/50 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col"
     >
-      {/* SuperAdmin badge */}
-      {cat.superAdminOnly && isSuperAdmin && (
-        <div className="absolute top-3 right-3 z-10">
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200">
-            <Shield className="w-2.5 h-2.5" />
-            SUPERADMIN
-          </span>
-        </div>
+      {/* Delete X button - top right corner, SUPERADMIN only */}
+      {isSuperAdmin && onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(cat.id);
+          }}
+          className="absolute top-3 right-3 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200 opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 hover:border-red-300 transition-all duration-200 active:scale-90"
+          title="Hapus kategori"
+        >
+          <X className="w-4 h-4" />
+        </button>
       )}
 
       {/* Top gradient accent */}
-      <div className="h-1 w-full bg-gradient-to-r from-[#1D80D9] via-[#3B9AE8] to-[#1769B5] rounded-t-2xl" />
+      <div
+        className={`h-1.5 w-full rounded-t-2xl ${
+          isLocked
+            ? "bg-gradient-to-r from-amber-500 via-amber-400 to-orange-400"
+            : "bg-gradient-to-r from-[#1D80D9] via-[#3B9AE8] to-[#1769B5]"
+        }`}
+      />
 
-      <div className="flex flex-col gap-4 p-6 flex-1">
+      <div className="flex flex-col gap-4 p-5 sm:p-6 flex-1">
         {/* Icon */}
         <div
-          className={`w-14 h-14 rounded-xl flex items-center justify-center ${cat.iconBg} group-hover:scale-105 transition-transform duration-200`}
+          className={`w-14 h-14 rounded-xl flex items-center justify-center ${cat.iconBg} group-hover:scale-105 transition-transform duration-200 shadow-2xs`}
         >
           {cat.icon || getCategoryIcon(cat.id)}
         </div>
 
         {/* Info */}
         <div className="flex-1">
-          <h3 className="font-bold text-gray-900 text-base leading-tight">
+          <h3 className="font-bold text-slate-800 text-base leading-tight flex items-center gap-2 group-hover:text-[#1D80D9] transition-colors">
             {cat.name}
+            {isLocked && <Lock className="w-3.5 h-3.5 text-amber-500" />}
           </h3>
-          <p className="text-xs text-gray-500 mt-0.5">{cat.description}</p>
-          <p className="mt-2 text-xs text-gray-400 flex items-center gap-1">
-            <Package className="w-3 h-3" />
-            {cat.docCount} Dokumen
+          <p className="text-xs text-slate-500 mt-1 line-clamp-2">{cat.description}</p>
+          <p className="mt-2 text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+            <Package className="w-3.5 h-3.5 text-[#1D80D9]" />
+            <span>{cat.docCount} Dokumen</span>
           </p>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-[11px] font-bold text-green-700 ring-1 ring-green-200">
-            <span className="text-green-500">🔓</span>
-            Terbuka
-          </span>
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+          {isSuperAdmin && onToggleLock ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleLock(cat.id);
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold border transition-all active:scale-95 ${
+                isLocked
+                  ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                  : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+              }`}
+              title={isLocked ? "Klik untuk membuka kunci kategori" : "Klik untuk mengunci kategori"}
+            >
+              {isLocked ? (
+                <>
+                  <Lock className="w-3 h-3" /> Terkunci
+                </>
+              ) : (
+                <>
+                  <Unlock className="w-3 h-3" /> Terbuka
+                </>
+              )}
+            </button>
+          ) : (
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold border ${
+                isLocked
+                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+              }`}
+            >
+              {isLocked ? (
+                <>
+                  <Lock className="w-3 h-3" /> Terkunci
+                </>
+              ) : (
+                <>
+                  <Unlock className="w-3 h-3" /> Terbuka
+                </>
+              )}
+            </span>
+          )}
 
-          <span className="flex items-center gap-1 text-xs font-semibold text-[#1D80D9] group-hover:gap-2 transition-all">
+          <span className="flex items-center gap-1 text-xs font-bold text-[#1D80D9] group-hover:gap-1.5 transition-all">
             Lihat semua
             <ChevronRight className="w-3.5 h-3.5" />
           </span>
@@ -219,14 +265,18 @@ export default function ProdukPage() {
   const { user, loading: sessionLoading } = useSession();
 
   const [search, setSearch] = useState("");
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>(ALL_CATEGORIES);
   const [isClient, setIsClient] = useState(false);
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newCatDesc, setNewCatDesc] = useState("");
-  const [newCatSuperAdmin, setNewCatSuperAdmin] = useState(false);
+
+  // Delete modal states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingCatId, setDeletingCatId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isSuperAdmin = user?.role === "SUPERADMIN";
 
@@ -235,7 +285,7 @@ export default function ProdukPage() {
     fetch("/api/produk/categories")
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.length > 0) {
           setCategories(data);
         }
       })
@@ -247,9 +297,8 @@ export default function ProdukPage() {
     const id = newCatName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const newCategory = {
       id,
-      name: newCatName,
-      description: newCatDesc,
-      superAdminOnly: newCatSuperAdmin,
+      name: newCatName.trim(),
+      description: newCatDesc.trim(),
       iconBg: "bg-[#1D80D9]/10 text-[#1D80D9]",
     };
 
@@ -262,11 +311,10 @@ export default function ProdukPage() {
 
       if (res.ok) {
         const data = await res.json();
-        setCategories([...categories, data.category]);
+        setCategories((prev) => [...prev, data.category]);
         setShowAddModal(false);
         setNewCatName("");
         setNewCatDesc("");
-        setNewCatSuperAdmin(false);
       } else {
         const err = await res.json();
         alert(err.error || "Gagal menambahkan kategori");
@@ -277,9 +325,66 @@ export default function ProdukPage() {
     }
   };
 
-  // Filter categories by role & search
+  const handleToggleCategoryLock = async (id: string) => {
+    const targetCat = categories.find((c) => c.id === id);
+    if (!targetCat) return;
+    const nextLocked = !targetCat.isLocked;
+
+    try {
+      const res = await fetch(`/api/produk/categories/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isLocked: nextLocked }),
+      });
+      if (res.ok) {
+        setCategories((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, isLocked: nextLocked } : c))
+        );
+      } else {
+        const err = await res.json();
+        alert(err.error || "Gagal mengubah status kunci kategori");
+      }
+    } catch (error) {
+      console.error("Error updating category lock status:", error);
+      alert("Terjadi kesalahan saat mengubah status kategori");
+    }
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!deletingCatId) return;
+    setIsDeleting(true);
+
+    try {
+      const res = await fetch(`/api/produk/categories/${deletingCatId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setCategories((prev) => prev.filter((c) => c.id !== deletingCatId));
+        setShowDeleteModal(false);
+        setDeletingCatId(null);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Gagal menghapus kategori");
+      }
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      alert("Terjadi kesalahan saat menghapus kategori");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const confirmDeleteCategory = (id: string) => {
+    setDeletingCatId(id);
+    setShowDeleteModal(true);
+  };
+
+  const isSalesOrLeader = user?.role === "SALES" || user?.role === "LEADER";
+
+  // Filter categories by role, lock status & search
   const visibleCategories = categories.filter((cat) => {
-    if (cat.superAdminOnly && !isSuperAdmin) return false;
+    if (isSalesOrLeader && cat.isLocked) return false;
     if (search.trim()) {
       return cat.name.toLowerCase().includes(search.toLowerCase());
     }
@@ -305,17 +410,16 @@ export default function ProdukPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F8FA]">
-      <div className="flex-1 p-6">
-        <main className="w-full max-w-none">
-
+    <div className="min-h-screen bg-blue-50 text-slate-800 pb-16">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-[1520px] mx-auto">
+        <main className="w-full">
           {/* ── Header ── */}
-          <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between px-2">
+          <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between px-1">
             <div>
-              <h1 className="text-3xl font-extrabold text-black drop-shadow-sm">
+              <h1 className="text-3xl font-extrabold text-black drop-shadow-sm uppercase">
                 PRODUCT HUB
               </h1>
-              <p className="text-sm text-slate-500 font-medium mt-1">
+              <p className="text-sm text-neutral-600 font-medium mt-1">
                 Pusat Dokumen & Materi Produk MabelHub
               </p>
             </div>
@@ -325,119 +429,82 @@ export default function ProdukPage() {
               {isSuperAdmin && (
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-full bg-[#1D80D9] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#1769B5] transition-colors"
+                  className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-[#1D80D9] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#1769B5] transition-colors cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   Tambah Kategori
                 </button>
               )}
               <div className="relative w-full sm:w-72">
-                <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Cari kategori dokumen..."
-                  className="h-11 w-full rounded-full bg-white pl-11 pr-5 text-sm outline-none ring-1 ring-black/10 focus:ring-2 focus:ring-[#1D80D9]/50 transition"
+                  className="h-11 w-full rounded-xl bg-white pl-11 pr-5 text-sm outline-none border border-slate-200 focus:border-[#1D80D9] focus:ring-2 focus:ring-[#1D80D9]/20 transition shadow-2xs font-medium"
                 />
               </div>
             </div>
           </div>
 
           {/* ── Stats Bar ── */}
-          <div className="mb-6 flex flex-wrap gap-3 px-2">
-            <div className="bg-white rounded-xl px-5 py-3 shadow-sm ring-1 ring-gray-100 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[#1D80D9]/10 flex items-center justify-center">
+          <div className="mb-6 flex flex-wrap gap-3 px-1">
+            <div className="bg-white rounded-xl px-5 py-3 border border-slate-200/80 shadow-2xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#1D80D9]/10 flex items-center justify-center">
                 <Package className="w-5 h-5 text-[#1D80D9]" />
               </div>
               <div>
-                <p className="text-xs text-gray-500 font-medium">Total Kategori</p>
-                <p className="text-lg font-extrabold text-gray-900">
-                  {visibleCategories.length}
-                </p>
+                <p className="text-xs text-slate-500 font-medium">Total Kategori</p>
+                <p className="text-lg font-extrabold text-slate-900">{visibleCategories.length}</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl px-5 py-3 shadow-sm ring-1 ring-gray-100 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center">
-                <FileText className="w-5 h-5 text-green-600" />
+            <div className="bg-white rounded-xl px-5 py-3 border border-slate-200/80 shadow-2xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-xs text-gray-500 font-medium">Total Dokumen</p>
-                <p className="text-lg font-extrabold text-gray-900">
+                <p className="text-xs text-slate-500 font-medium">Total Dokumen</p>
+                <p className="text-lg font-extrabold text-slate-900">
                   {visibleCategories.reduce((s, c) => s + c.docCount, 0)}
                 </p>
               </div>
             </div>
 
             {isSuperAdmin && (
-              <div className="bg-white rounded-xl px-5 py-3 shadow-sm ring-1 ring-amber-100 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
+              <div className="bg-white rounded-xl px-5 py-3 border border-amber-200/80 shadow-2xs flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
                   <Shield className="w-5 h-5 text-amber-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 font-medium">SuperAdmin</p>
+                  <p className="text-xs text-slate-500 font-medium">SuperAdmin</p>
                   <p className="text-lg font-extrabold text-amber-700">Akses Penuh</p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* ── Section: Semua Pengguna ── */}
-          {visibleCategories.filter((c) => !c.superAdminOnly).length > 0 && (
+          {/* ── Section: Kategori Dokumen ── */}
+          {visibleCategories.length > 0 && (
             <section className="mb-8">
-              <div className="flex items-center gap-2 px-2 mb-4">
-                <div className="h-5 w-1 rounded-full bg-[#1D80D9]" />
-                <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                  Umum — Tersedia untuk Semua Pengguna
-                </h2>
-              </div>
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {visibleCategories
-                  .filter((c) => !c.superAdminOnly)
-                  .map((cat) => (
-                    <CategoryCard
-                      key={cat.id}
-                      cat={cat}
-                      isSuperAdmin={isSuperAdmin}
-                      onClick={() => router.push(`/produk/${cat.id}`)}
-                    />
-                  ))}
+                {visibleCategories.map((cat) => (
+                  <CategoryCard
+                    key={cat.id}
+                    cat={cat}
+                    isSuperAdmin={isSuperAdmin}
+                    onClick={() => router.push(`/produk/${cat.id}`)}
+                    onToggleLock={handleToggleCategoryLock}
+                    onDelete={confirmDeleteCategory}
+                  />
+                ))}
               </div>
             </section>
           )}
 
-          {/* ── Section: SuperAdmin Only ── */}
-          {isSuperAdmin &&
-            visibleCategories.filter((c) => c.superAdminOnly).length > 0 && (
-              <section className="mb-8">
-                <div className="flex items-center gap-2 px-2 mb-4">
-                  <div className="h-5 w-1 rounded-full bg-amber-500" />
-                  <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                    Khusus SuperAdmin
-                  </h2>
-                  <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200">
-                    <Shield className="w-2.5 h-2.5" />
-                    Restricted
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {visibleCategories
-                    .filter((c) => c.superAdminOnly)
-                    .map((cat) => (
-                      <CategoryCard
-                        key={cat.id}
-                        cat={cat}
-                        isSuperAdmin={isSuperAdmin}
-                        onClick={() => router.push(`/produk/${cat.id}`)}
-                      />
-                    ))}
-                </div>
-              </section>
-            )}
-
           {/* ── Empty state ── */}
           {visibleCategories.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+            <div className="flex flex-col items-center justify-center py-24 text-slate-400">
               <Search className="w-12 h-12 mb-3 opacity-30" />
               <p className="text-sm font-semibold">
                 Tidak ada kategori yang sesuai dengan pencarian.
@@ -447,58 +514,125 @@ export default function ProdukPage() {
 
           {/* ── Modal Tambah Kategori ── */}
           {showAddModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
-                <div className="flex items-center justify-between p-5 border-b border-gray-100">
-                  <h3 className="font-extrabold text-lg text-gray-900">Tambah Kategori Baru</h3>
-                  <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 transition">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+              <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                  <h3 className="font-extrabold text-lg text-slate-900">
+                    Tambah Kategori Baru
+                  </h3>
+                  <button
+                    onClick={() => setShowAddModal(false)}
+                    className="text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                  >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <div className="p-5 flex flex-col gap-4">
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Nama Kategori</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                      Nama Kategori
+                    </label>
                     <input
                       type="text"
                       value={newCatName}
                       onChange={(e) => setNewCatName(e.target.value)}
-                      placeholder="Contoh: Proposal"
-                      className="w-full h-11 px-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#1D80D9]/40"
+                      placeholder="Contoh: Proposal Tender"
+                      className="w-full h-11 px-3.5 rounded-xl border border-slate-200 outline-none focus:border-[#1D80D9] focus:ring-2 focus:ring-[#1D80D9]/20 text-sm font-medium transition"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Deskripsi</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                      Deskripsi
+                    </label>
                     <input
                       type="text"
                       value={newCatDesc}
                       onChange={(e) => setNewCatDesc(e.target.value)}
-                      placeholder="Penjelasan singkat"
-                      className="w-full h-11 px-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#1D80D9]/40"
+                      placeholder="Penjelasan singkat mengenai kategori ini"
+                      className="w-full h-11 px-3.5 rounded-xl border border-slate-200 outline-none focus:border-[#1D80D9] focus:ring-2 focus:ring-[#1D80D9]/20 text-sm font-medium transition"
                     />
                   </div>
-                  <label className="flex items-center gap-3 mt-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newCatSuperAdmin}
-                      onChange={(e) => setNewCatSuperAdmin(e.target.checked)}
-                      className="w-5 h-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                    />
-                    <span className="text-sm font-bold text-gray-700">Khusus SuperAdmin</span>
-                  </label>
                 </div>
-                <div className="p-5 border-t border-gray-100 flex gap-3">
+                <div className="p-5 border-t border-slate-100 flex gap-3">
                   <button
                     onClick={() => setShowAddModal(false)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition"
+                    className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition cursor-pointer"
                   >
                     Batal
                   </button>
                   <button
                     onClick={handleAddCategory}
                     disabled={!newCatName.trim()}
-                    className="flex-1 py-2.5 rounded-xl bg-[#1D80D9] text-white text-sm font-bold shadow-sm hover:bg-[#1769B5] disabled:opacity-50 transition"
+                    className="flex-1 py-2.5 rounded-xl bg-[#1D80D9] text-white text-sm font-bold shadow-sm hover:bg-[#1769B5] disabled:opacity-50 transition cursor-pointer"
                   >
                     Simpan
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Modal Hapus Kategori ── */}
+          {showDeleteModal && deletingCatId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+              <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                  <h3 className="font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-500" />
+                    Hapus Kategori
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setDeletingCatId(null);
+                    }}
+                    className="text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-5">
+                  <p className="text-sm text-slate-700">
+                    Apakah Anda yakin ingin menghapus kategori{" "}
+                    <strong className="text-slate-900">
+                      {categories.find((c) => c.id === deletingCatId)?.name}
+                    </strong>
+                    ?
+                  </p>
+                  <div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-200/60">
+                    <p className="text-xs text-red-600 font-semibold flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                      Semua dokumen dalam kategori ini juga akan dihapus secara permanen.
+                    </p>
+                  </div>
+                </div>
+                <div className="p-5 border-t border-slate-100 flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setDeletingCatId(null);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition cursor-pointer"
+                    disabled={isDeleting}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleDeleteCategory}
+                    disabled={isDeleting}
+                    className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold shadow-sm hover:bg-red-700 disabled:opacity-50 transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Menghapus...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        Hapus Kategori
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

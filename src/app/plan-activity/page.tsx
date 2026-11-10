@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import { normalizeRing } from '@/lib/ring'
+import { div } from 'motion/react-client'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
