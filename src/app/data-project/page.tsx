@@ -32,6 +32,8 @@ import {
   Wallet,
   Sparkles,
   Download,
+  History,
+  Save,
 } from "lucide-react";
 import { getSuggestedProjectStatus } from "@/lib/project-status-helper";
 import { buildDataProjectWorkbook } from "@/lib/data-project-export";
@@ -44,6 +46,26 @@ export type PembayaranItem = {
   keterangan?: string;
   createdAt?: string | Date;
   createdBy?: string;
+};
+
+export type PembayaranAuditItem = {
+  id: string;
+  action: "EDIT" | "DELETE";
+  paymentId: string;
+  tanggal: string; // ISO timestamp
+  user: string;
+  role?: string;
+  oldData: {
+    tanggal: string;
+    jumlah: number;
+    keterangan?: string;
+  };
+  newData?: {
+    tanggal: string;
+    jumlah: number;
+    keterangan?: string;
+  };
+  reason?: string;
 };
 
 type Penagihan = {
@@ -68,6 +90,7 @@ type Contract = {
   dokSales?: string;
   penagihan?: Penagihan;
   pembayaran?: PembayaranItem[];
+  pembayaranAudit?: PembayaranAuditItem[];
   [key: string]: any;
 };
 
@@ -771,6 +794,20 @@ function DataProjectContent() {
   const [paymentError, setPaymentError] = useState("");
   const [paymentSuccess, setPaymentSuccess] = useState("");
 
+  // Edit Payment State
+  const [editingPayment, setEditingPayment] = useState<PembayaranItem | null>(null);
+  const [editPaymentDate, setEditPaymentDate] = useState("");
+  const [editPaymentAmount, setEditPaymentAmount] = useState<number>(0);
+  const [editPaymentNote, setEditPaymentNote] = useState("");
+  const [editPaymentReason, setEditPaymentReason] = useState("");
+
+  // Delete Payment Reason
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
+  const [deletePaymentReason, setDeletePaymentReason] = useState("");
+
+  // Audit Log Tab
+  const [paymentTab, setPaymentTab] = useState<"riwayat" | "audit">("riwayat");
+
   const openPaymentModal = (c: Contract) => {
     setPaymentContract(c);
     setPaymentDate(new Date().toISOString().split("T")[0]);
@@ -778,6 +815,10 @@ function DataProjectContent() {
     setPaymentNote("");
     setPaymentError("");
     setPaymentSuccess("");
+    setEditingPayment(null);
+    setDeletingPaymentId(null);
+    setDeletePaymentReason("");
+    setPaymentTab("riwayat");
   };
 
   const handleAddPayment = async (targetContract: Contract) => {
@@ -787,6 +828,19 @@ function DataProjectContent() {
     }
     if (!paymentAmount || paymentAmount <= 0) {
       setPaymentError("Jumlah pembayaran harus lebih dari Rp 0");
+      return;
+    }
+
+    // Validasi: cegah jumlah melebihi sisa tagihan
+    const currentSisa = getSisaTagihan(targetContract);
+    if (paymentAmount > currentSisa && currentSisa > 0) {
+      setPaymentError(
+        `Jumlah pembayaran (${fmtCurrencyWithZero(paymentAmount)}) melebihi sisa tagihan (Maks. ${fmtCurrencyWithZero(currentSisa)})`
+      );
+      return;
+    }
+    if (currentSisa <= 0 && (targetContract.nominalKontrak || 0) > 0) {
+      setPaymentError("Kontrak ini sudah lunas. Tidak dapat menambah pembayaran.");
       return;
     }
 
@@ -887,13 +941,41 @@ function DataProjectContent() {
     }
   };
 
-  const handleDeletePayment = async (targetContract: Contract, paymentId: string) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus catatan pembayaran ini?")) return;
+  const handleDeletePayment = async (targetContract: Contract, paymentId: string, reason: string = "") => {
+    const deletedPayment = (targetContract.pembayaran || []).find((p) => p.id === paymentId);
+    if (!deletedPayment) return;
+
+    // Jika dipanggil tanpa reason (dari detail view), tampilkan confirm dialog
+    if (!reason && !deletingPaymentId) {
+      if (!confirm("Apakah Anda yakin ingin menghapus catatan pembayaran ini?")) return;
+    }
+
+    setSavingPayment(true);
+    setPaymentError("");
 
     try {
       const updatedPayments = (targetContract.pembayaran || []).filter(
         (p) => p.id !== paymentId
       );
+
+      // Buat audit entry
+      const auditEntry: PembayaranAuditItem = {
+        id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        action: "DELETE",
+        paymentId,
+        tanggal: new Date().toISOString(),
+        user: user?.fullName || user?.username || "Admin",
+        role: user?.role || "ADMIN",
+        oldData: {
+          tanggal: deletedPayment.tanggal,
+          jumlah: deletedPayment.jumlah,
+          keterangan: deletedPayment.keterangan,
+        },
+        reason: reason.trim() || undefined,
+      };
+
+      const existingAudit = targetContract.pembayaranAudit || [];
+      const updatedAudit = [auditEntry, ...existingAudit];
 
       const res = await fetch(
         `/api/contracts/${encodeURIComponent(targetContract.nomorKontrak)}`,
@@ -902,6 +984,7 @@ function DataProjectContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             pembayaran: updatedPayments,
+            pembayaranAudit: updatedAudit,
           }),
         }
       );
@@ -909,26 +992,173 @@ function DataProjectContent() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Gagal menghapus pembayaran");
 
+      const stateUpdate = { pembayaran: updatedPayments, pembayaranAudit: updatedAudit };
+
       setContracts((prev) =>
         prev.map((c) =>
           c.nomorKontrak === targetContract.nomorKontrak
-            ? { ...c, pembayaran: updatedPayments }
+            ? { ...c, ...stateUpdate }
             : c
         )
       );
 
       if (selectedDetail && selectedDetail.nomorKontrak === targetContract.nomorKontrak) {
         setSelectedDetail((prev) =>
-          prev ? { ...prev, pembayaran: updatedPayments } : null
+          prev ? { ...prev, ...stateUpdate } : null
         );
       }
       if (paymentContract && paymentContract.nomorKontrak === targetContract.nomorKontrak) {
         setPaymentContract((prev) =>
-          prev ? { ...prev, pembayaran: updatedPayments } : null
+          prev ? { ...prev, ...stateUpdate } : null
         );
       }
+
+      setDeletingPaymentId(null);
+      setDeletePaymentReason("");
+      setPaymentSuccess("Pembayaran berhasil dihapus.");
     } catch (err: any) {
-      alert(err.message || "Gagal menghapus pembayaran");
+      setPaymentError(err.message || "Gagal menghapus pembayaran");
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const startEditPayment = (payment: PembayaranItem) => {
+    setEditingPayment(payment);
+    setEditPaymentDate(payment.tanggal);
+    setEditPaymentAmount(payment.jumlah);
+    setEditPaymentNote(payment.keterangan || "");
+    setEditPaymentReason("");
+    setPaymentError("");
+    setPaymentSuccess("");
+  };
+
+  const handleEditPayment = async (targetContract: Contract) => {
+    if (!editingPayment) return;
+
+    if (!editPaymentDate) {
+      setPaymentError("Tanggal pembayaran wajib diisi");
+      return;
+    }
+    if (!editPaymentAmount || editPaymentAmount <= 0) {
+      setPaymentError("Jumlah pembayaran harus lebih dari Rp 0");
+      return;
+    }
+    if (!editPaymentReason.trim()) {
+      setPaymentError("Alasan perubahan wajib diisi");
+      return;
+    }
+
+    // Validasi: hitung sisa tagihan minus pembayaran yang sedang diedit
+    const otherPaymentsTotal = (targetContract.pembayaran || [])
+      .filter((p) => p.id !== editingPayment.id)
+      .reduce((sum, p) => sum + (Number(p.jumlah) || 0), 0);
+    const nominal = Number(targetContract.nominalKontrak) || 0;
+    const maxAllowed = nominal - otherPaymentsTotal;
+
+    if (editPaymentAmount > maxAllowed && maxAllowed > 0) {
+      setPaymentError(
+        `Jumlah pembayaran (${fmtCurrencyWithZero(editPaymentAmount)}) melebihi sisa tagihan (Maks. ${fmtCurrencyWithZero(maxAllowed)})`
+      );
+      return;
+    }
+
+    setSavingPayment(true);
+    setPaymentError("");
+    setPaymentSuccess("");
+
+    try {
+      const updatedPayments = (targetContract.pembayaran || []).map((p) =>
+        p.id === editingPayment.id
+          ? { ...p, tanggal: editPaymentDate, jumlah: editPaymentAmount, keterangan: editPaymentNote.trim() }
+          : p
+      );
+
+      // Buat audit entry
+      const auditEntry: PembayaranAuditItem = {
+        id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        action: "EDIT",
+        paymentId: editingPayment.id,
+        tanggal: new Date().toISOString(),
+        user: user?.fullName || user?.username || "Admin",
+        role: user?.role || "ADMIN",
+        oldData: {
+          tanggal: editingPayment.tanggal,
+          jumlah: editingPayment.jumlah,
+          keterangan: editingPayment.keterangan,
+        },
+        newData: {
+          tanggal: editPaymentDate,
+          jumlah: editPaymentAmount,
+          keterangan: editPaymentNote.trim(),
+        },
+        reason: editPaymentReason.trim(),
+      };
+
+      const existingAudit = targetContract.pembayaranAudit || [];
+      const updatedAudit = [auditEntry, ...existingAudit];
+
+      // Periksa DONE PROJECT auto-status
+      const totalBayar = updatedPayments.reduce((s, p) => s + (Number(p.jumlah) || 0), 0);
+      const sisaAfter = Math.max(0, nominal - totalBayar);
+      const isLunas = nominal > 0 && sisaAfter <= 0;
+      const dokApproved =
+        targetContract.dokSales === "Disetujui" ||
+        targetContract.dokSales === "Sudah Upload" ||
+        targetContract.dokSales === "Proses Verifikasi";
+      const shouldAutoDone = isLunas && dokApproved && targetContract.status !== "DONE PROJECT";
+
+      const payload: any = {
+        pembayaran: updatedPayments,
+        pembayaranAudit: updatedAudit,
+      };
+      if (shouldAutoDone) {
+        payload.status = "DONE PROJECT";
+      }
+
+      const res = await fetch(
+        `/api/contracts/${encodeURIComponent(targetContract.nomorKontrak)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal menyimpan perubahan");
+
+      const stateUpdate = {
+        pembayaran: updatedPayments,
+        pembayaranAudit: updatedAudit,
+        ...(shouldAutoDone ? { status: "DONE PROJECT" } : {}),
+      };
+
+      setContracts((prev) =>
+        prev.map((c) =>
+          c.nomorKontrak === targetContract.nomorKontrak
+            ? { ...c, ...stateUpdate }
+            : c
+        )
+      );
+
+      if (selectedDetail && selectedDetail.nomorKontrak === targetContract.nomorKontrak) {
+        setSelectedDetail((prev) =>
+          prev ? { ...prev, ...stateUpdate } : null
+        );
+      }
+      if (paymentContract && paymentContract.nomorKontrak === targetContract.nomorKontrak) {
+        setPaymentContract((prev) =>
+          prev ? { ...prev, ...stateUpdate } : null
+        );
+      }
+
+      setEditingPayment(null);
+      setPaymentSuccess("Pembayaran berhasil diperbarui.");
+    } catch (err: any) {
+      setPaymentError(err.message || "Gagal menyimpan perubahan");
+    } finally {
+      setSavingPayment(false);
     }
   };
 
@@ -2131,14 +2361,24 @@ function DataProjectContent() {
                                     {p.createdBy || "Admin"}
                                   </td>
                                   <td className="py-2.5 px-2 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeletePayment(selectedDetail, p.id)}
-                                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                                      title="Hapus pembayaran"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => { openPaymentModal(selectedDetail); startEditPayment(p); }}
+                                        className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                                        title="Edit pembayaran"
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeletePayment(selectedDetail, p.id)}
+                                        className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                        title="Hapus pembayaran"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               ))}
@@ -2717,118 +2957,419 @@ function DataProjectContent() {
                 </div>
 
                 {/* Form Input Pembayaran Masuk */}
-                <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-3.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
-                      <Plus className="w-3.5 h-3.5" />
+                {!isLunas && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-4">
+                  {/* Header Form */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                        <Plus className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs uppercase tracking-wider text-slate-800 block">
+                          Tambah Pembayaran Masuk
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          Catat termin atau pelunasan pembayaran project
+                        </span>
+                      </div>
                     </div>
-                    <span className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                      Tambah Pembayaran Masuk
-                    </span>
+                    {sisa > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentAmount(sisa)}
+                        className="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 active:scale-95"
+                        title="Klik untuk mengisi nominal sesuai sisa tagihan"
+                      >
+                        <Sparkles className="w-3 h-3 text-emerald-600" />
+                        <span>Bayar Sesuai Sisa: {fmtCurrencyWithZero(sisa)}</span>
+                      </button>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Form Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
                     {/* Tanggal Pembayaran */}
-                    <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
                         Tanggal Pembayaran <span className="text-rose-500">*</span>
                       </label>
-                      <input
-                        type="date"
-                        value={paymentDate}
-                        onChange={(e) => setPaymentDate(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                      />
+                      <div
+                        onClick={(e) => {
+                          const input = e.currentTarget.querySelector("input");
+                          if (input && "showPicker" in HTMLInputElement.prototype) {
+                            try { input.showPicker(); } catch (err) {}
+                          }
+                        }}
+                        className="relative flex items-center bg-slate-50/70 hover:bg-slate-50 border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all cursor-pointer overflow-hidden"
+                      >
+                        <div className="pl-3 pr-2 text-slate-400">
+                          <Calendar className="w-4 h-4" />
+                        </div>
+                        <input
+                          type="date"
+                          value={paymentDate}
+                          onChange={(e) => setPaymentDate(e.target.value)}
+                          onClick={(e) => {
+                            if ("showPicker" in HTMLInputElement.prototype) {
+                              try { e.currentTarget.showPicker(); } catch (err) {}
+                            }
+                          }}
+                          className="w-full h-10 pr-3 bg-transparent text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer"
+                        />
+                      </div>
                     </div>
 
                     {/* Jumlah Pembayaran */}
-                    <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                        Jumlah Pembayaran (Rp) <span className="text-rose-500">*</span>
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                        Jumlah Pembayaran <span className="text-rose-500">*</span>
                       </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={paymentAmount || ""}
-                        onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                        placeholder="Contoh: 15000000"
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
-                      />
-                      {paymentAmount > 0 && (
-                        <span className="text-[11px] text-emerald-700 font-bold mt-1 block">
-                          {fmtCurrencyWithZero(paymentAmount)}
+                      <div className="relative flex items-center bg-slate-50/70 focus-within:bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all overflow-hidden">
+                        <span className="px-3 h-10 bg-slate-100/80 border-r border-slate-200 text-xs font-bold text-slate-600 flex items-center select-none">
+                          Rp
                         </span>
-                      )}
+                        <input
+                          type="number"
+                          min="1"
+                          max={sisa > 0 ? sisa : undefined}
+                          value={paymentAmount || ""}
+                          onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                          placeholder={sisa > 0 ? `Maks. ${sisa}` : "0"}
+                          className="w-full h-10 px-3 bg-transparent text-xs font-bold text-slate-800 focus:outline-none font-mono"
+                        />
+                      </div>
                     </div>
 
                     {/* Keterangan / Termin */}
-                    <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                        Keterangan / Termin
+                    <div className="sm:col-span-2 space-y-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                        Keterangan / Termin <span className="text-slate-400 font-normal normal-case">(Opsional)</span>
                       </label>
                       <input
                         type="text"
                         value={paymentNote}
                         onChange={(e) => setPaymentNote(e.target.value)}
-                        placeholder="Contoh: DP 30%, Termin 2 (40%), Pelunasan, No Rekening BNI..."
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        placeholder="Contoh: DP 30%, Termin 2 (40%), Pelunasan, Transfer BNI..."
+                        className="w-full h-10 px-3.5 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                       />
                     </div>
                   </div>
 
-                  {/* Sisa setelah pembayaran ini */}
+                  {/* Ringkasan & Validasi Realtime */}
                   {paymentAmount > 0 && (
-                    <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-between text-xs">
-                      <span className="text-blue-700 font-medium">Estimasi Sisa Tagihan Setelah Ini:</span>
-                      <span className={`font-bold ${sisa - paymentAmount <= 0 ? "text-emerald-700" : "text-blue-900"}`}>
-                        {sisa - paymentAmount <= 0 ? "Rp 0 (Lunas)" : fmtCurrencyWithZero(sisa - paymentAmount)}
-                      </span>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="text-slate-600 font-medium">Nominal Pembayaran Masuk:</span>
+                        <span className="font-bold text-emerald-700 font-mono text-sm">
+                          {fmtCurrencyWithZero(paymentAmount)}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1.5 border-t border-slate-200/60">
+                        <span className="text-slate-600 font-medium">Estimasi Sisa Tagihan Setelah Ini:</span>
+                        <span className={`font-bold font-mono ${sisa - paymentAmount <= 0 ? "text-emerald-700 font-extrabold" : sisa - paymentAmount < 0 ? "text-rose-600" : "text-blue-900"}`}>
+                          {sisa - paymentAmount <= 0 ? "Rp 0 (Lunas)" : fmtCurrencyWithZero(sisa - paymentAmount)}
+                        </span>
+                      </div>
+                      {paymentAmount > sisa && sisa > 0 && (
+                        <div className="p-2 rounded-lg bg-rose-100/70 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                          <span>Nominal pembayaran melebihi sisa tagihan saat ini ({fmtCurrencyWithZero(sisa)}).</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
+                  {/* Status Pesan */}
                   {paymentError && (
-                    <div className="rounded-xl bg-rose-50 p-2.5 text-rose-600 text-xs font-semibold border border-rose-200">
-                      {paymentError}
+                    <div className="rounded-xl bg-rose-50 p-3 text-rose-700 text-xs font-semibold border border-rose-200 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                      <span>{paymentError}</span>
                     </div>
                   )}
 
                   {paymentSuccess && (
-                    <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600 text-xs font-semibold border border-emerald-200 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" />
+                    <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700 text-xs font-semibold border border-emerald-200 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
                       <span>{paymentSuccess}</span>
                     </div>
                   )}
 
-                  <div className="flex justify-end pt-1">
+                  {/* Tombol Simpan */}
+                  <div className="flex items-center justify-end pt-1">
                     <button
                       type="button"
-                      disabled={savingPayment}
+                      disabled={savingPayment || (sisa > 0 && paymentAmount > sisa)}
                       onClick={() => handleAddPayment(paymentContract)}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-md disabled:opacity-50 active:scale-95 flex items-center gap-1.5"
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 flex items-center gap-2"
                     >
-                      {savingPayment ? (
+                      {savingPayment && !editingPayment ? (
                         <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Menyimpan...</span>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Menyimpan Pembayaran...</span>
                         </>
                       ) : (
                         <>
-                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <CheckCircle2 className="w-4 h-4" />
                           <span>Simpan Pembayaran</span>
                         </>
                       )}
                     </button>
                   </div>
                 </div>
+                )}
 
-                {/* Tabel Riwayat Pembayaran */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Riwayat Pembayaran ({paymentContract.pembayaran?.length || 0})
-                    </span>
+                {/* Inline Edit Form */}
+                {editingPayment && (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/80 border border-amber-200/90 shadow-xs space-y-4">
+                    <div className="flex items-center gap-2.5 pb-1 border-b border-amber-200/60">
+                      <div className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                        <Pencil className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs uppercase tracking-wider text-amber-900 block">
+                          Edit Pembayaran
+                        </span>
+                        <span className="text-[11px] text-amber-700/80 font-medium">
+                          Perubahan nominal atau data pembayaran akan dicatat ke dalam audit log
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setEditingPayment(null); setPaymentError(""); }}
+                        className="ml-auto text-xs text-amber-800 hover:text-amber-950 font-bold bg-white/80 border border-amber-200 px-2.5 py-1 rounded-lg transition-colors"
+                      >
+                        Batal
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
+                      <div className="space-y-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-amber-800">
+                          Tanggal <span className="text-rose-500">*</span>
+                        </label>
+                        <div
+                          onClick={(e) => {
+                            const input = e.currentTarget.querySelector("input");
+                            if (input && "showPicker" in HTMLInputElement.prototype) {
+                              try { input.showPicker(); } catch (err) {}
+                            }
+                          }}
+                          className="relative flex items-center bg-white border border-amber-200 rounded-xl focus-within:ring-2 focus-within:ring-amber-500/20 focus-within:border-amber-500 transition-all cursor-pointer overflow-hidden"
+                        >
+                          <div className="pl-3 pr-2 text-amber-600">
+                            <Calendar className="w-4 h-4" />
+                          </div>
+                          <input
+                            type="date"
+                            value={editPaymentDate}
+                            onChange={(e) => setEditPaymentDate(e.target.value)}
+                            onClick={(e) => {
+                              if ("showPicker" in HTMLInputElement.prototype) {
+                                try { e.currentTarget.showPicker(); } catch (err) {}
+                              }
+                            }}
+                            className="w-full h-10 pr-3 bg-transparent text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-amber-800">
+                          Jumlah Pembayaran <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative flex items-center bg-white border border-amber-200 rounded-xl focus-within:ring-2 focus-within:ring-amber-500/20 focus-within:border-amber-500 transition-all overflow-hidden">
+                          <span className="px-3 h-10 bg-amber-100/70 border-r border-amber-200 text-xs font-bold text-amber-800 flex items-center select-none">
+                            Rp
+                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={editPaymentAmount || ""}
+                            onChange={(e) => setEditPaymentAmount(Number(e.target.value))}
+                            className="w-full h-10 px-3 bg-transparent text-xs font-bold text-slate-800 focus:outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-2 space-y-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-amber-800">
+                          Keterangan / Termin <span className="text-amber-600/70 font-normal normal-case">(Opsional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={editPaymentNote}
+                          onChange={(e) => setEditPaymentNote(e.target.value)}
+                          placeholder="Keterangan pembayaran..."
+                          className="w-full h-10 px-3.5 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2 space-y-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-amber-800">
+                          Alasan Perubahan <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={editPaymentReason}
+                          onChange={(e) => setEditPaymentReason(e.target.value)}
+                          placeholder="Wajib diisi, contoh: Koreksi nominal, Salah input tanggal..."
+                          className="w-full h-10 px-3.5 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Perubahan preview */}
+                    {(editPaymentAmount !== editingPayment.jumlah || editPaymentDate !== editingPayment.tanggal) && (
+                      <div className="p-3 rounded-xl bg-amber-100/70 border border-amber-200 text-xs space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block">
+                          Perbandingan Perubahan:
+                        </span>
+                        {editPaymentAmount !== editingPayment.jumlah && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-amber-800 font-medium">Nominal:</span>
+                            <span className="font-mono">
+                              <span className="text-rose-500 line-through mr-2 font-medium">{fmtCurrencyWithZero(editingPayment.jumlah)}</span>
+                              <span className="text-emerald-800 font-bold">{fmtCurrencyWithZero(editPaymentAmount)}</span>
+                            </span>
+                          </div>
+                        )}
+                        {editPaymentDate !== editingPayment.tanggal && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-amber-800 font-medium">Tanggal:</span>
+                            <span>
+                              <span className="text-rose-500 line-through mr-2 font-medium">{fmtDate(editingPayment.tanggal)}</span>
+                              <span className="text-emerald-800 font-bold">{fmtDate(editPaymentDate)}</span>
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {paymentError && (
+                      <div className="rounded-xl bg-rose-50 p-3 text-rose-700 text-xs font-semibold border border-rose-200 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                        <span>{paymentError}</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setEditingPayment(null); setPaymentError(""); }}
+                        className="px-3 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition-colors"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingPayment}
+                        onClick={() => handleEditPayment(paymentContract)}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-md disabled:opacity-50 active:scale-95 flex items-center gap-1.5"
+                      >
+                        {savingPayment ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Menyimpan...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-3.5 h-3.5" />
+                            <span>Simpan Perubahan</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
+                )}
 
+                {/* Delete Confirmation */}
+                {deletingPaymentId && (() => {
+                  const dp = (paymentContract.pembayaran || []).find((p) => p.id === deletingPaymentId);
+                  if (!dp) return null;
+                  return (
+                    <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-rose-500 text-white flex items-center justify-center">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="font-bold text-xs uppercase tracking-wider text-rose-800">
+                          Konfirmasi Hapus
+                        </span>
+                      </div>
+                      <p className="text-xs text-rose-700">
+                        Hapus pembayaran <strong>{fmtDate(dp.tanggal)}</strong> sebesar <strong>{fmtCurrencyWithZero(dp.jumlah)}</strong>?
+                      </p>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-rose-700 mb-1">
+                          Alasan Penghapusan (opsional)
+                        </label>
+                        <input
+                          type="text"
+                          value={deletePaymentReason}
+                          onChange={(e) => setDeletePaymentReason(e.target.value)}
+                          placeholder="Contoh: Data duplikat, Salah input..."
+                          className="w-full px-3 py-2 bg-white border border-rose-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setDeletingPaymentId(null); setDeletePaymentReason(""); }}
+                          className="px-3 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition-colors"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="button"
+                          disabled={savingPayment}
+                          onClick={() => handleDeletePayment(paymentContract, deletingPaymentId, deletePaymentReason)}
+                          className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 active:scale-95 flex items-center gap-1.5"
+                        >
+                          {savingPayment ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Menghapus...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Ya, Hapus</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Tab Switcher: Riwayat / Audit Log */}
+                <div className="flex items-center gap-1 border-b border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentTab("riwayat")}
+                    className={`px-3 py-2 text-xs font-bold transition-colors border-b-2 ${paymentTab === "riwayat" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Wallet className="w-3.5 h-3.5" />
+                      Riwayat ({paymentContract.pembayaran?.length || 0})
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentTab("audit")}
+                    className={`px-3 py-2 text-xs font-bold transition-colors border-b-2 ${paymentTab === "audit" ? "border-amber-500 text-amber-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <History className="w-3.5 h-3.5" />
+                      Audit Log ({paymentContract.pembayaranAudit?.length || 0})
+                    </span>
+                  </button>
+                </div>
+
+                {/* Tab: Riwayat Pembayaran */}
+                {paymentTab === "riwayat" && (
+                <div className="space-y-2">
                   {!paymentContract.pembayaran || paymentContract.pembayaran.length === 0 ? (
                     <div className="p-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center">
                       <p className="text-xs font-medium text-slate-600">Belum ada riwayat pembayaran</p>
@@ -2845,12 +3386,12 @@ function DataProjectContent() {
                             <th className="py-2.5 px-3 text-right">Jumlah Masuk</th>
                             <th className="py-2.5 px-3">Keterangan</th>
                             <th className="py-2.5 px-3">Dicatat Oleh</th>
-                            <th className="py-2.5 px-2 text-center w-10">Aksi</th>
+                            <th className="py-2.5 px-2 text-center w-20">Aksi</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {paymentContract.pembayaran.map((p, idx) => (
-                            <tr key={p.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                            <tr key={p.id || idx} className={`hover:bg-slate-50/60 transition-colors ${editingPayment?.id === p.id ? "bg-amber-50/50" : ""}`}>
                               <td className="py-2.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
                                 {fmtDate(p.tanggal)}
                               </td>
@@ -2864,14 +3405,24 @@ function DataProjectContent() {
                                 {p.createdBy || "Admin"}
                               </td>
                               <td className="py-2.5 px-2 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeletePayment(paymentContract, p.id)}
-                                  className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                                  title="Hapus pembayaran"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditPayment(p)}
+                                    className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                                    title="Edit pembayaran"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setDeletingPaymentId(p.id); setDeletePaymentReason(""); setPaymentError(""); }}
+                                    className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                    title="Hapus pembayaran"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -2880,6 +3431,72 @@ function DataProjectContent() {
                     </div>
                   )}
                 </div>
+                )}
+
+                {/* Tab: Audit Log */}
+                {paymentTab === "audit" && (
+                <div className="space-y-2">
+                  {!paymentContract.pembayaranAudit || paymentContract.pembayaranAudit.length === 0 ? (
+                    <div className="p-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center">
+                      <p className="text-xs font-medium text-slate-600">Belum ada audit log</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Audit log akan muncul saat pembayaran diedit atau dihapus.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {paymentContract.pembayaranAudit.map((audit) => (
+                        <div key={audit.id} className={`p-3 rounded-xl border ${audit.action === "DELETE" ? "bg-rose-50/50 border-rose-100" : "bg-amber-50/50 border-amber-100"}`}>
+                          <div className="flex items-start justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${audit.action === "DELETE" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}>
+                                {audit.action === "DELETE" ? "DIHAPUS" : "DIEDIT"}
+                              </span>
+                              <span className="text-[11px] font-semibold text-slate-700">
+                                {audit.user}
+                              </span>
+                              {audit.role && (
+                                <span className="text-[10px] text-slate-400 font-medium">
+                                  ({audit.role})
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+                              {new Date(audit.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}{" "}
+                              {new Date(audit.tanggal).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1 text-[11px]">
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-500 font-medium w-16">Sebelum:</span>
+                              <span className="font-semibold text-slate-700">
+                                {fmtDate(audit.oldData.tanggal)} — {fmtCurrencyWithZero(audit.oldData.jumlah)}
+                                {audit.oldData.keterangan ? ` (${audit.oldData.keterangan})` : ""}
+                              </span>
+                            </div>
+                            {audit.newData && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-500 font-medium w-16">Sesudah:</span>
+                                <span className="font-semibold text-emerald-700">
+                                  {fmtDate(audit.newData.tanggal)} — {fmtCurrencyWithZero(audit.newData.jumlah)}
+                                  {audit.newData.keterangan ? ` (${audit.newData.keterangan})` : ""}
+                                </span>
+                              </div>
+                            )}
+                            {audit.reason && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-500 font-medium w-16">Alasan:</span>
+                                <span className="font-medium text-slate-600 italic">{audit.reason}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                )}
               </div>
 
               {/* Footer */}
