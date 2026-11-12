@@ -44,6 +44,8 @@ import {
 
 } from "lucide-react";
 
+import { PRODUCT_SPEC_REGISTRY } from "@/lib/katalog-specs";
+
 interface Product {
 
   _id: string;
@@ -117,6 +119,12 @@ function KatalogProdukContent() {
 
   const [search, setSearch] = useState("");
 
+  const [kategori, setKategori] = useState("");
+
+  const [merek, setMerek] = useState("");
+
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+
   const [jenisProduk, setJenisProduk] = useState<string[]>([]);
 
   const [minTkdn, setMinTkdn] = useState("");
@@ -179,6 +187,10 @@ function KatalogProdukContent() {
 
       if (search.trim()) params.set("search", search.trim());
 
+      if (kategori && kategori !== "all") params.set("kategori", kategori);
+
+      if (merek && merek !== "all") params.set("merek", merek);
+
       if (jenisProduk.length === 1) params.set("jenisProduk", jenisProduk[0]);
 
       if (labelProduk.length === 1) params.set("labelProduk", labelProduk[0]);
@@ -211,6 +223,12 @@ function KatalogProdukContent() {
 
       setTotalPages(data.totalPages || 1);
 
+      if (data.availableBrands && Array.isArray(data.availableBrands)) {
+
+        setAvailableBrands(data.availableBrands);
+
+      }
+
     } catch (err) {
 
       console.error("Fetch products error:", err);
@@ -224,6 +242,10 @@ function KatalogProdukContent() {
   }, [
 
     search,
+
+    kategori,
+
+    merek,
 
     jenisProduk,
 
@@ -275,6 +297,10 @@ function KatalogProdukContent() {
   const handleResetFilters = () => {
 
     setSearch("");
+
+    setKategori("");
+
+    setMerek("");
 
     setJenisProduk([]);
 
@@ -550,6 +576,142 @@ function KatalogProdukContent() {
 
               </div>
 
+
+
+              {/* Kategori Produk */}
+
+              <div className="pt-2 border-t border-slate-100 space-y-1.5">
+
+                <div className="flex items-center justify-between">
+
+                  <span className="text-sm font-bold text-slate-700 block">Kategori</span>
+
+                  {kategori && (
+
+                    <button
+
+                      type="button"
+
+                      onClick={() => {
+
+                        setKategori("");
+
+                        setCurrentPage(1);
+
+                      }}
+
+                      className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+
+                    >
+
+                      Reset
+
+                    </button>
+
+                  )}
+
+                </div>
+
+                <select
+
+                  value={kategori}
+
+                  onChange={(e) => {
+
+                    setKategori(e.target.value);
+
+                    setCurrentPage(1);
+
+                  }}
+
+                  className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-lg outline-none font-medium text-slate-700 cursor-pointer"
+
+                >
+
+                  <option value="">Semua Kategori</option>
+
+                  {PRODUCT_SPEC_REGISTRY.map((cat) => (
+
+                    <option key={cat.id} value={cat.name}>
+
+                      {cat.name}
+
+                    </option>
+
+                  ))}
+
+                </select>
+
+              </div>
+
+
+
+              {/* Merek / Brand */}
+
+              <div className="pt-2 border-t border-slate-100 space-y-1.5">
+
+                <div className="flex items-center justify-between">
+
+                  <span className="text-sm font-bold text-slate-700 block">Merk / Brand</span>
+
+                  {merek && (
+
+                    <button
+
+                      type="button"
+
+                      onClick={() => {
+
+                        setMerek("");
+
+                        setCurrentPage(1);
+
+                      }}
+
+                      className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+
+                    >
+
+                      Reset
+
+                    </button>
+
+                  )}
+
+                </div>
+
+                <select
+
+                  value={merek}
+
+                  onChange={(e) => {
+
+                    setMerek(e.target.value);
+
+                    setCurrentPage(1);
+
+                  }}
+
+                  className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-lg outline-none font-medium text-slate-700 cursor-pointer"
+
+                >
+
+                  <option value="">Semua Merk</option>
+
+                  {availableBrands.map((b) => (
+
+                    <option key={b} value={b}>
+
+                      {b}
+
+                    </option>
+
+                  ))}
+
+                </select>
+
+              </div>
+
               {/* Jenis Produk */}
 
               <div className="pt-2 border-t border-slate-100 space-y-2">
@@ -812,6 +974,70 @@ function KatalogProdukContent() {
 
                   </div>
 
+                  {/* Pilihan Cepat Rentang Harga */}
+                  <div className="flex flex-wrap gap-1 pt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMinHarga("");
+                        setMaxHarga("1000000");
+                        setCurrentPage(1);
+                      }}
+                      className={`px-2 py-0.5 text-[10px] rounded border transition-colors cursor-pointer ${
+                        maxHarga === "1000000" && !minHarga
+                          ? "bg-blue-600 text-white border-blue-600 font-bold"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      &lt; 1 Jt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMinHarga("1000000");
+                        setMaxHarga("5000000");
+                        setCurrentPage(1);
+                      }}
+                      className={`px-2 py-0.5 text-[10px] rounded border transition-colors cursor-pointer ${
+                        minHarga === "1000000" && maxHarga === "5000000"
+                          ? "bg-blue-600 text-white border-blue-600 font-bold"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      1 - 5 Jt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMinHarga("5000000");
+                        setMaxHarga("20000000");
+                        setCurrentPage(1);
+                      }}
+                      className={`px-2 py-0.5 text-[10px] rounded border transition-colors cursor-pointer ${
+                        minHarga === "5000000" && maxHarga === "20000000"
+                          ? "bg-blue-600 text-white border-blue-600 font-bold"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      5 - 20 Jt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMinHarga("20000000");
+                        setMaxHarga("");
+                        setCurrentPage(1);
+                      }}
+                      className={`px-2 py-0.5 text-[10px] rounded border transition-colors cursor-pointer ${
+                        minHarga === "20000000" && !maxHarga
+                          ? "bg-blue-600 text-white border-blue-600 font-bold"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      &gt; 20 Jt
+                    </button>
+                  </div>
+
                 </div>
 
               </div>
@@ -853,6 +1079,69 @@ function KatalogProdukContent() {
 
                 {/* Filter tags */}
                 <div className="flex flex-wrap items-center gap-1.5 ml-1">
+                  {kategori && (
+                    <span className="inline-flex items-center gap-1 text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-semibold border border-blue-200/60">
+                      Kategori: {kategori}
+                      <button
+                        onClick={() => {
+                          setKategori("");
+                          setCurrentPage(1);
+                        }}
+                        className="hover:text-blue-900 cursor-pointer"
+                        title="Hapus filter kategori"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {merek && (
+                    <span className="inline-flex items-center gap-1 text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-semibold border border-blue-200/60">
+                      Merk: {merek}
+                      <button
+                        onClick={() => {
+                          setMerek("");
+                          setCurrentPage(1);
+                        }}
+                        className="hover:text-blue-900 cursor-pointer"
+                        title="Hapus filter merk"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {(minHarga || maxHarga) && (
+                    <span className="inline-flex items-center gap-1 text-[11px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md font-semibold border border-emerald-200/60">
+                      Harga: {minHarga ? `≥ ${formatRupiah(Number(minHarga))}` : ""}
+                      {minHarga && maxHarga ? " - " : ""}
+                      {maxHarga ? `≤ ${formatRupiah(Number(maxHarga))}` : ""}
+                      <button
+                        onClick={() => {
+                          setMinHarga("");
+                          setMaxHarga("");
+                          setCurrentPage(1);
+                        }}
+                        className="hover:text-emerald-900 cursor-pointer"
+                        title="Hapus filter harga"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {minTkdn && (
+                    <span className="inline-flex items-center gap-1 text-[11px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-semibold border border-purple-200/60">
+                      TKDN ≥ {minTkdn}%
+                      <button
+                        onClick={() => {
+                          setMinTkdn("");
+                          setCurrentPage(1);
+                        }}
+                        className="hover:text-purple-900 cursor-pointer"
+                        title="Hapus filter TKDN"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
                   {labelProduk.map((l) => (
                     <span
                       key={l}
@@ -895,7 +1184,21 @@ function KatalogProdukContent() {
                       </button>
                     </span>
                   ))}
-                  {(labelProduk.length > 0 || jenisPenyedia.length > 0 || jenisProduk.length > 0) && (
+                  {lokasi.map((loc) => (
+                    <span
+                      key={loc}
+                      className="inline-flex items-center gap-1 text-[11px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md font-semibold border border-amber-200/60"
+                    >
+                      {loc}
+                      <button
+                        onClick={() => toggleArrayItem(loc, lokasi, setLokasi)}
+                        className="hover:text-amber-900"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  {(kategori || merek || minHarga || maxHarga || minTkdn || labelProduk.length > 0 || jenisPenyedia.length > 0 || jenisProduk.length > 0 || lokasi.length > 0) && (
                     <button
                       onClick={handleResetFilters}
                       className="text-[11px] text-red-600 hover:text-red-700 font-bold ml-1 cursor-pointer"
