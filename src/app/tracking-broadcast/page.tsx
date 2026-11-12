@@ -188,36 +188,6 @@ const EXPORT_FIELDS: ExportField[] = [
   { key: 'ke_sales', label: 'Ke Sales'},
 ]
 
-interface DataItem {
-  id: string
-  kode_input: string
-  nama_perusahaan: string
-  produk: string
-  merek_tayang: string
-  kota: string
-  provinsi: string
-  pic: string
-  jabatan: string
-  telp: string
-  email: string
-  alamat: string
-  segmen: string
-  segmentasi: string
-  tipe: string
-  bidang_perusahaan: string
-  brand_owner: string
-  sumber_data: string
-  sumber_lain: string
-  link_produk: string
-  link_toko: string
-  penginput: string
-  jenis_entitas: string
-  bulan_data: string
-  status_wa: string
-  detail_update: string
-  ke_sales: string
-}
-
 function cn(...s: Array<string | false | null | undefined>) {
   return s.filter(Boolean).join(' ')
 }
@@ -709,7 +679,6 @@ export default function TrackingBroadcastPage() {
     [bulan, perusahaan, produk, provinsi, kota, statusWa, toSales, namaPic],
   )
 
-  // ✅ Sesudah — hapus dependency array
   const setFilterArr = (id: string, vals: string[]) => {
     switch (id) {
       case 'Bulan':
@@ -737,34 +706,28 @@ export default function TrackingBroadcastPage() {
         setNamaPic(vals)
         break
       default:
-        return []
+        return
     }
     setPage(1)
     setSelected(null)
   }
 
-  const toggleFilterVal = useCallback(
-    (id: string, val: string) => {
-      const cur = getFilterArr(id)
-      setFilterArr(
-        id,
-        cur.includes(val) ? cur.filter((v) => v !== val) : [...cur, val],
-      )
-    },
-    [getFilterArr, setFilterArr],
-  )
+  const toggleFilterVal = (id: string, val: string) => {
+    const cur = getFilterArr(id)
+    setFilterArr(
+      id,
+      cur.includes(val) ? cur.filter((v) => v !== val) : [...cur, val],
+    )
+  }
 
   const clearFilterArr = (id: string) => {
     setFilterArr(id, [])
     setOpenDropdown(null)
   }
 
-  const selectAllFilter = useCallback(
-    (id: string, opts: string[]) => {
-      setFilterArr(id, [...opts])
-    },
-    [setFilterArr],
-  )
+  const selectAllFilter = (id: string, opts: string[]) => {
+    setFilterArr(id, [...opts])
+  }
 
   // getOptions: tidak pakai useCallback supaya selalu baca filterOptions terbaru
   const getOptions = (id: string): string[] => {
@@ -997,7 +960,9 @@ export default function TrackingBroadcastPage() {
                 val = `${yyyy}-${mm}-${dd}`
               }
             } catch (err) {
-              // fallback if invalid date
+              if (err) {
+                alert('error')
+              }
             }
           }
           obj[f.label] = val

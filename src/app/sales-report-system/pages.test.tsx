@@ -801,6 +801,50 @@ describe('Plan Visit', () => {
     expect(window.alert).toHaveBeenCalledWith('Tambahkan minimal satu rencana visit.')
   })
 
+  it('menambahkan dan menyimpan beberapa kunjungan untuk sales yang sama', async () => {
+    const salesName = planTimSalesNames[0]
+    sessionStorage.setItem(
+      'sales-report-plan-tim-draft',
+      JSON.stringify({ sales_targets: [{ nama_sales: salesName }] }),
+    )
+    render(<PlanVisitPage />)
+    await screen.findByLabelText(`Nama perusahaan ${salesName}`)
+    fireEvent.click(screen.getByRole('button', { name: 'Tambah Rencana Visit' }))
+
+    expect(screen.getAllByTestId('searchable-select')).toHaveLength(6)
+    expect(screen.getAllByTestId('searchable-select')[3]).toHaveValue('')
+    expect(screen.getAllByTestId('searchable-select')[3]).toHaveTextContent(
+      salesName,
+    )
+    fireEvent.change(screen.getAllByTestId('searchable-select')[1], {
+      target: { value: 'B2B' },
+    })
+    fireEvent.change(screen.getAllByTestId('searchable-select')[2], {
+      target: { value: 'Visit' },
+    })
+    fireEvent.change(screen.getAllByLabelText(`Nama perusahaan ${salesName}`)[0], {
+      target: { value: 'PT Visit Pertama' },
+    })
+    fireEvent.change(screen.getAllByTestId('searchable-select')[3], {
+      target: { value: salesName },
+    })
+    fireEvent.change(screen.getAllByTestId('searchable-select')[4], {
+      target: { value: 'B2B' },
+    })
+    fireEvent.change(screen.getAllByTestId('searchable-select')[5], {
+      target: { value: 'Visit' },
+    })
+    fireEvent.change(screen.getAllByLabelText(`Nama perusahaan ${salesName}`)[1], {
+      target: { value: 'PT Visit Kedua' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Simpan data visit' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/sales-report-system/review-submit')
+    expect(
+      JSON.parse(sessionStorage.getItem('sales-report-plan-visit-draft')!),
+    ).toHaveLength(2)
+  })
+
   it('menangani error penyimpanan draft visit', async () => {
     const salesName = planTimSalesNames[0]
     sessionStorage.setItem(

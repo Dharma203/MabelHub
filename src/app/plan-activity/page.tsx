@@ -1707,6 +1707,10 @@ export default function PlanActivityPage() {
                 <span className='w-2.5 h-2.5 rounded-full bg-purple-500' />
                 Stay Office
               </div>
+              <div className='flex items-center gap-1.5'>
+                <span className='w-2.5 h-2.5 rounded-full bg-gray-500' />
+                Not Visited
+              </div>
               {calendarView === 'reschedule' && (
                 <div className='ml-auto text-amber-600 font-semibold'>
                   ⚡ Menampilkan hanya plan berstatus Reschedule

@@ -3,7 +3,7 @@
 import SearchableSelect from '@/components/ui/SearchableSelect'
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
-import { Save, Target, X } from 'lucide-react'
+import { Plus, Save, Target, X } from 'lucide-react'
 import {
   createInitialPlanVisitsSalesTargets,
   planVisitSalesNames,
@@ -36,17 +36,19 @@ function PlanVisitContent() {
           ? draft.sales_targets
           : null
       names = Array.isArray(targets)
-        ? [...new Set(
-            targets.flatMap((target) =>
-              target &&
-              typeof target === 'object' &&
-              'nama_sales' in target &&
-              typeof target.nama_sales === 'string' &&
-              planVisitSalesNames.includes(target.nama_sales)
-                ? [target.nama_sales]
-                : [],
+        ? [
+            ...new Set(
+              targets.flatMap((target) =>
+                target &&
+                typeof target === 'object' &&
+                'nama_sales' in target &&
+                typeof target.nama_sales === 'string' &&
+                planVisitSalesNames.includes(target.nama_sales)
+                  ? [target.nama_sales]
+                  : [],
+              ),
             ),
-          )]
+          ]
         : []
     } catch (error) {
       console.error('Error reading Plan Tim draft:', error)
@@ -86,7 +88,13 @@ function PlanVisitContent() {
         'sales-report-plan-visit-draft',
         JSON.stringify(
           visitTargets.map(
-            ({ nama_sales, segmentasi, tipe_visit, nama_perusahaan, note }) => ({
+            ({
+              nama_sales,
+              segmentasi,
+              tipe_visit,
+              nama_perusahaan,
+              note,
+            }) => ({
               nama_sales,
               segmentasi,
               tipe_visit,
@@ -165,17 +173,10 @@ function PlanVisitContent() {
                           }
                           options={[
                             { value: '', label: '-- Pilih sales --' },
-                            ...salesNames
-                              .filter(
-                                (name) =>
-                                  name === row.nama_sales ||
-                                  !visitTargets.some(
-                                    (item) =>
-                                      item.id !== row.id &&
-                                      item.nama_sales === name,
-                                  ),
-                              )
-                              .map((name) => ({ value: name, label: name })),
+                            ...salesNames.map((name) => ({
+                              value: name,
+                              label: name,
+                            })),
                           ]}
                           className='px-2 mt-2'
                         />
@@ -194,8 +195,10 @@ function PlanVisitContent() {
                           }
                           options={[
                             { value: '', label: '-- Pilih Segmen --' },
-                            ...planVisitSegmenNames
-                              .map((name) => ({ value: name, label: name })),
+                            ...planVisitSegmenNames.map((name) => ({
+                              value: name,
+                              label: name,
+                            })),
                           ]}
                           className='px-2 mt-2'
                         />
@@ -280,13 +283,35 @@ function PlanVisitContent() {
                 </tbody>
               </table>
             </div>
+            <button
+              type='button'
+              onClick={() =>
+                setVisitTargets((current) => [
+                  ...current,
+                  {
+                    id: `${Date.now()}-${Math.random()}`,
+                    nama_sales: '',
+                    segmentasi: '',
+                    tipe_visit: '',
+                    nama_perusahaan: '',
+                    note: '',
+                  },
+                ])
+              }
+              className='mt-4 inline-flex items-center gap-2 rounded-lg border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50'
+            >
+              <Plus size={16} />
+              Tambah Rencana Visit
+            </button>
           </section>
           <div className='mt-6'>
             <div className='flex items-center justify-center gap-4 mb-6'>
               <button
                 onClick={handleKirim}
                 disabled={isSaving}
-                aria-label={isSaving ? 'Menyimpan data visit' : 'Simpan data visit'}
+                aria-label={
+                  isSaving ? 'Menyimpan data visit' : 'Simpan data visit'
+                }
                 className='flex h-10 items-center justify-center gap-2 cursor-pointer rounded-lg bg-blue-600 px-5 text-sm font-bold text-white shadow-sm ring-1 ring-inset ring-blue-700 hover:bg-blue-700 transition-all'
               >
                 <Save className='h-5 w-5' /> Save

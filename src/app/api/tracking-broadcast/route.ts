@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
+import { unstable_cache } from 'next/cache'
 import clientPromise from '@/lib/mongodb'
 
 export const dynamic = 'force-dynamic'
@@ -11,9 +12,9 @@ export const revalidate = 0
  */
 function normalizeStatusWa(val: string | null | undefined): string {
   if (!val) return ''
-  let s = val
-    .replace(/[\u2013\u2014]/g, '-')   // en-dash & em-dash → hyphen
-    .replace(/\s+/g, ' ')              // collapse multi-spaces
+  const s = val
+    .replace(/[\u2013\u2014]/g, '-') // en-dash & em-dash → hyphen
+    .replace(/\s+/g, ' ') // collapse multi-spaces
     .trim()
   // Hapus value yang hanya berisi dash
   if (s === '-') return ''
@@ -32,6 +33,55 @@ type KontakTrackingItem = {
   nama: string
   no_telp: string
 }
+
+/**
+ * Lookup baru: dua $lookup berbasis localField/foreignField (bisa pakai index),
+ * masing-masing ambil 1 dokumen terbaru, lalu pilih yang _id-nya paling baru.
+ * Hasilnya sama dengan lookup lama ($or kode / source_id + sort _id desc + limit 1).
+ * Butuh MongoDB 5.0+ (localField + pipeline sekaligus).
+ */
+
+const lookupStages: any[] = [
+  {
+    $addFields: {
+      _docId: { $toString: '$_id' },
+      // jaga jaga: null tidak boleh "match" dokumen yang field nya kosong
+      _ck: { $ifNull: ['$code_input', '__none__'] },
+    },
+  },
+  {
+    $lookup: {
+      from: 'tracking_broadcast',
+      localField: '_ck',
+      foreignField: 'kode',
+      pipeline: [{ $sort: { _id: -1 } }, { $limit: 1 }],
+      as: '_bcKode',
+    },
+  },
+  {
+    $lookup: {
+      from: 'tracking_broadcast',
+      localField: '_docId',
+      foreignField: 'source_id',
+      pipeline: [{ $sort: { _id: -1 } }, { $limit: 1 }],
+      as: '_bcSrc',
+    },
+  },
+  {
+    $addFields: {
+      broadcast: {
+        $let: {
+          vars: {
+            a: { $arrayElemAt: ['$_bcKode', 0] },
+            b: { $arrayElemAt: ['$_bcSrc', 0] },
+          },
+          in: { $cond: [{ $gt: ['$$a._id', '$$b._id'] }, '$$a', '$$b'] },
+        },
+      },
+    },
+  },
+  { $project: { _bcKode: 0, _bcSrc: 0, _docId: 0, _ck: 0 } },
+]
 
 export async function GET(req: NextRequest) {
   try {
@@ -93,7 +143,7 @@ export async function GET(req: NextRequest) {
 
     const matchStage: Record<string, any> = {
       tipe_kontak: 'WhatsApp',
-      no_telp: { $nin: ['', null] }
+      no_telp: { $nin: ['', null] },
     }
     if (produkArr.length > 0) matchStage['produk_relevan'] = { $in: produkArr }
     if (perusahaanArr.length > 0)
@@ -139,9 +189,9 @@ export async function GET(req: NextRequest) {
       const expandDashVariants = (vals: string[]): string[] => {
         const expanded = new Set<string>()
         for (const v of vals) {
-          expanded.add(v)                                   // original (hyphen)
-          expanded.add(v.replace(/-/g, '\u2013'))           // en-dash variant
-          expanded.add(v.replace(/\u2013/g, '-'))           // hyphen variant
+          expanded.add(v) // original (hyphen)
+          expanded.add(v.replace(/-/g, '\u2013')) // en-dash variant
+          expanded.add(v.replace(/\u2013/g, '-')) // hyphen variant
           // Also handle alias: Aktif Progres <-> Aktif Broadcast
           if (v === 'Aktif Progres') expanded.add('Aktif Broadcast')
           if (v === 'Aktif Broadcast') expanded.add('Aktif Progres')
@@ -214,7 +264,7 @@ export async function GET(req: NextRequest) {
               },
             },
             { $sort: { _id: -1 } },
-            { $limit: 1 }
+            { $limit: 1 },
           ],
           as: 'broadcast',
         },
@@ -309,7 +359,7 @@ export async function GET(req: NextRequest) {
                   },
                 },
                 { $sort: { _id: -1 } },
-                { $limit: 1 }
+                { $limit: 1 },
               ],
               as: 'broadcast',
             },
@@ -353,7 +403,7 @@ export async function GET(req: NextRequest) {
                   },
                 },
                 { $sort: { _id: -1 } },
-                { $limit: 1 }
+                { $limit: 1 },
               ],
               as: 'broadcast',
             },
@@ -415,7 +465,7 @@ export async function GET(req: NextRequest) {
                   },
                 },
                 { $sort: { _id: -1 } },
-                { $limit: 1 }
+                { $limit: 1 },
               ],
               as: 'broadcast',
             },
@@ -456,14 +506,14 @@ export async function GET(req: NextRequest) {
                     $and: [
                       { $ne: ['$broadcast', null] },
                       { $ne: ['$broadcast.status_wa', ''] },
-                      { $ne: ['$broadcast.status_wa', null] }
-                    ]
+                      { $ne: ['$broadcast.status_wa', null] },
+                    ],
                   },
                   then: 0, // muncul duluan
-                  else: 1  // muncul belakangan
-                }
-              }
-            }
+                  else: 1, // muncul belakangan
+                },
+              },
+            },
           },
           { $sort: { _hasStatus: 1, _sortDate: -1, _sortCounter: -1 } },
           {
@@ -753,14 +803,14 @@ export async function POST(req: Request) {
     const now = new Date()
 
     const docs = items.map((item: KontakTrackingItem) => ({
-      kode: item.id,                        // ← WAJIB ada untuk $lookup
+      kode: item.id, // ← WAJIB ada untuk $lookup
       nama_perusahaan: item.nama_perusahaan || header.namaPerusahaan || '',
       produk_relevan: item.produk_relevan || header.produkRelevan || '',
       alamat: item.alamat || header.alamat || '',
       nama: item.nama || header.nama || '',
       no_telp: item.no_telp || header.noTelp || '',
-      status_wa: '',                        // default kosong
-      ke_sales: '',                         // default kosong
+      status_wa: '', // default kosong
+      ke_sales: '', // default kosong
       created_at: now,
       updated_at: now,
     }))

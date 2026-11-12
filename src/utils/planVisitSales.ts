@@ -31,13 +31,11 @@ export function normalizePlanVisitSales(
 ): PlanVisitSalesEntry[] | null {
   if (
     !Array.isArray(value) ||
-    value.length === 0 ||
-    value.length > allowedSalesNames.length
+    value.length === 0
   ) {
     return null
   }
 
-  const sales = new Set<string>()
   const entries: PlanVisitSalesEntry[] = []
 
   for (const row of value) {
@@ -65,13 +63,11 @@ export function normalizePlanVisitSales(
       !allowedSalesNames.includes(entry.nama_sales) ||
       !planVisitSegmenNames.includes(entry.segmentasi) ||
       !planVisitTypes.includes(entry.tipe_visit) ||
-      !entry.nama_perusahaan ||
-      sales.has(entry.nama_sales)
+      !entry.nama_perusahaan
     ) {
       return null
     }
 
-    sales.add(entry.nama_sales)
     entries.push(entry)
   }
 
