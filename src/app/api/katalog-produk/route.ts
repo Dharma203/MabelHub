@@ -163,6 +163,13 @@ export async function POST(req: Request) {
     }
 
     const harga = Number(body.hargaProduk) || 0;
+    const hargaModal = Number(body.hargaModal) || 0;
+    const feeAdminPersen = Number(body.feeAdminPersen) || 0;
+    const feeAdminNominal = Math.round((harga * feeAdminPersen) / 100);
+    const labaKotor = harga - hargaModal;
+    const labaBersih = labaKotor - feeAdminNominal;
+    const persenMargin = harga > 0 ? Math.round((labaBersih / harga) * 1000) / 10 : 0;
+
     const persenPajak = Number(body.persenPajak) || 0;
     const hargaSetelahPajak =
       body.hargaSetelahPajak !== undefined
@@ -194,6 +201,12 @@ export async function POST(req: Request) {
       isPreOrder: Boolean(body.isPreOrder),
       durasiPreOrder: Number(body.durasiPreOrder) || 0,
       hargaProduk: harga,
+      hargaModal,
+      feeAdminPersen,
+      feeAdminNominal,
+      labaKotor,
+      labaBersih,
+      persenMargin,
       pajak: body.pajak || "PPN",
       persenPajak,
       hargaSetelahPajak,

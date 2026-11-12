@@ -318,6 +318,10 @@ function TambahProdukContent() {
 
   const [hargaProduk, setHargaProduk] = useState<string>("");
 
+  const [hargaModal, setHargaModal] = useState<string>("");
+
+  const [feeAdminPersen, setFeeAdminPersen] = useState<string>("5");
+
   const [grosirList, setGrosirList] = useState<GrosirItem[]>([]);
 
 
@@ -569,6 +573,10 @@ function TambahProdukContent() {
           setPersenPajak(Number(p.persenPajak) || 0);
 
           setHargaProduk(p.hargaProduk ? String(p.hargaProduk) : "");
+
+          setHargaModal(p.hargaModal !== undefined ? String(p.hargaModal) : "");
+
+          setFeeAdminPersen(p.feeAdminPersen !== undefined ? String(p.feeAdminPersen) : "5");
 
           setJumlahStok(p.jumlahStok !== undefined ? String(p.jumlahStok) : "");
 
@@ -958,7 +966,19 @@ function TambahProdukContent() {
 
   const hargaNumber = parseFloat(hargaProduk) || 0;
 
+  const modalNumber = parseFloat(hargaModal) || 0;
+
+  const feePersenNumber = parseFloat(feeAdminPersen) || 0;
+
   const hargaTayang = Math.round(hargaNumber + (hargaNumber * persenPajak) / 100);
+
+  const feeAdminNominal = Math.round((hargaNumber * feePersenNumber) / 100);
+
+  const labaKotor = hargaNumber - modalNumber;
+
+  const labaBersih = labaKotor - feeAdminNominal;
+
+  const persenMargin = hargaNumber > 0 ? Math.round((labaBersih / hargaNumber) * 1000) / 10 : 0;
 
 
 
@@ -1340,6 +1360,18 @@ function TambahProdukContent() {
 
         hargaProduk: hargaNumber,
 
+        hargaModal: modalNumber,
+
+        feeAdminPersen: feePersenNumber,
+
+        feeAdminNominal,
+
+        labaKotor,
+
+        labaBersih,
+
+        persenMargin,
+
         hargaSetelahPajak: hargaTayang,
 
         minimumPembelian: 1,
@@ -1471,6 +1503,10 @@ function TambahProdukContent() {
         setNomorSni("");
 
         setHargaProduk("");
+
+        setHargaModal("");
+
+        setFeeAdminPersen("5");
 
         setJumlahStok("");
 
@@ -3644,70 +3680,159 @@ function TambahProdukContent() {
 
 
 
-              <div className="space-y-2">
-
-                <div className="flex items-center gap-2">
-
-                  <label className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-
-                    Harga Satuan Produk
-
-                  </label>
-
-                  <span className="text-[14px] font-bold text-rose-600">
-
-                  *
-
-                  </span>
-
-                </div>
-
-                <p className="text-sm text-gray-500">Harga ini belum termasuk pajak PPN dan biaya ongkos kirim.</p>
-
-
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-1">
-
-                  <div className="flex items-center w-full sm:w-72 rounded-xl border border-gray-200 bg-white overflow-hidden shadow-2xs focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
-
-                    <span className="px-3.5 py-2.5 text-sm font-bold text-gray-500 bg-gray-50 border-r border-gray-200">
-
-                      Rp
-
-                    </span>
-
-                    <input
-
-                      type="number"
-
-                      placeholder="Masukkan harga"
-
-                      value={hargaProduk}
-
-                      onChange={(e) => setHargaProduk(e.target.value)}
-
-                      className="flex-1 px-3 py-2.5 text-sm bg-transparent outline-none font-bold text-gray-900"
-
-                    />
-
+              {/* Input Harga Modal & Harga Tayang & Fee Admin */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* 1. Harga Modal (HPP) */}
+                  <div className="space-y-1.5 p-3.5 rounded-xl bg-amber-50/50 border border-amber-200/80">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                          Harga Modal (HPP)
+                        </label>
+                        <span className="text-[10px] font-extrabold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
+                          Rahasia Admin
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-amber-700/80">Biaya beli riil dari vendor/prinsipal.</p>
+                    <div className="flex items-center w-full rounded-xl border border-amber-300 bg-white overflow-hidden shadow-2xs focus-within:border-amber-600 focus-within:ring-2 focus-within:ring-amber-500/20 transition-all">
+                      <span className="px-3 py-2 text-xs font-bold text-amber-800 bg-amber-50 border-r border-amber-200">
+                        Rp
+                      </span>
+                      <input
+                        type="number"
+                        placeholder="Contoh: 15000000"
+                        value={hargaModal}
+                        onChange={(e) => setHargaModal(e.target.value)}
+                        className="flex-1 px-3 py-2 text-sm bg-transparent outline-none font-bold text-slate-900"
+                      />
+                    </div>
                   </div>
 
-
-
-                  <div className="flex items-center gap-2 p-2 px-3 bg-blue-50/70 border border-blue-200/80 rounded-xl">
-
-                    <span className="text-sm text-blue-800 font-medium">Harga Tayang + Pajak:</span>
-
-                    <span className="text-sm font-extrabold text-blue-900">
-
-                      Rp {hargaTayang.toLocaleString("id-ID")}
-
-                    </span>
-
+                  {/* 2. Harga Tayang (Sebelum Pajak) */}
+                  <div className="space-y-1.5 p-3.5 rounded-xl bg-blue-50/50 border border-blue-200/80">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                          Harga Tayang (Sebelum Pajak)
+                        </label>
+                        <span className="text-[10px] font-extrabold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200">
+                          Katalog Resmi
+                        </span>
+                      </div>
+                      <span className="text-[13px] font-bold text-rose-600">*</span>
+                    </div>
+                    <p className="text-[11px] text-blue-700/80">Harga tayang dasar sebelum dikenakan PPN.</p>
+                    <div className="flex items-center w-full rounded-xl border border-blue-300 bg-white overflow-hidden shadow-2xs focus-within:border-[#1D80D9] focus-within:ring-2 focus-within:ring-[#1D80D9]/20 transition-all">
+                      <span className="px-3 py-2 text-xs font-bold text-[#1D80D9] bg-blue-50 border-r border-blue-200">
+                        Rp
+                      </span>
+                      <input
+                        type="number"
+                        placeholder="Contoh: 20000000"
+                        value={hargaProduk}
+                        onChange={(e) => setHargaProduk(e.target.value)}
+                        className="flex-1 px-3 py-2 text-sm bg-transparent outline-none font-bold text-slate-900"
+                      />
+                    </div>
                   </div>
 
+                  {/* 3. Fee Admin (%) */}
+                  <div className="space-y-1.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Fee Admin / E-Katalog (%)
+                      </label>
+                      <span className="text-[10px] font-extrabold text-slate-600 bg-slate-200 px-1.5 py-0.5 rounded">
+                        CRM Sinkron
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Estimasi potongan fee transaksi / katalog.</p>
+                    <div className="flex items-center w-full rounded-xl border border-slate-300 bg-white overflow-hidden shadow-2xs focus-within:border-slate-600 focus-within:ring-2 focus-within:ring-slate-400/20 transition-all">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        placeholder="5"
+                        value={feeAdminPersen}
+                        onChange={(e) => setFeeAdminPersen(e.target.value)}
+                        className="flex-1 px-3 py-2 text-sm bg-transparent outline-none font-bold text-slate-900"
+                      />
+                      <span className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-l border-slate-200">
+                        %
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
+                {/* ── LIVE KALKULATOR PROFIT & MARGIN OTOMATIS (TERLIHAT DI CRM) ── */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md border border-slate-700 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/80 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                        Kalkulasi Otomatis CRM & Rujukan Direct Sales
+                      </span>
+                    </div>
+                    <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-white/10 text-slate-300 border border-white/10">
+                      Sinkron Real-Time
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    {/* Harga Tayang Final (Inc. PPN) */}
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-0.5">
+                      <span className="text-[10px] text-slate-400 font-semibold block uppercase">
+                        Harga Tayang (+PPN {persenPajak}%)
+                      </span>
+                      <div className="text-sm sm:text-base font-black text-blue-300">
+                        Rp {hargaTayang.toLocaleString("id-ID")}
+                      </div>
+                      <span className="text-[9px] text-slate-400 block">Dilihat sales & pembeli</span>
+                    </div>
+
+                    {/* Harga Modal (HPP) */}
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-0.5">
+                      <span className="text-[10px] text-slate-400 font-semibold block uppercase">
+                        Harga Modal (HPP)
+                      </span>
+                      <div className="text-sm sm:text-base font-black text-amber-300">
+                        Rp {modalNumber.toLocaleString("id-ID")}
+                      </div>
+                      <span className="text-[9px] text-slate-400 block">Dasar perolehan barang</span>
+                    </div>
+
+                    {/* Fee Admin / Katalog */}
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-0.5">
+                      <span className="text-[10px] text-slate-400 font-semibold block uppercase">
+                        Fee Admin ({feePersenNumber}%)
+                      </span>
+                      <div className="text-sm sm:text-base font-black text-rose-300">
+                        -Rp {feeAdminNominal.toLocaleString("id-ID")}
+                      </div>
+                      <span className="text-[9px] text-slate-400 block">Potongan operasional</span>
+                    </div>
+
+                    {/* Estimasi Laba Bersih */}
+                    <div className={`p-2.5 rounded-xl border space-y-0.5 ${
+                      labaBersih >= 0
+                        ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
+                        : "bg-rose-950/60 border-rose-500/40 text-rose-300"
+                    }`}>
+                      <span className="text-[10px] text-slate-300 font-semibold block uppercase">
+                        Laba Bersih Per Unit
+                      </span>
+                      <div className="text-sm sm:text-base font-black">
+                        {labaBersih >= 0 ? `+Rp ${labaBersih.toLocaleString("id-ID")}` : `-Rp ${Math.abs(labaBersih).toLocaleString("id-ID")}`}
+                      </div>
+                      <span className="text-[10px] font-bold block">
+                        Margin: {persenMargin >= 0 ? `+${persenMargin}%` : `${persenMargin}%`} {labaBersih >= 0 ? "(Untung)" : "(Rugi)"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
 

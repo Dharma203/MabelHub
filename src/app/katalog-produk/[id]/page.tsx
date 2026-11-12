@@ -97,6 +97,12 @@ durasiPreOrder?: number;
 statusDraf?: boolean;
 
 hargaProduk: number;
+hargaModal?: number;
+feeAdminPersen?: number;
+feeAdminNominal?: number;
+labaKotor?: number;
+labaBersih?: number;
+persenMargin?: number;
 
 pajak?: string;
 
@@ -936,6 +942,41 @@ Stok {product.jumlahStok?.toLocaleString("id-ID") || 0} {product.satuanProduk ||
 : "Bebas / Tidak Dikenakan PPN"}
 
 </div>
+
+{canManage && (
+  <div className="mt-2.5 p-3 rounded-xl bg-slate-900 text-white space-y-2 border border-slate-800 text-xs shadow-xs">
+    <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+      <span className="font-bold uppercase tracking-wider text-[10px] text-amber-400 flex items-center gap-1.5">
+        <ShieldCheck className="w-3.5 h-3.5" />
+        Kalkulasi Margin Admin (CRM)
+      </span>
+      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-bold">
+        Internal
+      </span>
+    </div>
+    <div className="grid grid-cols-2 gap-2 text-[11px]">
+      <div>
+        <span className="text-slate-400 block text-[10px]">Harga Modal (HPP):</span>
+        <span className="font-extrabold text-amber-300">{formatRupiah(product.hargaModal ?? 0)}</span>
+      </div>
+      <div>
+        <span className="text-slate-400 block text-[10px]">Fee Admin ({product.feeAdminPersen ?? 5}%):</span>
+        <span className="font-extrabold text-rose-300">
+          -{formatRupiah(product.feeAdminNominal ?? Math.round(((product.hargaProduk || 0) * (product.feeAdminPersen ?? 5)) / 100))}
+        </span>
+      </div>
+    </div>
+    <div className="pt-1.5 border-t border-slate-800 flex items-center justify-between">
+      <span className="text-slate-400 text-[10px]">Estimasi Laba Bersih:</span>
+      <span className="font-black text-emerald-400 text-xs">
+        +{formatRupiah(product.labaBersih ?? ((product.hargaProduk || 0) - (product.hargaModal || 0) - Math.round(((product.hargaProduk || 0) * (product.feeAdminPersen ?? 5)) / 100)))}
+        <span className="ml-1 text-[10px] font-bold text-slate-300">
+          ({product.persenMargin ?? (product.hargaProduk > 0 ? Math.round((((product.hargaProduk - (product.hargaModal || 0) - Math.round((product.hargaProduk * (product.feeAdminPersen ?? 5)) / 100)) / product.hargaProduk) * 1000)) / 10 : 0)}%)
+        </span>
+      </span>
+    </div>
+  </div>
+)}
 
 </div>
 

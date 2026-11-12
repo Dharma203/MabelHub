@@ -86,6 +86,39 @@ export async function PUT(
     delete updateData._id;
     updateData.updatedAt = new Date().toISOString();
 
+    // Kalkulasi otomatis harga modal, harga tayang, fee admin, dan margin
+    if (
+      body.hargaProduk !== undefined ||
+      body.hargaModal !== undefined ||
+      body.feeAdminPersen !== undefined
+    ) {
+      const finalHarga =
+        body.hargaProduk !== undefined
+          ? Number(body.hargaProduk) || 0
+          : Number(currentProduct.hargaProduk) || 0;
+      const finalModal =
+        body.hargaModal !== undefined
+          ? Number(body.hargaModal) || 0
+          : Number(currentProduct.hargaModal) || 0;
+      const finalFeePersen =
+        body.feeAdminPersen !== undefined
+          ? Number(body.feeAdminPersen) || 0
+          : Number(currentProduct.feeAdminPersen) || 0;
+      const feeNominal = Math.round((finalHarga * finalFeePersen) / 100);
+      const labaKotor = finalHarga - finalModal;
+      const labaBersih = labaKotor - feeNominal;
+      const persenMargin =
+        finalHarga > 0 ? Math.round((labaBersih / finalHarga) * 1000) / 10 : 0;
+
+      updateData.hargaProduk = finalHarga;
+      updateData.hargaModal = finalModal;
+      updateData.feeAdminPersen = finalFeePersen;
+      updateData.feeAdminNominal = feeNominal;
+      updateData.labaKotor = labaKotor;
+      updateData.labaBersih = labaBersih;
+      updateData.persenMargin = persenMargin;
+    }
+
     // Logika pencatatan log riwayat stok
     let existingLogs = Array.isArray(currentProduct.riwayatStok)
       ? [...currentProduct.riwayatStok]

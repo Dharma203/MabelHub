@@ -44,6 +44,12 @@ interface ProductItem {
   merek?: string;
   jenisProduk?: string;
   hargaProduk: number;
+  hargaModal?: number;
+  feeAdminPersen?: number;
+  feeAdminNominal?: number;
+  labaKotor?: number;
+  labaBersih?: number;
+  persenMargin?: number;
   persenPajak?: number;
   hargaSetelahPajak?: number;
   jumlahStok: number;
@@ -949,16 +955,33 @@ export default function KelolaKatalogPage() {
                         )}
                       </td>
 
-                      {/* Harga */}
+                      {/* Harga & Modal */}
                       <td className="py-3.5 px-4">
-                        <div className="font-extrabold text-slate-900">
+                        <div className="font-extrabold text-slate-900" title="Harga Tayang (Sebelum Pajak)">
                           {formatRupiah(item.hargaProduk)}
                         </div>
                         <div className="text-[10px] text-slate-400 font-medium">
                           {item.persenPajak && item.persenPajak > 0
-                            ? `PPN ${item.persenPajak}%`
+                            ? `Tayang (+PPN): ${formatRupiah(item.hargaSetelahPajak || Math.round(item.hargaProduk + (item.hargaProduk * item.persenPajak) / 100))}`
                             : "Bebas PPN"}
                         </div>
+                        {item.hargaModal !== undefined && item.hargaModal > 0 && (
+                          <div className="mt-1 pt-1 border-t border-slate-100 flex items-center justify-between gap-1 text-[10px]">
+                            <span className="text-amber-700 font-semibold" title="Harga Modal / HPP">
+                              Modal: {formatRupiah(item.hargaModal)}
+                            </span>
+                            <span
+                              className={`font-extrabold px-1.5 py-0.2 rounded ${
+                                (item.labaBersih ?? (item.hargaProduk - item.hargaModal)) >= 0
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-rose-50 text-rose-700 border border-rose-200"
+                              }`}
+                              title="Estimasi Margin Bersih"
+                            >
+                              {item.persenMargin !== undefined ? `${item.persenMargin > 0 ? "+" : ""}${item.persenMargin}%` : ""}
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Stok */}
