@@ -126,6 +126,10 @@ jenisPenyedia?: string;
 
 namaPenyedia?: string;
 
+namaPic?: string;
+
+noHpPic?: string;
+
 lokasiPenyedia?: string;
 
 dikirimDari?: string;
@@ -1434,6 +1438,38 @@ activeTab === "riwayatStok"
 </span>
 
 </div>
+
+{Boolean(product.namaPic && product.namaPic !== "-") && (
+
+<div className="flex items-start justify-between py-1 border-b border-slate-100/80">
+
+<span className="text-slate-500">Nama PIC:</span>
+
+<span className="font-semibold text-slate-800">
+
+{product.namaPic}
+
+</span>
+
+</div>
+
+)}
+
+{Boolean(product.noHpPic && product.noHpPic !== "-") && (
+
+<div className="flex items-start justify-between py-1 border-b border-slate-100/80">
+
+<span className="text-slate-500">No. HP / WA PIC:</span>
+
+<span className="font-mono font-semibold text-slate-800">
+
+{product.noHpPic}
+
+</span>
+
+</div>
+
+)}
 
 </div>
 

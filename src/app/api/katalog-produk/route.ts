@@ -195,6 +195,8 @@ export async function POST(req: Request) {
       jenisLabel: body.jenisLabel || "PDN",
       jenisPenyedia: body.jenisPenyedia || "UMKK",
       namaPenyedia: body.namaPenyedia || "MabelHub Store",
+      namaPic: body.namaPic || body.namaPicPenyedia || "-",
+      noHpPic: body.noHpPic || body.noHpPicPenyedia || "-",
       lokasiPenyedia: body.lokasiPenyedia || "-",
       dikirimDari: body.dikirimDari || body.lokasiPenyedia || "-",
       kodeKbki: body.kodeKbki || "-",

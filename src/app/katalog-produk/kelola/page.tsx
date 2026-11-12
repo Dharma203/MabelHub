@@ -56,6 +56,8 @@ interface ProductItem {
   nilaiTkdn?: number;
   nilaiBmp?: number;
   namaPenyedia?: string;
+  namaPic?: string;
+  noHpPic?: string;
   lokasiPenyedia?: string;
   dikirimDari?: string;
   tanggalMasukKatalog?: string;

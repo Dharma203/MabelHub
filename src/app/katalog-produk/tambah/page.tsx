@@ -294,6 +294,10 @@ function TambahProdukContent() {
 
   const [namaPenyedia, setNamaPenyedia] = useState("MabelHub Store");
 
+  const [namaPic, setNamaPic] = useState("");
+
+  const [noHpPic, setNoHpPic] = useState("");
+
   const [jenisPenyedia, setJenisPenyedia] = useState("UMKK");
 
   const [lokasiPenyedia, setLokasiPenyedia] = useState("DKI Jakarta");
@@ -536,6 +540,10 @@ function TambahProdukContent() {
 
           setNamaPenyedia(p.namaPenyedia || "MabelHub Store");
 
+          setNamaPic(p.namaPic && p.namaPic !== "-" ? p.namaPic : (p.namaPicPenyedia && p.namaPicPenyedia !== "-" ? p.namaPicPenyedia : ""));
+
+          setNoHpPic(p.noHpPic && p.noHpPic !== "-" ? p.noHpPic : (p.noHpPicPenyedia && p.noHpPicPenyedia !== "-" ? p.noHpPicPenyedia : (p.teleponPic && p.teleponPic !== "-" ? p.teleponPic : "")));
+
           setJenisPenyedia(p.jenisPenyedia || "UMKK");
 
           setLokasiPenyedia(p.lokasiPenyedia || "DKI Jakarta");
@@ -737,6 +745,10 @@ function TambahProdukContent() {
     dikirimDari,
 
     namaPenyedia,
+
+    namaPic,
+
+    noHpPic,
 
     jenisPenyedia,
 
@@ -1306,6 +1318,14 @@ function TambahProdukContent() {
 
         namaPenyedia: namaPenyedia.trim() || "MabelHub Store",
 
+        namaPic: namaPic.trim() || "-",
+
+        noHpPic: noHpPic.trim() || "-",
+
+        namaPicPenyedia: namaPic.trim() || "-",
+
+        noHpPicPenyedia: noHpPic.trim() || "-",
+
         jenisPenyedia: jenisPenyedia || "UMKK",
 
         lokasiPenyedia: lokasiPenyedia.trim() || "DKI Jakarta",
@@ -1433,6 +1453,10 @@ function TambahProdukContent() {
         setBeratProduk("");
 
         setDimensiProduk("");
+
+        setNamaPic("");
+
+        setNoHpPic("");
 
         setFotoSlots([null, null, null, null, null]);
 
@@ -3154,7 +3178,7 @@ function TambahProdukContent() {
 
                   <p className="text-sm text-gray-500">
 
-                    Data penyedia, alamat pengiriman, dan dimensi paket untuk kalkulasi pengiriman
+                    Data penyedia, kontak PIC, alamat pengiriman, dan dimensi paket untuk kalkulasi pengiriman
 
                   </p>
 
@@ -3221,6 +3245,58 @@ function TambahProdukContent() {
                     <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-3.5 pointer-events-none" />
 
                   </div>
+
+                </div>
+
+
+
+                <div className="space-y-1.5">
+
+                  <label className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+
+                    Nama PIC Penyedia
+
+                  </label>
+
+                  <input
+
+                    type="text"
+
+                    placeholder="Contoh: Budi Santoso"
+
+                    value={namaPic}
+
+                    onChange={(e) => setNamaPic(e.target.value)}
+
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none shadow-2xs focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium"
+
+                  />
+
+                </div>
+
+
+
+                <div className="space-y-1.5">
+
+                  <label className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+
+                    No. Handphone / WhatsApp PIC
+
+                  </label>
+
+                  <input
+
+                    type="tel"
+
+                    placeholder="Contoh: 081234567890"
+
+                    value={noHpPic}
+
+                    onChange={(e) => setNoHpPic(e.target.value)}
+
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none shadow-2xs focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium font-mono"
+
+                  />
 
                 </div>
 
