@@ -27,6 +27,7 @@ import {
   Globe,
   Archive,
   Loader2,
+  Download,
 } from "lucide-react";
 import {
   PRODUCT_SPEC_REGISTRY,
@@ -34,6 +35,7 @@ import {
   formatTanggalIndo,
   StockLogItem,
 } from "@/lib/katalog-specs";
+import { exportKatalogToExcel } from "@/lib/katalog-excel-helper";
 
 interface ProductItem {
   _id: string;
@@ -102,6 +104,7 @@ export default function KelolaKatalogPage() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [deleteModalProduct, setDeleteModalProduct] = useState<ProductItem | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Access check
   const isAllowed = user && (user.role === "SUPERADMIN" || user.role === "ADMIN");
@@ -235,6 +238,50 @@ export default function KelolaKatalogPage() {
     setPage(1);
   };
 
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true);
+      const params = new URLSearchParams();
+      params.set("status", statusTab);
+      params.set("export", "true");
+      if (search.trim()) params.set("search", search.trim());
+      if (categoryFilter !== "all") params.set("kategori", categoryFilter);
+      if (brandFilter !== "all") params.set("merek", brandFilter);
+      if (minHarga.trim()) params.set("minHarga", minHarga.trim());
+      if (maxHarga.trim()) params.set("maxHarga", maxHarga.trim());
+      if (minTkdn.trim()) params.set("minTkdn", minTkdn.trim());
+      params.set("sort", sortFilter);
+
+      const res = await fetch(`/api/katalog-produk?${params.toString()}`);
+      if (!res.ok) throw new Error("Gagal mengambil data produk untuk ekspor");
+      const data = await res.json();
+      const exportItems = data.items || [];
+
+      if (exportItems.length === 0) {
+        showToast("error", "Tidak ada produk yang cocok dengan filter untuk diekspor");
+        return;
+      }
+
+      exportKatalogToExcel(exportItems, {
+        statusTab,
+        categoryFilter,
+        brandFilter,
+        search,
+        minHarga,
+        maxHarga,
+        minTkdn,
+        sortFilter,
+      });
+
+      showToast("success", `Berhasil mengekspor ${exportItems.length} produk ke Excel!`);
+    } catch (err: any) {
+      console.error("Export error:", err);
+      showToast("error", err.message || "Gagal mengekspor data ke Excel");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const activeFiltersCount =
     (categoryFilter !== "all" ? 1 : 0) +
     (brandFilter !== "all" ? 1 : 0) +
@@ -325,11 +372,30 @@ export default function KelolaKatalogPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-xl text-sm font-bold shadow-xs transition-all duration-150 cursor-pointer disabled:opacity-50"
+              title="Unduh seluruh daftar produk sesuai filter aktif ke file Excel (.xlsx)"
+            >
+              {isExporting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                  <span>Mengekspor...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+                  <span>Export Excel</span>
+                </>
+              )}
+            </button>
 
             <Link
               href="/katalog-produk/tambah"
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-m font-bold rounded-xl shadow-sm transition-all duration-150 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-sm transition-all duration-150 cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Tambah Produk</span>

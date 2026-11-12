@@ -94,9 +94,12 @@ export async function GET(req: Request) {
     else if (sort === "nama_asc") sortOptions = { namaProduk: 1 };
     else if (sort === "tkdn_desc") sortOptions = { tkdnBmp: -1 };
 
-    const skip = (page - 1) * limit;
+    const isExport = searchParams.get("export") === "true";
+    const skip = isExport ? 0 : (page - 1) * limit;
     const [items, filteredTotal, totalDraft, totalPublished, totalAll, rawBrands] = await Promise.all([
-      col.find(query).sort(sortOptions).skip(skip).limit(limit).toArray(),
+      isExport
+        ? col.find(query).sort(sortOptions).toArray()
+        : col.find(query).sort(sortOptions).skip(skip).limit(limit).toArray(),
       col.countDocuments(query),
       col.countDocuments({ statusDraf: true }),
       col.countDocuments({ statusDraf: { $ne: true } }),
