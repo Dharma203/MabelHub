@@ -41,7 +41,10 @@ import {
   RotateCcw,
 
   SlidersHorizontal,
-
+  List,
+  LayoutGrid,
+  ImageIcon,
+  ImageOff,
 } from "lucide-react";
 
 import { PRODUCT_SPEC_REGISTRY } from "@/lib/katalog-specs";
@@ -63,6 +66,8 @@ interface Product {
   isPreOrder?: boolean;
 
   hargaProduk: number;
+
+  persenPajak?: number;
 
   hargaSetelahPajak?: number;
 
@@ -113,6 +118,10 @@ function KatalogProdukContent() {
 
 
   const [limit, setLimit] = useState<number>(15);
+
+  // Tampilan List (default) & Opsional Gambar
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [showImages, setShowImages] = useState<boolean>(false);
 
 
   // Filters
@@ -1211,6 +1220,58 @@ function KatalogProdukContent() {
 
               {/* Sisi Kanan: Pagination (Limit & Navigasi Halaman) & Urutkan */}
               <div className="flex flex-wrap items-center gap-2.5 sm:gap-3.5 ml-auto">
+                {/* Toggle Opsional Gambar */}
+                <button
+                  type="button"
+                  onClick={() => setShowImages((prev) => !prev)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                    showImages
+                      ? "bg-blue-50 border-blue-300 text-blue-700 shadow-2xs"
+                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                  title={showImages ? "Sembunyikan Gambar" : "Tampilkan Gambar (Opsional)"}
+                >
+                  {showImages ? (
+                    <>
+                      <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+                      <span className="hidden md:inline">Gambar: Aktif</span>
+                    </>
+                  ) : (
+                    <>
+                      <ImageOff className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="hidden md:inline">Tanpa Gambar</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Switcher Tampilan List / Grid */}
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                      viewMode === "list"
+                        ? "bg-white text-blue-600 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                    title="Tampilan List (Daftar)"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("grid")}
+                    className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                      viewMode === "grid"
+                        ? "bg-white text-blue-600 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                    title="Tampilan Grid (Kartu)"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
                 {/* Selector Limit Per Halaman */}
                 <div className="flex items-center gap-1.5 text-sm text-slate-500">
                   <span className="hidden md:inline">Tampilkan:</span>
@@ -1288,242 +1349,273 @@ function KatalogProdukContent() {
               </div>
             </div>
 
-            {/* Products Grid */}
-
+            {/* Products Display (List Default / Optional Images / Grid) */}
             {loading ? (
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3.5">
-
-                {Array.from({ length: 10 }).map((_, i) => (
-
-                  <div
-
-                    key={i}
-
-                    className="bg-white rounded-xl border border-slate-200 p-3 space-y-3 animate-pulse"
-
-                  >
-
-                    <div className="aspect-square bg-slate-100 rounded-lg" />
-
-                    <div className="h-3 bg-slate-100 rounded w-3/4" />
-
-                    <div className="h-3 bg-slate-100 rounded w-1/2" />
-
-                    <div className="h-4 bg-slate-100 rounded w-2/3" />
-
-                  </div>
-
-                ))}
-
-              </div>
-
-            ) : products.length === 0 ? (
-
-              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-3">
-
-                <Package className="w-12 h-12 text-slate-300 mx-auto" />
-
-                <h3 className="font-bold text-slate-800 text-sm">Produk tidak ditemukan</h3>
-
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-
-                  {total === 0 && !search
-
-                    ? "Belum ada produk yang ditambahkan ke dalam katalog."
-
-                    : "Coba ubah kata kunci pencarian atau sesuaikan filter untuk melihat produk lainnya."}
-
-                </p>
-
-                <div className="flex items-center justify-center gap-2 pt-2">
-
-                  <button
-
-                    onClick={handleResetFilters}
-
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-
-                  >
-
-                    <RotateCcw className="w-3.5 h-3.5" />
-
-                    Reset Filter
-
-                  </button>
-
-                  {canAddProduct && (
-
-                    <Link
-
-                      href="/katalog-produk/tambah"
-
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-[#d32f2f] hover:bg-[#b71c1c] rounded-lg transition-colors cursor-pointer shadow-xs"
-
+              viewMode === "list" ? (
+                <div className="space-y-2.5">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between gap-4 animate-pulse"
                     >
-
-                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-
-                      Tambah Produk Baru
-
-                    </Link>
-
-                  )}
-
-                </div>
-
-              </div>
-
-            ) : (
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3.5">
-
-                {products.map((item) => (
-
-                  <div
-
-                    key={item._id}
-
-                    onClick={() => router.push(`/katalog-produk/${item._id}`)}
-
-                    className="group bg-white rounded-xl border border-slate-200 hover:border-red-300 hover:shadow-md transition-all duration-200 flex flex-col overflow-hidden cursor-pointer"
-
-                  >
-
-                    {/* Image Box */}
-
-                    <div className="relative aspect-square w-full bg-slate-50 overflow-hidden border-b border-slate-100">
-
-                      {/* Top Badges */}
-
-                      <div className="absolute top-2 left-2 z-10 flex flex-wrap gap-1">
-
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-600/90 text-white shadow-xs">
-
-                          {item.jenisProduk || "Barang"}
-
-                        </span>
-
-                        {item.isPreOrder && (
-
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800/80 text-white shadow-xs">
-
-                            Pre Order
-
-                          </span>
-
+                      <div className="flex items-center gap-3.5 flex-1">
+                        {showImages && (
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-100 rounded-lg shrink-0" />
                         )}
-
+                        <div className="space-y-2 flex-1">
+                          <div className="h-3 bg-slate-100 rounded w-1/4" />
+                          <div className="h-4 bg-slate-100 rounded w-3/4" />
+                          <div className="h-3 bg-slate-100 rounded w-1/2" />
+                        </div>
                       </div>
-
-                      <img
-
-                        src={
-
-                          item.fotoUtama ||
-
-                          "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=800&auto=format&fit=crop&q=80"
-
-                        }
-
-                        alt={item.namaProduk}
-
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-
-                        loading="lazy"
-
-                      />
-
+                      <div className="space-y-2 w-32 shrink-0">
+                        <div className="h-4 bg-slate-100 rounded" />
+                        <div className="h-3 bg-slate-100 rounded w-2/3 ml-auto" />
+                      </div>
                     </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3.5">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-white rounded-xl border border-slate-200 p-3 space-y-3 animate-pulse"
+                    >
+                      <div className="aspect-square bg-slate-100 rounded-lg" />
+                      <div className="h-3 bg-slate-100 rounded w-3/4" />
+                      <div className="h-3 bg-slate-100 rounded w-1/2" />
+                      <div className="h-4 bg-slate-100 rounded w-2/3" />
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : products.length === 0 ? (
+              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-3">
+                <Package className="w-12 h-12 text-slate-300 mx-auto" />
+                <h3 className="font-bold text-slate-800 text-sm">Produk tidak ditemukan</h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  {total === 0 && !search
+                    ? "Belum ada produk yang ditambahkan ke dalam katalog."
+                    : "Coba ubah kata kunci pencarian atau sesuaikan filter untuk melihat produk lainnya."}
+                </p>
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <button
+                    onClick={handleResetFilters}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reset Filter
+                  </button>
+                  {canAddProduct && (
+                    <Link
+                      href="/katalog-produk/tambah"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-[#d32f2f] hover:bg-[#b71c1c] rounded-lg transition-colors cursor-pointer shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      Tambah Produk Baru
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ) : viewMode === "list" ? (
+              /* ─── TAMPILAN LIST (UTAMA) ─── */
+              <div className="space-y-2.5">
+                {products.map((item) => (
+                  <div
+                    key={item._id}
+                    onClick={() => router.push(`/katalog-produk/${item._id}`)}
+                    className="group bg-white rounded-xl border border-slate-200/90 hover:border-[#1D80D9]/50 hover:shadow-md transition-all duration-200 p-3.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 cursor-pointer"
+                  >
+                    <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                      {/* Opsional Gambar Thumbnail */}
+                      {showImages && (
+                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-slate-50 border border-slate-100 overflow-hidden shrink-0">
+                          <img
+                            src={
+                              item.fotoUtama ||
+                              "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=800&auto=format&fit=crop&q=80"
+                            }
+                            alt={item.namaProduk}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
 
-                    {/* Content Box */}
-
-                    <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
-
-                      <div className="space-y-1">
-
-                        <h4
-
-                          className="text-xl font-medium text-slate-800 line-clamp-2 group-hover:text-blue-600 transition-colors"
-
-                          title={item.namaProduk}
-
-                        >
-
-                          {item.namaProduk}
-
-                        </h4>
-
-                        <div className="text-xl font-bold text-slate-900">
-
-                          {formatRupiah(item.hargaProduk)}
-
+                      {/* Kolom Informasi Produk */}
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        {/* Kategori, Merek & SKU */}
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                          <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
+                            {item.kategori || "Umum"}
+                          </span>
+                          {item.merek && item.merek !== "Tanpa Merek" && (
+                            <span className="font-semibold text-slate-600 text-[11px]">
+                              {item.merek}
+                            </span>
+                          )}
+                          {item.sku && (
+                            <span className="text-[11px] text-slate-400 font-mono">
+                              SKU: {item.sku}
+                            </span>
+                          )}
                         </div>
 
+                        {/* Judul Produk */}
+                        <h3
+                          className="text-base sm:text-lg font-bold text-slate-900 leading-snug group-hover:text-[#1D80D9] transition-colors line-clamp-2"
+                          title={item.namaProduk}
+                        >
+                          {item.namaProduk}
+                        </h3>
+
+                        {/* Badges & Penyedia */}
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200/80">
+                            {item.jenisProduk || "Barang"}
+                          </span>
+
+                          {item.isPreOrder ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200/80">
+                              {item.statusPreOrder || "Pre Order"}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                              Ready Stock
+                            </span>
+                          )}
+
+                          {typeof item.tkdnBmp === "number" && item.tkdnBmp > 0 && (
+                            <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/80">
+                              TKDN+BMP {item.tkdnBmp}%
+                            </span>
+                          )}
+
+                          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {item.jenisLabel || "PDN"}
+                          </span>
+
+                          <span className="text-xs text-slate-300 font-normal hidden sm:inline">•</span>
+
+                          {/* Info Penyedia & Lokasi */}
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="font-bold text-[#1D80D9]">{item.jenisPenyedia || "UMKK"}</span>
+                            <span className="truncate max-w-[220px] text-slate-500">
+                              {item.namaPenyedia || item.lokasiPenyedia || "Indonesia"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Kolom Kanan: Stok, Harga & Aksi */}
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 gap-2 sm:gap-1.5">
+                      {/* Stok Tersedia */}
+                      <div className="text-xs text-slate-500 font-medium sm:text-right">
+                        Stok: <strong className="text-slate-800 font-bold">{item.jumlahStok?.toLocaleString("id-ID") || 0}</strong> {item.satuanProduk || "Unit"}
+                      </div>
+
+                      {/* Harga Produk */}
+                      <div className="text-right">
+                        <div className="text-lg sm:text-xl font-extrabold text-slate-900 group-hover:text-[#1D80D9] transition-colors">
+                          {formatRupiah(item.hargaProduk)}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-medium">
+                          {item.persenPajak && item.persenPajak > 0
+                            ? `+PPN ${item.persenPajak}% (${formatRupiah(item.hargaSetelahPajak || Math.round(item.hargaProduk + (item.hargaProduk * item.persenPajak) / 100))})`
+                            : "Bebas PPN"}
+                        </div>
+                      </div>
+
+                      {/* Tombol Lihat Detail */}
+                      <div className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-[#1D80D9] mt-1 group-hover:gap-1.5 transition-all">
+                        Lihat Detail
+                        <ChevronRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* ─── TAMPILAN GRID (OPSIONAL JIKA DI-TOGGLE) ─── */
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3.5">
+                {products.map((item) => (
+                  <div
+                    key={item._id}
+                    onClick={() => router.push(`/katalog-produk/${item._id}`)}
+                    className="group bg-white rounded-xl border border-slate-200 hover:border-[#1D80D9]/50 hover:shadow-md transition-all duration-200 flex flex-col overflow-hidden cursor-pointer"
+                  >
+                    {/* Image Box (jika showImages aktif atau default fallback) */}
+                    {showImages && (
+                      <div className="relative aspect-square w-full bg-slate-50 overflow-hidden border-b border-slate-100">
+                        <div className="absolute top-2 left-2 z-10 flex flex-wrap gap-1">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-600/90 text-white shadow-xs">
+                            {item.jenisProduk || "Barang"}
+                          </span>
+                          {item.isPreOrder && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800/80 text-white shadow-xs">
+                              Pre Order
+                            </span>
+                          )}
+                        </div>
+                        <img
+                          src={
+                            item.fotoUtama ||
+                            "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=800&auto=format&fit=crop&q=80"
+                          }
+                          alt={item.namaProduk}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+
+                    {/* Content Box */}
+                    <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
+                      <div className="space-y-1">
+                        <h4
+                          className="text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-[#1D80D9] transition-colors"
+                          title={item.namaProduk}
+                        >
+                          {item.namaProduk}
+                        </h4>
+                        <div className="text-base font-extrabold text-slate-900">
+                          {formatRupiah(item.hargaProduk)}
+                        </div>
                       </div>
 
                       <div className="space-y-1.5 pt-1">
-
-                        {/* TKDN Badge */}
-
                         <div className="flex items-center gap-1.5 flex-wrap">
-
                           {typeof item.tkdnBmp === "number" && item.tkdnBmp > 0 && (
-
                             <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/80">
-
                               TKDN+BMP {item.tkdnBmp}%
-
                             </span>
-
                           )}
-
                           <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1 py-0.5 rounded">
-
                             {item.jenisLabel || "PDN"}
-
                           </span>
-
                         </div>
-
-                        {/* Provider & City */}
 
                         <div className="flex items-center gap-1.5 text-[11px] text-slate-600 pt-0.5">
-
-                          <span className="font-extrabold text-blue-600 shrink-0">
-
+                          <span className="font-extrabold text-[#1D80D9] shrink-0">
                             {item.jenisPenyedia || "UMKK"}
-
                           </span>
-
                           <span className="truncate text-slate-500">
-
                             {item.lokasiPenyedia || "Indonesia"}
-
                           </span>
-
                         </div>
-
-                        {/* Stok */}
 
                         <div className="text-[10px] text-slate-500 font-medium">
-
                           Stok {item.jumlahStok?.toLocaleString("id-ID") || 0} {item.satuanProduk || "Unit"}
-
                         </div>
-
                       </div>
-
                     </div>
-
                   </div>
-
                 ))}
-
               </div>
-
             )}
-
           </main>
 
         </div>
