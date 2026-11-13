@@ -4119,48 +4119,48 @@ function TambahProdukContent() {
                 </div>
 
                 {/* ── LIVE KALKULATOR PROFIT & MARGIN OTOMATIS (TERLIHAT DI CRM) ── */}
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md border border-slate-700 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/80 pb-2.5">
+                <div className="p-4 rounded-2xl bg-[#1D80D9]/5 border border-[#1D80D9]/30 shadow-sm space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1D80D9]/20 pb-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                      <span className="w-2 h-2 rounded-full bg-[#1D80D9] animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#1D80D9]">
                         Kalkulasi Otomatis CRM & Rujukan Direct Sales
                       </span>
                     </div>
-                    <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-white/10 text-slate-300 border border-white/10">
+                    <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-[#1D80D9]/10 text-[#1D80D9] border border-[#1D80D9]/30">
                       Sinkron Real-Time
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                     {/* Harga Tayang Final (Inc. PPN) */}
-                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-0.5">
-                      <span className="text-[10px] text-slate-400 font-semibold block uppercase">
+                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-0.5">
+                      <span className="text-[10px] text-slate-500 font-semibold block uppercase">
                         Harga Tayang (+PPN {persenPajak}%)
                       </span>
-                      <div className="text-sm sm:text-base font-black text-blue-300">
+                      <div className="text-sm sm:text-base font-black text-[#1D80D9]">
                         Rp {hargaTayang.toLocaleString("id-ID")}
                       </div>
                       <span className="text-[9px] text-slate-400 block">Dilihat sales & pembeli</span>
                     </div>
 
                     {/* Harga Modal (HPP) */}
-                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-0.5">
-                      <span className="text-[10px] text-slate-400 font-semibold block uppercase">
+                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-0.5">
+                      <span className="text-[10px] text-slate-500 font-semibold block uppercase">
                         Harga Modal (HPP)
                       </span>
-                      <div className="text-sm sm:text-base font-black text-amber-300">
+                      <div className="text-sm sm:text-base font-black text-amber-700">
                         Rp {modalNumber.toLocaleString("id-ID")}
                       </div>
                       <span className="text-[9px] text-slate-400 block">Dasar perolehan barang</span>
                     </div>
 
                     {/* Fee Admin / Katalog */}
-                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-0.5">
-                      <span className="text-[10px] text-slate-400 font-semibold block uppercase">
+                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-0.5">
+                      <span className="text-[10px] text-slate-500 font-semibold block uppercase">
                         Fee Admin ({feePersenNumber}%)
                       </span>
-                      <div className="text-sm sm:text-base font-black text-rose-300">
+                      <div className="text-sm sm:text-base font-black text-rose-600">
                         -Rp {feeAdminNominal.toLocaleString("id-ID")}
                       </div>
                       <span className="text-[9px] text-slate-400 block">Potongan operasional</span>
@@ -4169,10 +4169,10 @@ function TambahProdukContent() {
                     {/* Estimasi Laba Bersih */}
                     <div className={`p-2.5 rounded-xl border space-y-0.5 ${
                       labaBersih >= 0
-                        ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
-                        : "bg-rose-950/60 border-rose-500/40 text-rose-300"
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                        : "bg-rose-50 border-rose-200 text-rose-700"
                     }`}>
-                      <span className="text-[10px] text-slate-300 font-semibold block uppercase">
+                      <span className="text-[10px] text-slate-500 font-semibold block uppercase">
                         Laba Bersih Per Unit
                       </span>
                       <div className="text-sm sm:text-base font-black">
