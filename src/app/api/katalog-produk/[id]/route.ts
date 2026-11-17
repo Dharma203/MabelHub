@@ -87,7 +87,7 @@ export async function PUT(
     updateData.updatedAt = new Date().toISOString();
 
     // Logika pencatatan log riwayat stok
-    let existingLogs = Array.isArray(currentProduct.riwayatStok)
+    const existingLogs = Array.isArray(currentProduct.riwayatStok)
       ? [...currentProduct.riwayatStok]
       : [];
 

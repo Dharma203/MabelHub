@@ -154,7 +154,7 @@ export default function RekapitulasiResponsePage() {
             setStatusKeputusanOpts(pData.status_keputusan);
           }
         }
-      } catch (e) {
+      } catch {
         // ignore error fetching parameters
       }
 
@@ -533,6 +533,7 @@ function FragmentRow({
   statusKeputusanOpts: string[];
   onUpdated: (r: EProcRow) => void;
 }) {
+  const [currentTime, setCurrentTime] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -557,8 +558,17 @@ function FragmentRow({
   );
 
   useEffect(() => {
+    const tick = () => setCurrentTime(Date.now());
+    const first = setTimeout(tick, 0);
+    const timer = setInterval(tick, 60_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
     if (isOpen) {
-      setSelectedIndices(new Set()); // reset on open
       fetch("/api/parameters")
         .then((res) => res.json())
         .then((json) => {
@@ -572,6 +582,13 @@ function FragmentRow({
         .catch(() => {});
     }
   }, [isOpen]);
+
+  const handleToggle = () => {
+    if (!isOpen) {
+      setSelectedIndices(new Set()); // reset selection when opening
+    }
+    onToggle();
+  };
 
   const toggleSelectAll = () => {
     if (selectedIndices.size === form.items.length) {
@@ -645,14 +662,10 @@ function FragmentRow({
 
   const isDone = computedStatusUsulan === "Done";
 
-  useEffect(() => {
-    if (!isDone && form.statusAkhir !== "") {
-      setForm((prev) => ({
-        ...prev,
-        statusAkhir: "",
-      }));
-    }
-  }, [isDone, form.statusAkhir]);
+
+  // Remove the effect that synchronously resets statusAkhir
+  // Instead, ensure statusAkhir is reset at the appropriate event, e.g., when isDone changes to false
+  // If you need to reset statusAkhir when isDone becomes false, do it in the event handler where isDone changes
 
   // check if editable
   // only simple ADMIN who acts as the taker can edit, or SUPERADMIN can edit
@@ -699,7 +712,7 @@ function FragmentRow({
   );
   const isDelayed =
     !isFinalStatus &&
-    Date.now() - new Date(r.tanggalSubmit).getTime() > 3 * 24 * 60 * 60 * 1000;
+    currentTime - new Date(r.tanggalSubmit).getTime() > 3 * 24 * 60 * 60 * 1000;
 
   return (
     <>
@@ -707,7 +720,7 @@ function FragmentRow({
         className={`border-b border-slate-100/80 hover:bg-slate-50 cursor-pointer transition-colors ${
           isOpen ? "bg-indigo-50/20" : isDelayed ? "bg-rose-50/40" : ""
         }`}
-        onClick={onToggle}
+        onClick={handleToggle}
         title="Klik untuk lihat detail"
       >
         <td className="px-5 py-4 font-semibold text-slate-800 text-center">
@@ -874,7 +887,7 @@ function FragmentRow({
                           Set Penyedia:
                         </span>
                         <select
-                          className="text-xs border border-indigo-200 rounded-lg px-2 py-1.5 bg-white outline-none focus:ring-2 focus:ring-indigo-500/20 max-w-[150px]"
+                          className="text-xs border border-indigo-200 rounded-lg px-2 py-1.5 bg-white outline-none focus:ring-2 focus:ring-indigo-500/20 max-w-37.5"
                           onChange={(e) => applyBulkPerusahaan(e.target.value)}
                           value=""
                         >
@@ -1148,7 +1161,7 @@ function FragmentRow({
                                       Catatan Admin
                                     </label>
                                     <textarea
-                                      className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 disabled:bg-slate-100 font-medium text-slate-700 bg-white transition-all shadow-sm min-h-[38px] max-h-[120px]"
+                                      className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 disabled:bg-slate-100 font-medium text-slate-700 bg-white transition-all shadow-sm min-h-9.5 max-h-30"
                                       value={
                                         form.items[idx]?.catatanAdminItem || ""
                                       }
@@ -1318,7 +1331,7 @@ function FragmentRow({
                   <button
                     onClick={handleSave}
                     disabled={loading}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200 px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:bg-indigo-400 disabled:shadow-none active:scale-95 min-w-[150px] flex items-center justify-center gap-2"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200 px-5 py-2.5 rounded-lg text-sm font-bold transition-all disabled:bg-indigo-400 disabled:shadow-none active:scale-95 min-w-37.5 flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <>

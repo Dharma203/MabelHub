@@ -35,7 +35,7 @@ async function getParams<T>(p: T | Promise<T>) {
 
 // (opsional) ensure index unik supaya duplicate tertangkap konsisten
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __mabel_users_indexes_promise: Promise<void> | undefined;
 }
 async function ensureUserIndexes(db: any) {

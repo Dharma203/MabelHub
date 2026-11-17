@@ -54,6 +54,7 @@ function ReviewSubmitContent() {
     }
     try {
       const parsed = JSON.parse(raw) as PlanTimDraft
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDraft(parsed)
     } catch {
       sessionStorage.removeItem('sales-report-plan-tim-draft')
@@ -236,10 +237,7 @@ function ReviewSubmitContent() {
             <InfoCard label='Target SPH' value={draft.sph_target} />
           </div>
           <div className='mb-6 grid grid-cols-1 gap-4 md:grid-cols-2'>
-            <InfoCard
-              label='Target Closing'
-              value={draft.sph_deal_target}
-            />
+            <InfoCard label='Target Closing' value={draft.sph_deal_target} />
             <InfoCard
               label='Target Revenue Total'
               value={formatRupiah(draft.revenue)}
@@ -275,14 +273,10 @@ function ReviewSubmitContent() {
                     <tr
                       key={index}
                       className={
-                        index % 2 === 0
-                          ? 'bg-white'
-                          : 'bg-slate-50/50'
+                        index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
                       }
                     >
-                      <td className='px-4 py-3 text-slate-400'>
-                        {index + 1}
-                      </td>
+                      <td className='px-4 py-3 text-slate-400'>{index + 1}</td>
                       <td className='px-4 py-3 font-medium text-slate-800'>
                         {row.nama_sales}
                       </td>
@@ -291,9 +285,7 @@ function ReviewSubmitContent() {
                       </td>
                       <td className='px-4 py-3'>{row.demo_target}</td>
                       <td className='px-4 py-3'>{row.sph_target}</td>
-                      <td className='px-4 py-3'>
-                        {row.sph_deal_target}
-                      </td>
+                      <td className='px-4 py-3'>{row.sph_deal_target}</td>
                       <td className='px-4 py-3 font-semibold'>
                         {formatRupiah(row.revenue)}
                       </td>
@@ -334,9 +326,7 @@ function ReviewSubmitContent() {
                       <tr
                         key={index}
                         className={
-                          index % 2 === 0
-                            ? 'bg-white'
-                            : 'bg-slate-50/50'
+                          index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
                         }
                       >
                         <td className='px-4 py-3 text-slate-400'>
@@ -347,9 +337,7 @@ function ReviewSubmitContent() {
                         </td>
                         <td className='px-4 py-3'>{row.segmentasi}</td>
                         <td className='px-4 py-3'>{row.tipe_visit}</td>
-                        <td className='px-4 py-3'>
-                          {row.nama_perusahaan}
-                        </td>
+                        <td className='px-4 py-3'>{row.nama_perusahaan}</td>
                         <td className='px-4 py-3 text-slate-400'>
                           {row.note || '—'}
                         </td>
@@ -408,9 +396,7 @@ function InfoCard({
   return (
     <div
       className={`rounded-xl border px-5 py-4 ${
-        highlight
-          ? 'border-slate-200 bg-white'
-          : 'border-slate-200 bg-white'
+        highlight ? 'border-slate-200 bg-white' : 'border-slate-200 bg-white'
       }`}
     >
       <p className='text-xs font-semibold uppercase tracking-wide text-slate-400'>

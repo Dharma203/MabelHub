@@ -62,8 +62,8 @@ export async function GET(req: NextRequest) {
 
     // Determine what to query based on sumberData
     const sumberDataLower = sumberData.toLowerCase();
-    let runInput = sumberDataLower === "semua" || sumberDataLower === "validasi sales";
-    let runBroadcast = sumberDataLower === "semua" || sumberDataLower === "report wa";
+    const runInput = sumberDataLower === "semua" || sumberDataLower === "validasi sales";
+    const runBroadcast = sumberDataLower === "semua" || sumberDataLower === "report wa";
 
     const [inputDocs, broadcastDocs, allValidasi] = await Promise.all([
       runInput ? colInput.find(filterInput).toArray() : Promise.resolve([]),

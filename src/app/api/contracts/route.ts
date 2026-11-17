@@ -19,7 +19,7 @@ const COL_NAME = CONTRACTS_COL;
 export const dynamic = "force-dynamic";
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __contracts_indexes_promise: Promise<void> | undefined;
 }
 

@@ -26,7 +26,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const db = client.db("MabelHub");
     const col = db.collection("product_categories");
 
-    let category = await col.findOne({ id });
+    const category = await col.findOne({ id });
 
     // Fallback if not found in db
     if (!category) {

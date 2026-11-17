@@ -102,7 +102,7 @@ async function getUserLite(
 }
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __eproc_indexes_promise: Promise<void> | undefined;
 }
 

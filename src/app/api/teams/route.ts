@@ -23,7 +23,7 @@ type UserDoc = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __teams_indexes_promise: Promise<void> | undefined;
 }
 

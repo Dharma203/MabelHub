@@ -16,7 +16,7 @@ const DB_NAME = getDbName();
 const COL_NAME = "dokumentasi_project";
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __dokumentasi_indexes_promise: Promise<void> | undefined;
 }
 

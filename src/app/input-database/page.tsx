@@ -241,7 +241,7 @@ function InputDatabaseContent() {
     }
 
     fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [searchParams])
 
   const canPickAssignee =

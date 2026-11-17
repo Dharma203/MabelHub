@@ -232,7 +232,7 @@ function createDeferredFetchMock() {
 // dengan fake timers yang dipakai untuk mengunci tanggal sistem.
 async function flushPromises(times = 5) {
     for (let i = 0; i < times; i++) {
-        // eslint-disable-next-line no-await-in-loop
+         
         await act(async () => {
             await Promise.resolve()
         })

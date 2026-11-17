@@ -59,76 +59,6 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      className={clsx(
-        "h-11 w-full rounded-xl bg-white px-4 text-sm text-gray-500 outline-none",
-        "ring-1 ring-black/10 focus:ring-2 focus:ring-black/20",
-        props.className || "",
-      )}
-    />
-  );
-}
-
-function PrimaryButton({
-  children,
-  onClick,
-  disabled,
-  className,
-  type = "button",
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  className?: string;
-  type?: "button" | "submit";
-}) {
-  return (
-    <button
-      type={type}
-      disabled={disabled}
-      onClick={onClick}
-      className={clsx(
-        "h-11 rounded-full px-6 text-md font-extrabold tracking-wide",
-        "ring-1 ring-black/15 shadow-sm hover:bg-black/5",
-        className || "",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function SolidButton({
-  children,
-  onClick,
-  disabled,
-  className,
-  type = "button",
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  className?: string;
-  type?: "button" | "submit";
-}) {
-  return (
-    <button
-      type={type}
-      disabled={disabled}
-      onClick={onClick}
-      className={clsx(
-        "h-11 rounded-full px-7 text-md font-extrabold tracking-wider ring-1",
-        "ring-1 ring-black/15 shadow-sm hover:bg-black/5",
-        className || "",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
 
 const emptyForm = (): InstansiForm => ({
   institusi_kerja: "",
@@ -146,20 +76,6 @@ const emptyForm = (): InstansiForm => ({
 export default function AddInstansiPage() {
   const router = useRouter();
   const { user, loading: sessionLoading } = useSession();
-
-  // const requestContactPermission = async () => {
-  //   if (Platform.OS === 'android') {
-  //     const granted = await PermissionsAndroid.request(
-  //       PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
-  //       {
-  //         title: 'Izinkan akses kontak',
-  //         message: 'Izinkan akses kontak untuk mengambil data kontak',
-  //       }
-  //     );
-  //     return granted === PermissionsAndroid.RESULTS.GRANTED;
-  //   }
-  //   return true;
-  // };
 
   // ✅ multi instansi (layout seperti yang kamu mau: scroll tengah, footer fixed)
   const [forms, setForms] = useState<InstansiForm[]>([emptyForm()]);
@@ -407,7 +323,7 @@ export default function AddInstansiPage() {
       }
 
       setForms(mapped);
-    } catch (e) {
+    } catch {
       alert("Gagal membaca Excel. Pastikan file .xlsx valid.");
     }
   }

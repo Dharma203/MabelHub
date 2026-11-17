@@ -20,7 +20,7 @@ type UserDoc = {
 
 // (opsional tapi bagus) ensure index unik untuk username & email
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __mabel_users_indexes_promise: Promise<void> | undefined
 }
 
