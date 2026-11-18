@@ -8,6 +8,7 @@ import {
   Package,
   Plus,
   Search,
+  Filter,
   CheckCircle2,
   Clock,
   Eye,
@@ -26,6 +27,7 @@ import {
   Globe,
   Archive,
   Loader2,
+  Download,
 } from "lucide-react";
 import {
   PRODUCT_SPEC_REGISTRY,
@@ -33,6 +35,7 @@ import {
   formatTanggalIndo,
   StockLogItem,
 } from "@/lib/katalog-specs";
+import { exportKatalogToExcel } from "@/lib/katalog-excel-helper";
 
 interface ProductItem {
   _id: string;
@@ -43,6 +46,12 @@ interface ProductItem {
   merek?: string;
   jenisProduk?: string;
   hargaProduk: number;
+  hargaModal?: number;
+  feeAdminPersen?: number;
+  feeAdminNominal?: number;
+  labaKotor?: number;
+  labaBersih?: number;
+  persenMargin?: number;
   persenPajak?: number;
   hargaSetelahPajak?: number;
   jumlahStok: number;
@@ -56,6 +65,8 @@ interface ProductItem {
   nilaiTkdn?: number;
   nilaiBmp?: number;
   namaPenyedia?: string;
+  namaPic?: string;
+  noHpPic?: string;
   lokasiPenyedia?: string;
   dikirimDari?: string;
   tanggalMasukKatalog?: string;
@@ -72,7 +83,13 @@ export default function KelolaKatalogPage() {
   const [statusTab, setStatusTab] = useState<"all" | "published" | "draft">("all");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [brandFilter, setBrandFilter] = useState("all");
+  const [minHarga, setMinHarga] = useState("");
+  const [maxHarga, setMaxHarga] = useState("");
+  const [minTkdn, setMinTkdn] = useState("");
   const [sortFilter, setSortFilter] = useState("terbaru");
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
 
@@ -87,6 +104,7 @@ export default function KelolaKatalogPage() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [deleteModalProduct, setDeleteModalProduct] = useState<ProductItem | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Access check
   const isAllowed = user && (user.role === "SUPERADMIN" || user.role === "ADMIN");
@@ -113,6 +131,10 @@ export default function KelolaKatalogPage() {
       params.set("status", statusTab);
       if (search.trim()) params.set("search", search.trim());
       if (categoryFilter !== "all") params.set("kategori", categoryFilter);
+      if (brandFilter !== "all") params.set("merek", brandFilter);
+      if (minHarga.trim()) params.set("minHarga", minHarga.trim());
+      if (maxHarga.trim()) params.set("maxHarga", maxHarga.trim());
+      if (minTkdn.trim()) params.set("minTkdn", minTkdn.trim());
       params.set("sort", sortFilter);
       params.set("page", page.toString());
       params.set("limit", limit.toString());
@@ -127,13 +149,16 @@ export default function KelolaKatalogPage() {
       if (data.counts) {
         setCounts(data.counts);
       }
+      if (data.availableBrands && Array.isArray(data.availableBrands)) {
+        setAvailableBrands(data.availableBrands);
+      }
     } catch (err: any) {
       console.error(err);
       showToast("error", err.message || "Gagal memuat produk");
     } finally {
       setLoading(false);
     }
-  }, [statusTab, search, categoryFilter, sortFilter, page, limit]);
+  }, [statusTab, search, categoryFilter, brandFilter, minHarga, maxHarga, minTkdn, sortFilter, page, limit]);
 
   useEffect(() => {
     if (isAllowed) {
@@ -201,6 +226,68 @@ export default function KelolaKatalogPage() {
       maximumFractionDigits: 0,
     }).format(val || 0);
   };
+
+  const handleResetFilters = () => {
+    setSearch("");
+    setCategoryFilter("all");
+    setBrandFilter("all");
+    setMinHarga("");
+    setMaxHarga("");
+    setMinTkdn("");
+    setSortFilter("terbaru");
+    setPage(1);
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true);
+      const params = new URLSearchParams();
+      params.set("status", statusTab);
+      params.set("export", "true");
+      if (search.trim()) params.set("search", search.trim());
+      if (categoryFilter !== "all") params.set("kategori", categoryFilter);
+      if (brandFilter !== "all") params.set("merek", brandFilter);
+      if (minHarga.trim()) params.set("minHarga", minHarga.trim());
+      if (maxHarga.trim()) params.set("maxHarga", maxHarga.trim());
+      if (minTkdn.trim()) params.set("minTkdn", minTkdn.trim());
+      params.set("sort", sortFilter);
+
+      const res = await fetch(`/api/katalog-produk?${params.toString()}`);
+      if (!res.ok) throw new Error("Gagal mengambil data produk untuk ekspor");
+      const data = await res.json();
+      const exportItems = data.items || [];
+
+      if (exportItems.length === 0) {
+        showToast("error", "Tidak ada produk yang cocok dengan filter untuk diekspor");
+        return;
+      }
+
+      exportKatalogToExcel(exportItems, {
+        statusTab,
+        categoryFilter,
+        brandFilter,
+        search,
+        minHarga,
+        maxHarga,
+        minTkdn,
+        sortFilter,
+      });
+
+      showToast("success", `Berhasil mengekspor ${exportItems.length} produk ke Excel!`);
+    } catch (err: any) {
+      console.error("Export error:", err);
+      showToast("error", err.message || "Gagal mengekspor data ke Excel");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const activeFiltersCount =
+    (categoryFilter !== "all" ? 1 : 0) +
+    (brandFilter !== "all" ? 1 : 0) +
+    (minHarga.trim() ? 1 : 0) +
+    (maxHarga.trim() ? 1 : 0) +
+    (minTkdn.trim() ? 1 : 0);
 
   if (sessionLoading) {
     return (
@@ -285,11 +372,30 @@ export default function KelolaKatalogPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-xl text-sm font-bold shadow-xs transition-all duration-150 cursor-pointer disabled:opacity-50"
+              title="Unduh seluruh daftar produk sesuai filter aktif ke file Excel (.xlsx)"
+            >
+              {isExporting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                  <span>Mengekspor...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+                  <span>Export Excel</span>
+                </>
+              )}
+            </button>
 
             <Link
               href="/katalog-produk/tambah"
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-m font-bold rounded-xl shadow-sm transition-all duration-150 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-sm transition-all duration-150 cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Tambah Produk</span>
@@ -430,7 +536,8 @@ export default function KelolaKatalogPage() {
 
         {/* Search & Select Controls */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-          <div className="sm:col-span-6 relative">
+          {/* Search Input */}
+          <div className="sm:col-span-4 relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -445,14 +552,19 @@ export default function KelolaKatalogPage() {
             {search && (
               <button
                 type="button"
-                onClick={() => setSearch("")}
+                onClick={() => {
+                  setSearch("");
+                  setPage(1);
+                }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-md hover:bg-slate-100 transition-colors"
+                title="Hapus pencarian"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
+          {/* Kategori Filter */}
           <div className="sm:col-span-3">
             <select
               value={categoryFilter}
@@ -471,24 +583,301 @@ export default function KelolaKatalogPage() {
             </select>
           </div>
 
-          <div className="sm:col-span-3">
+          {/* Merek Filter */}
+          <div className="sm:col-span-2">
+            <select
+              value={brandFilter}
+              onChange={(e) => {
+                setBrandFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2.5 text-sm bg-slate-50/80 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none cursor-pointer focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+            >
+              <option value="all">Semua Merk</option>
+              {availableBrands.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Urutkan */}
+          <div className="sm:col-span-2">
             <select
               value={sortFilter}
               onChange={(e) => {
                 setSortFilter(e.target.value);
                 setPage(1);
               }}
-              className="w-full px-3.5 py-2.5 text-sm bg-slate-50/80 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none cursor-pointer focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+              className="w-full px-3 py-2.5 text-sm bg-slate-50/80 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none cursor-pointer focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
             >
-              <option value="terbaru">Terbaru Ditambahkan</option>
-              <option value="terlama">Terlama Ditambahkan</option>
-              <option value="nama_asc">Nama Produk (A - Z)</option>
+              <option value="terbaru">Terbaru</option>
+              <option value="terlama">Terlama</option>
+              <option value="nama_asc">Nama (A - Z)</option>
               <option value="harga_desc">Harga Tertinggi</option>
               <option value="harga_asc">Harga Terendah</option>
               <option value="tkdn_desc">TKDN Tertinggi</option>
             </select>
           </div>
+
+          {/* Toggle Filter Lanjutan */}
+          <div className="sm:col-span-1">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilter((prev) => !prev)}
+              className={`w-full h-full min-h-[42px] px-2.5 py-2 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
+                showAdvancedFilter || activeFiltersCount > 0
+                  ? "bg-blue-50 border-blue-300 text-blue-700 shadow-xs"
+                  : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+              }`}
+              title="Filter Lanjutan (Harga & TKDN)"
+            >
+              <Filter className="w-3.5 h-3.5" />
+              {activeFiltersCount > 0 && (
+                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-extrabold">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* ── Filter Lanjutan (Harga & TKDN) ── */}
+        {(showAdvancedFilter || minHarga || maxHarga || minTkdn) && (
+          <div className="p-4 rounded-xl bg-slate-50/90 border border-slate-200/90 space-y-3 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />
+                Filter Tambahan (Harga & TKDN)
+              </span>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer"
+              >
+                Reset Semua Filter
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+              {/* Min Harga */}
+              <div className="sm:col-span-4 space-y-1">
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+                  Harga Minimum (Rp)
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs font-bold text-slate-400">Rp</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Contoh: 500000"
+                    value={minHarga}
+                    onChange={(e) => {
+                      setMinHarga(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none font-mono focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Max Harga */}
+              <div className="sm:col-span-4 space-y-1">
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+                  Harga Maksimum (Rp)
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs font-bold text-slate-400">Rp</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Contoh: 15000000"
+                    value={maxHarga}
+                    onChange={(e) => {
+                      setMaxHarga(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none font-mono focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Min TKDN */}
+              <div className="sm:col-span-4 space-y-1">
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+                  Minimal TKDN + BMP (%)
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="Contoh: 25"
+                    value={minTkdn}
+                    onChange={(e) => {
+                      setMinTkdn(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none font-mono focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all pr-8"
+                  />
+                  <span className="absolute right-3 text-xs font-bold text-slate-400">%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Price Buttons */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-200/60">
+              <span className="text-[11px] font-semibold text-slate-500 mr-1">Pilihan Cepat Harga:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setMinHarga("");
+                  setMaxHarga("1000000");
+                  setPage(1);
+                }}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer ${
+                  maxHarga === "1000000" && !minHarga
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                }`}
+              >
+                &lt; 1 Juta
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMinHarga("1000000");
+                  setMaxHarga("5000000");
+                  setPage(1);
+                }}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer ${
+                  minHarga === "1000000" && maxHarga === "5000000"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                }`}
+              >
+                1 Juta – 5 Juta
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMinHarga("5000000");
+                  setMaxHarga("20000000");
+                  setPage(1);
+                }}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer ${
+                  minHarga === "5000000" && maxHarga === "20000000"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                }`}
+              >
+                5 Juta – 20 Juta
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMinHarga("20000000");
+                  setMaxHarga("");
+                  setPage(1);
+                }}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer ${
+                  minHarga === "20000000" && !maxHarga
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                }`}
+              >
+                &gt; 20 Juta
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Active Filter Badges ── */}
+        {activeFiltersCount > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 text-xs">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+              Filter Aktif ({activeFiltersCount}):
+            </span>
+
+            {categoryFilter !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold">
+                <span>Kategori: {categoryFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryFilter("all");
+                    setPage(1);
+                  }}
+                  className="hover:text-blue-900 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {brandFilter !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold">
+                <span>Merk: {brandFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBrandFilter("all");
+                    setPage(1);
+                  }}
+                  className="hover:text-blue-900 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {(minHarga || maxHarga) && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
+                <span>
+                  Harga: {minHarga ? `≥ ${formatRupiah(Number(minHarga))}` : ""}
+                  {minHarga && maxHarga ? " - " : ""}
+                  {maxHarga ? `≤ ${formatRupiah(Number(maxHarga))}` : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMinHarga("");
+                    setMaxHarga("");
+                    setPage(1);
+                  }}
+                  className="hover:text-emerald-900 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {minTkdn && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 text-xs font-semibold">
+                <span>TKDN ≥ {minTkdn}%</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMinTkdn("");
+                    setPage(1);
+                  }}
+                  className="hover:text-purple-900 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="text-[11px] font-bold text-slate-500 hover:text-rose-600 underline ml-2 cursor-pointer"
+            >
+              Hapus Semua Filter
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Table Container ── */}
@@ -530,17 +919,30 @@ export default function KelolaKatalogPage() {
                       <p className="text-sm text-slate-400 leading-relaxed">
                         {search
                           ? `Tidak ada produk yang cocok dengan kata kunci "${search}".`
+                          : activeFiltersCount > 0
+                          ? "Tidak ada produk yang cocok dengan kombinasi filter yang dipilih."
                           : statusTab === "draft"
                           ? "Belum ada produk yang disimpan sebagai draf."
                           : "Belum ada produk yang terdaftar dalam katalog."}
                       </p>
-                      <Link
-                        href="/katalog-produk/tambah"
-                        className="mt-1 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Buat Produk Baru</span>
-                      </Link>
+                      {activeFiltersCount > 0 ? (
+                        <button
+                          type="button"
+                          onClick={handleResetFilters}
+                          className="mt-1 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Reset Semua Filter</span>
+                        </button>
+                      ) : (
+                        <Link
+                          href="/katalog-produk/tambah"
+                          className="mt-1 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Buat Produk Baru</span>
+                        </Link>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -619,16 +1021,33 @@ export default function KelolaKatalogPage() {
                         )}
                       </td>
 
-                      {/* Harga */}
+                      {/* Harga & Modal */}
                       <td className="py-3.5 px-4">
-                        <div className="font-extrabold text-slate-900">
+                        <div className="font-extrabold text-slate-900" title="Harga Tayang (Sebelum Pajak)">
                           {formatRupiah(item.hargaProduk)}
                         </div>
                         <div className="text-[10px] text-slate-400 font-medium">
                           {item.persenPajak && item.persenPajak > 0
-                            ? `PPN ${item.persenPajak}%`
+                            ? `Tayang (+PPN): ${formatRupiah(item.hargaSetelahPajak || Math.round(item.hargaProduk + (item.hargaProduk * item.persenPajak) / 100))}`
                             : "Bebas PPN"}
                         </div>
+                        {item.hargaModal !== undefined && item.hargaModal > 0 && (
+                          <div className="mt-1 pt-1 border-t border-slate-100 flex items-center justify-between gap-1 text-[10px]">
+                            <span className="text-amber-700 font-semibold" title="Harga Modal / HPP">
+                              Modal: {formatRupiah(item.hargaModal)}
+                            </span>
+                            <span
+                              className={`font-extrabold px-1.5 py-0.2 rounded ${
+                                (item.labaBersih ?? (item.hargaProduk - item.hargaModal)) >= 0
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-rose-50 text-rose-700 border border-rose-200"
+                              }`}
+                              title="Estimasi Margin Bersih"
+                            >
+                              {item.persenMargin !== undefined ? `${item.persenMargin > 0 ? "+" : ""}${item.persenMargin}%` : ""}
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Stok */}

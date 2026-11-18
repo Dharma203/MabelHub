@@ -68,7 +68,25 @@ import {
 
   Boxes,
 
+  Download,
+
+  FileSpreadsheet,
+
+  UploadCloud,
+
 } from "lucide-react";
+
+import {
+
+  downloadKatalogTemplate,
+
+  parseKatalogExcelFile,
+
+  ParsedProductItem,
+
+  ParseExcelResult,
+
+} from "@/lib/katalog-excel-helper";
 
 import {
 
@@ -294,6 +312,10 @@ function TambahProdukContent() {
 
   const [namaPenyedia, setNamaPenyedia] = useState("MabelHub Store");
 
+  const [namaPic, setNamaPic] = useState("");
+
+  const [noHpPic, setNoHpPic] = useState("");
+
   const [jenisPenyedia, setJenisPenyedia] = useState("UMKK");
 
   const [lokasiPenyedia, setLokasiPenyedia] = useState("DKI Jakarta");
@@ -313,6 +335,10 @@ function TambahProdukContent() {
   const [varianList, setVarianList] = useState<VariantItem[]>([]);
 
   const [hargaProduk, setHargaProduk] = useState<string>("");
+
+  const [hargaModal, setHargaModal] = useState<string>("");
+
+  const [feeAdminPersen, setFeeAdminPersen] = useState<string>("5");
 
   const [grosirList, setGrosirList] = useState<GrosirItem[]>([]);
 
@@ -363,6 +389,28 @@ function TambahProdukContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+
+
+  // Excel Import states
+
+  const [showExcelModal, setShowExcelModal] = useState(false);
+
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+
+  const [parsingExcel, setParsingExcel] = useState(false);
+
+  const [parsedResult, setParsedResult] = useState<ParseExcelResult | null>(null);
+
+  const [excelParseError, setExcelParseError] = useState<string | null>(null);
+
+  const [importingBatch, setImportingBatch] = useState(false);
+
+  const [importSuccessResult, setImportSuccessResult] = useState<{ count: number } | null>(null);
+
+  const [showExcelErrorsDetail, setShowExcelErrorsDetail] = useState(false);
+
+  const excelFileInputRef = useRef<HTMLInputElement>(null);
 
 
 
@@ -536,6 +584,10 @@ function TambahProdukContent() {
 
           setNamaPenyedia(p.namaPenyedia || "MabelHub Store");
 
+          setNamaPic(p.namaPic && p.namaPic !== "-" ? p.namaPic : (p.namaPicPenyedia && p.namaPicPenyedia !== "-" ? p.namaPicPenyedia : ""));
+
+          setNoHpPic(p.noHpPic && p.noHpPic !== "-" ? p.noHpPic : (p.noHpPicPenyedia && p.noHpPicPenyedia !== "-" ? p.noHpPicPenyedia : (p.teleponPic && p.teleponPic !== "-" ? p.teleponPic : "")));
+
           setJenisPenyedia(p.jenisPenyedia || "UMKK");
 
           setLokasiPenyedia(p.lokasiPenyedia || "DKI Jakarta");
@@ -561,6 +613,10 @@ function TambahProdukContent() {
           setPersenPajak(Number(p.persenPajak) || 0);
 
           setHargaProduk(p.hargaProduk ? String(p.hargaProduk) : "");
+
+          setHargaModal(p.hargaModal !== undefined ? String(p.hargaModal) : "");
+
+          setFeeAdminPersen(p.feeAdminPersen !== undefined ? String(p.feeAdminPersen) : "5");
 
           setJumlahStok(p.jumlahStok !== undefined ? String(p.jumlahStok) : "");
 
@@ -737,6 +793,10 @@ function TambahProdukContent() {
     dikirimDari,
 
     namaPenyedia,
+
+    namaPic,
+
+    noHpPic,
 
     jenisPenyedia,
 
@@ -946,7 +1006,19 @@ function TambahProdukContent() {
 
   const hargaNumber = parseFloat(hargaProduk) || 0;
 
+  const modalNumber = parseFloat(hargaModal) || 0;
+
+  const feePersenNumber = parseFloat(feeAdminPersen) || 0;
+
   const hargaTayang = Math.round(hargaNumber + (hargaNumber * persenPajak) / 100);
+
+  const feeAdminNominal = Math.round((hargaNumber * feePersenNumber) / 100);
+
+  const labaKotor = hargaNumber - modalNumber;
+
+  const labaBersih = labaKotor - feeAdminNominal;
+
+  const persenMargin = hargaNumber > 0 ? Math.round((labaBersih / hargaNumber) * 1000) / 10 : 0;
 
 
 
@@ -1154,6 +1226,229 @@ function TambahProdukContent() {
 
 
 
+  // Excel Import & Autofill Handlers
+
+  const handleExcelFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    setExcelFile(file);
+
+    setParsingExcel(true);
+
+    setExcelParseError(null);
+
+    setImportSuccessResult(null);
+
+    try {
+
+      const result = await parseKatalogExcelFile(file);
+
+      setParsedResult(result);
+
+    } catch (err: any) {
+
+      console.error("Gagal membaca Excel:", err);
+
+      setExcelParseError(err?.message || "Gagal memproses file Excel. Pastikan format file sesuai.");
+
+      setParsedResult(null);
+
+    } finally {
+
+      setParsingExcel(false);
+
+    }
+
+  };
+
+
+
+  const handleApplyRowToForm = (item: ParsedProductItem) => {
+
+    setNamaProduk(item.namaProduk);
+
+    if (item.sku) setSku(item.sku);
+
+    if (item.merek && item.merek !== "Tanpa Merek") {
+
+      setAdaMerek(true);
+
+      setMerek(item.merek);
+
+    } else {
+
+      setAdaMerek(false);
+
+      setMerek("");
+
+    }
+
+
+
+    // Match category & subcategory
+
+    const matchedCat = PRODUCT_SPEC_REGISTRY.find(
+
+      (c) => c.name.toLowerCase() === item.kategori.toLowerCase() || c.id === item.kategori.toLowerCase()
+
+    );
+
+    if (matchedCat) {
+
+      setKategoriId(matchedCat.id);
+
+      setKategori(matchedCat.name);
+
+      const matchedSub = matchedCat.subcategories.find(
+
+        (s) => s.name.toLowerCase() === item.subKategori.toLowerCase() || s.id === item.subKategori.toLowerCase()
+
+      );
+
+      if (matchedSub) {
+
+        setSubKategoriId(matchedSub.id);
+
+        setSubKategori(matchedSub.name);
+
+        if (matchedSub.kbkiDefault) {
+
+          setKodeKbki(matchedSub.kbkiDefault);
+
+        }
+
+      }
+
+    }
+
+
+
+    if (item.kodeKbki && item.kodeKbki !== "-") {
+
+      setKodeKbki(item.kodeKbki);
+
+    }
+
+    setHargaProduk(item.hargaProduk > 0 ? String(item.hargaProduk) : "");
+
+    setPersenPajak(item.persenPajak || 0);
+
+    setJumlahStok(item.jumlahStok >= 0 ? String(item.jumlahStok) : "0");
+
+    if (item.satuanProduk) setSatuanProduk(item.satuanProduk);
+
+    if (item.nilaiTkdn) setNilaiTkdn(String(item.nilaiTkdn));
+
+    if (item.nilaiBmp) setNilaiBmp(String(item.nilaiBmp));
+
+    if (item.namaPenyedia) setNamaPenyedia(item.namaPenyedia);
+
+    if (item.namaPic && item.namaPic !== "-") setNamaPic(item.namaPic);
+
+    if (item.noHpPic && item.noHpPic !== "-") setNoHpPic(item.noHpPic);
+
+    if (item.jenisPenyedia) setJenisPenyedia(item.jenisPenyedia);
+
+    if (item.lokasiPenyedia) setLokasiPenyedia(item.lokasiPenyedia);
+
+    if (item.dikirimDari) setDikirimDari(item.dikirimDari);
+
+    if (item.beratProduk && item.beratProduk !== "-") setBeratProduk(item.beratProduk);
+
+    if (item.dimensiProduk && item.dimensiProduk !== "-") setDimensiProduk(item.dimensiProduk);
+
+    setSpesifikasiValues((prev) => ({
+      ...prev,
+      ...(item.garansi && item.garansi !== "-" ? { garansi: item.garansi } : {}),
+      ...(item.kelengkapanProduk && item.kelengkapanProduk !== "-" ? { kelengkapanProduk: item.kelengkapanProduk } : {}),
+      ...(item.merek && item.merek !== "Tanpa Merek" ? { merek: item.merek } : {}),
+    }));
+
+    if (item.deskripsi) setDeskripsi(item.deskripsi);
+
+    if (item.fotoUtama) {
+
+      setFotoSlots([item.fotoUtama, null, null, null, null]);
+
+    }
+
+    if (item.sertifikatSni === "Ada") {
+
+      setAdaSni(true);
+
+      setNomorSni(item.nomorSni || "");
+
+    } else {
+
+      setAdaSni(false);
+
+      setNomorSni("");
+
+    }
+
+
+
+    setIsDirty(true);
+
+    setShowExcelModal(false);
+
+    setSuccessMsg(`Data produk "${item.namaProduk}" berhasil diterapkan ke formulir. Silakan tinjau dan simpan.`);
+
+    window.scrollTo({ top: 200, behavior: "smooth" });
+
+  };
+
+
+
+  const handleBulkImport = async () => {
+
+    if (!parsedResult || parsedResult.validItems.length === 0) return;
+
+    setImportingBatch(true);
+
+    setExcelParseError(null);
+
+    try {
+
+      const res = await fetch("/api/katalog-produk/import", {
+
+        method: "POST",
+
+        headers: { "Content-Type": "application/json" },
+
+        body: JSON.stringify({ items: parsedResult.validItems }),
+
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+
+        throw new Error(data.error || "Gagal mengimpor produk.");
+
+      }
+
+      setImportSuccessResult({ count: data.count || parsedResult.validItems.length });
+
+    } catch (err: any) {
+
+      console.error("Gagal bulk import:", err);
+
+      setExcelParseError(err?.message || "Terjadi kesalahan saat mengimpor produk.");
+
+    } finally {
+
+      setImportingBatch(false);
+
+    }
+
+  };
+
+
+
   // Save product
 
   const handleSubmit = async (keepForm = false, isDraft = false) => {
@@ -1306,6 +1601,14 @@ function TambahProdukContent() {
 
         namaPenyedia: namaPenyedia.trim() || "MabelHub Store",
 
+        namaPic: namaPic.trim() || "-",
+
+        noHpPic: noHpPic.trim() || "-",
+
+        namaPicPenyedia: namaPic.trim() || "-",
+
+        noHpPicPenyedia: noHpPic.trim() || "-",
+
         jenisPenyedia: jenisPenyedia || "UMKK",
 
         lokasiPenyedia: lokasiPenyedia.trim() || "DKI Jakarta",
@@ -1319,6 +1622,18 @@ function TambahProdukContent() {
         persenPajak,
 
         hargaProduk: hargaNumber,
+
+        hargaModal: modalNumber,
+
+        feeAdminPersen: feePersenNumber,
+
+        feeAdminNominal,
+
+        labaKotor,
+
+        labaBersih,
+
+        persenMargin,
 
         hargaSetelahPajak: hargaTayang,
 
@@ -1434,6 +1749,10 @@ function TambahProdukContent() {
 
         setDimensiProduk("");
 
+        setNamaPic("");
+
+        setNoHpPic("");
+
         setFotoSlots([null, null, null, null, null]);
 
         setVideoUrl("");
@@ -1447,6 +1766,10 @@ function TambahProdukContent() {
         setNomorSni("");
 
         setHargaProduk("");
+
+        setHargaModal("");
+
+        setFeeAdminPersen("5");
 
         setJumlahStok("");
 
@@ -1735,6 +2058,94 @@ function TambahProdukContent() {
               </div>
 
             )}
+
+
+
+            {/* ── Banner Impor Excel ── */}
+
+            <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl p-5 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 border border-blue-800">
+
+              <div className="flex items-start sm:items-center gap-3.5">
+
+                <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
+
+                  <FileSpreadsheet className="w-6 h-6 text-emerald-400" />
+
+                </div>
+
+                <div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+
+                    <h2 className="text-base font-bold text-white">Tambah Produk Cepat via Excel</h2>
+
+                    <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+
+                      Bulk Import / Auto-Fill
+
+                    </span>
+
+                  </div>
+
+                  <p className="text-xs text-blue-100/90 pt-0.5 max-w-2xl">
+
+                    Punya data produk di spreadsheet? Unduh template resmi Excel MabelHub, isi data barang Anda, lalu unggah file untuk langsung diisikan ke formulir ini atau diimpor massal ke katalog.
+
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+
+                <button
+
+                  type="button"
+
+                  onClick={() => downloadKatalogTemplate()}
+
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition-colors cursor-pointer"
+
+                >
+
+                  <Download className="w-4 h-4 text-emerald-300" />
+
+                  <span>Unduh Template (.XLSX)</span>
+
+                </button>
+
+                <button
+
+                  type="button"
+
+                  onClick={() => {
+
+                    setExcelFile(null);
+
+                    setParsedResult(null);
+
+                    setExcelParseError(null);
+
+                    setImportSuccessResult(null);
+
+                    setShowExcelModal(true);
+
+                  }}
+
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs shadow-md transition-colors cursor-pointer"
+
+                >
+
+                  <UploadCloud className="w-4 h-4 text-slate-950" />
+
+                  <span>Unggah File Excel</span>
+
+                </button>
+
+              </div>
+
+            </div>
 
 
 
@@ -3154,7 +3565,7 @@ function TambahProdukContent() {
 
                   <p className="text-sm text-gray-500">
 
-                    Data penyedia, alamat pengiriman, dan dimensi paket untuk kalkulasi pengiriman
+                    Data penyedia, kontak PIC, alamat pengiriman, dan dimensi paket untuk kalkulasi pengiriman
 
                   </p>
 
@@ -3221,6 +3632,58 @@ function TambahProdukContent() {
                     <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-3.5 pointer-events-none" />
 
                   </div>
+
+                </div>
+
+
+
+                <div className="space-y-1.5">
+
+                  <label className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+
+                    Nama PIC Penyedia
+
+                  </label>
+
+                  <input
+
+                    type="text"
+
+                    placeholder="Contoh: Budi Santoso"
+
+                    value={namaPic}
+
+                    onChange={(e) => setNamaPic(e.target.value)}
+
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none shadow-2xs focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium"
+
+                  />
+
+                </div>
+
+
+
+                <div className="space-y-1.5">
+
+                  <label className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+
+                    No. Handphone / WhatsApp PIC
+
+                  </label>
+
+                  <input
+
+                    type="tel"
+
+                    placeholder="Contoh: 081234567890"
+
+                    value={noHpPic}
+
+                    onChange={(e) => setNoHpPic(e.target.value)}
+
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none shadow-2xs focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium font-mono"
+
+                  />
 
                 </div>
 
@@ -3568,70 +4031,159 @@ function TambahProdukContent() {
 
 
 
-              <div className="space-y-2">
-
-                <div className="flex items-center gap-2">
-
-                  <label className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-
-                    Harga Satuan Produk
-
-                  </label>
-
-                  <span className="text-[14px] font-bold text-rose-600">
-
-                  *
-
-                  </span>
-
-                </div>
-
-                <p className="text-sm text-gray-500">Harga ini belum termasuk pajak PPN dan biaya ongkos kirim.</p>
-
-
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-1">
-
-                  <div className="flex items-center w-full sm:w-72 rounded-xl border border-gray-200 bg-white overflow-hidden shadow-2xs focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
-
-                    <span className="px-3.5 py-2.5 text-sm font-bold text-gray-500 bg-gray-50 border-r border-gray-200">
-
-                      Rp
-
-                    </span>
-
-                    <input
-
-                      type="number"
-
-                      placeholder="Masukkan harga"
-
-                      value={hargaProduk}
-
-                      onChange={(e) => setHargaProduk(e.target.value)}
-
-                      className="flex-1 px-3 py-2.5 text-sm bg-transparent outline-none font-bold text-gray-900"
-
-                    />
-
+              {/* Input Harga Modal & Harga Tayang & Fee Admin */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* 1. Harga Modal (HPP) */}
+                  <div className="space-y-1.5 p-3.5 rounded-xl bg-amber-50/50 border border-amber-200/80">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                          Harga Modal (HPP)
+                        </label>
+                        <span className="text-[10px] font-extrabold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
+                          Rahasia Admin
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-amber-700/80">Biaya beli riil dari vendor/prinsipal.</p>
+                    <div className="flex items-center w-full rounded-xl border border-amber-300 bg-white overflow-hidden shadow-2xs focus-within:border-amber-600 focus-within:ring-2 focus-within:ring-amber-500/20 transition-all">
+                      <span className="px-3 py-2 text-xs font-bold text-amber-800 bg-amber-50 border-r border-amber-200">
+                        Rp
+                      </span>
+                      <input
+                        type="number"
+                        placeholder="Contoh: 15000000"
+                        value={hargaModal}
+                        onChange={(e) => setHargaModal(e.target.value)}
+                        className="flex-1 px-3 py-2 text-sm bg-transparent outline-none font-bold text-slate-900"
+                      />
+                    </div>
                   </div>
 
-
-
-                  <div className="flex items-center gap-2 p-2 px-3 bg-blue-50/70 border border-blue-200/80 rounded-xl">
-
-                    <span className="text-sm text-blue-800 font-medium">Harga Tayang + Pajak:</span>
-
-                    <span className="text-sm font-extrabold text-blue-900">
-
-                      Rp {hargaTayang.toLocaleString("id-ID")}
-
-                    </span>
-
+                  {/* 2. Harga Tayang (Sebelum Pajak) */}
+                  <div className="space-y-1.5 p-3.5 rounded-xl bg-blue-50/50 border border-blue-200/80">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                          Harga Tayang (Sebelum Pajak)
+                        </label>
+                        <span className="text-[10px] font-extrabold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200">
+                          Katalog Resmi
+                        </span>
+                      </div>
+                      <span className="text-[13px] font-bold text-rose-600">*</span>
+                    </div>
+                    <p className="text-[11px] text-blue-700/80">Harga tayang dasar sebelum dikenakan PPN.</p>
+                    <div className="flex items-center w-full rounded-xl border border-blue-300 bg-white overflow-hidden shadow-2xs focus-within:border-[#1D80D9] focus-within:ring-2 focus-within:ring-[#1D80D9]/20 transition-all">
+                      <span className="px-3 py-2 text-xs font-bold text-[#1D80D9] bg-blue-50 border-r border-blue-200">
+                        Rp
+                      </span>
+                      <input
+                        type="number"
+                        placeholder="Contoh: 20000000"
+                        value={hargaProduk}
+                        onChange={(e) => setHargaProduk(e.target.value)}
+                        className="flex-1 px-3 py-2 text-sm bg-transparent outline-none font-bold text-slate-900"
+                      />
+                    </div>
                   </div>
 
+                  {/* 3. Fee Admin (%) */}
+                  <div className="space-y-1.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Fee Admin / E-Katalog (%)
+                      </label>
+                      <span className="text-[10px] font-extrabold text-slate-600 bg-slate-200 px-1.5 py-0.5 rounded">
+                        CRM Sinkron
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Estimasi potongan fee transaksi / katalog.</p>
+                    <div className="flex items-center w-full rounded-xl border border-slate-300 bg-white overflow-hidden shadow-2xs focus-within:border-slate-600 focus-within:ring-2 focus-within:ring-slate-400/20 transition-all">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        placeholder="5"
+                        value={feeAdminPersen}
+                        onChange={(e) => setFeeAdminPersen(e.target.value)}
+                        className="flex-1 px-3 py-2 text-sm bg-transparent outline-none font-bold text-slate-900"
+                      />
+                      <span className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-l border-slate-200">
+                        %
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
+                {/* ── LIVE KALKULATOR PROFIT & MARGIN OTOMATIS (TERLIHAT DI CRM) ── */}
+                <div className="p-4 rounded-2xl bg-[#1D80D9]/5 border border-[#1D80D9]/30 shadow-sm space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1D80D9]/20 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#1D80D9] animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#1D80D9]">
+                        Kalkulasi Otomatis CRM & Rujukan Direct Sales
+                      </span>
+                    </div>
+                    <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-[#1D80D9]/10 text-[#1D80D9] border border-[#1D80D9]/30">
+                      Sinkron Real-Time
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    {/* Harga Tayang Final (Inc. PPN) */}
+                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-0.5">
+                      <span className="text-[10px] text-slate-500 font-semibold block uppercase">
+                        Harga Tayang (+PPN {persenPajak}%)
+                      </span>
+                      <div className="text-sm sm:text-base font-black text-[#1D80D9]">
+                        Rp {hargaTayang.toLocaleString("id-ID")}
+                      </div>
+                      <span className="text-[9px] text-slate-400 block">Dilihat sales & pembeli</span>
+                    </div>
+
+                    {/* Harga Modal (HPP) */}
+                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-0.5">
+                      <span className="text-[10px] text-slate-500 font-semibold block uppercase">
+                        Harga Modal (HPP)
+                      </span>
+                      <div className="text-sm sm:text-base font-black text-amber-700">
+                        Rp {modalNumber.toLocaleString("id-ID")}
+                      </div>
+                      <span className="text-[9px] text-slate-400 block">Dasar perolehan barang</span>
+                    </div>
+
+                    {/* Fee Admin / Katalog */}
+                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-0.5">
+                      <span className="text-[10px] text-slate-500 font-semibold block uppercase">
+                        Fee Admin ({feePersenNumber}%)
+                      </span>
+                      <div className="text-sm sm:text-base font-black text-rose-600">
+                        -Rp {feeAdminNominal.toLocaleString("id-ID")}
+                      </div>
+                      <span className="text-[9px] text-slate-400 block">Potongan operasional</span>
+                    </div>
+
+                    {/* Estimasi Laba Bersih */}
+                    <div className={`p-2.5 rounded-xl border space-y-0.5 ${
+                      labaBersih >= 0
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                        : "bg-rose-50 border-rose-200 text-rose-700"
+                    }`}>
+                      <span className="text-[10px] text-slate-500 font-semibold block uppercase">
+                        Laba Bersih Per Unit
+                      </span>
+                      <div className="text-sm sm:text-base font-black">
+                        {labaBersih >= 0 ? `+Rp ${labaBersih.toLocaleString("id-ID")}` : `-Rp ${Math.abs(labaBersih).toLocaleString("id-ID")}`}
+                      </div>
+                      <span className="text-[10px] font-bold block">
+                        Margin: {persenMargin >= 0 ? `+${persenMargin}%` : `${persenMargin}%`} {labaBersih >= 0 ? "(Untung)" : "(Rugi)"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
 
@@ -4949,6 +5501,596 @@ function TambahProdukContent() {
                 Tinggalkan Halaman
 
               </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+
+
+      {/* ── Modal Impor via Excel ── */}
+
+      {showExcelModal && (
+
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 border border-gray-100">
+
+            {/* Modal Header */}
+
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50/50">
+
+              <div className="flex items-center gap-3">
+
+                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+
+                  <FileSpreadsheet className="w-5 h-5" />
+
+                </div>
+
+                <div>
+
+                  <h3 className="font-extrabold text-gray-900 text-base flex items-center gap-2">
+
+                    Impor Produk via Excel
+
+                  </h3>
+
+                  <p className="text-xs text-gray-500">
+
+                    Unggah file Excel untuk mengisi formulir ini atau menambahkan produk massal
+
+                  </p>
+
+                </div>
+
+              </div>
+
+              <button
+
+                type="button"
+
+                onClick={() => setShowExcelModal(false)}
+
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-white rounded-lg transition-colors cursor-pointer"
+
+              >
+
+                <X className="w-5 h-5" />
+
+              </button>
+
+            </div>
+
+
+
+            {/* Modal Body */}
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+              {importSuccessResult ? (
+
+                <div className="p-8 text-center space-y-4">
+
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center shadow-inner">
+
+                    <CheckCircle2 className="w-8 h-8" />
+
+                  </div>
+
+                  <div className="space-y-1">
+
+                    <h4 className="text-xl font-black text-gray-900">Impor Produk Berhasil!</h4>
+
+                    <p className="text-sm text-gray-600 max-w-md mx-auto">
+
+                      Sebanyak <strong className="text-emerald-700 font-bold">{importSuccessResult.count} produk</strong> telah berhasil didaftarkan ke dalam database katalog.
+
+                    </p>
+
+                  </div>
+
+                  <div className="flex items-center justify-center gap-3 pt-3">
+
+                    <button
+
+                      type="button"
+
+                      onClick={() => {
+
+                        setShowExcelModal(false);
+
+                        router.push("/katalog-produk/kelola");
+
+                      }}
+
+                      className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-sm transition-colors cursor-pointer"
+
+                    >
+
+                      Lihat di Kelola Produk
+
+                    </button>
+
+                    <button
+
+                      type="button"
+
+                      onClick={() => {
+
+                        setParsedResult(null);
+
+                        setExcelFile(null);
+
+                        setImportSuccessResult(null);
+
+                      }}
+
+                      className="px-5 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold text-sm transition-colors cursor-pointer"
+
+                    >
+
+                      Impor File Lain
+
+                    </button>
+
+                  </div>
+
+                </div>
+
+              ) : (
+
+                <>
+
+                  {/* Dropzone & Template Download */}
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                    <div
+
+                      onClick={() => excelFileInputRef.current?.click()}
+
+                      className="md:col-span-2 border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/40 hover:bg-blue-50/80 rounded-2xl p-6 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-2 group"
+
+                    >
+
+                      <input
+
+                        ref={excelFileInputRef}
+
+                        type="file"
+
+                        accept=".xlsx, .xls"
+
+                        onChange={handleExcelFileChange}
+
+                        className="hidden"
+
+                      />
+
+                      <div className="w-12 h-12 rounded-2xl bg-white shadow-xs group-hover:scale-110 flex items-center justify-center text-blue-600 transition-transform">
+
+                        <UploadCloud className="w-6 h-6" />
+
+                      </div>
+
+                      <div className="text-sm font-bold text-gray-800">
+
+                        {excelFile ? excelFile.name : "Klik atau seret file Excel ke sini"}
+
+                      </div>
+
+                      <p className="text-xs text-gray-500">
+
+                        Format yang didukung: <span className="font-semibold text-blue-700">.xlsx</span> atau <span className="font-semibold text-blue-700">.xls</span>
+
+                      </p>
+
+                      {excelFile && (
+
+                        <span className="text-[11px] font-semibold text-blue-600 bg-white px-2.5 py-0.5 rounded-full border border-blue-200 mt-1">
+
+                          Ukuran: {(excelFile.size / 1024).toFixed(1)} KB
+
+                        </span>
+
+                      )}
+
+                    </div>
+
+
+
+                    <div className="border border-emerald-200 bg-emerald-50/50 rounded-2xl p-5 flex flex-col justify-between gap-3">
+
+                      <div className="space-y-1.5">
+
+                        <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-xs uppercase tracking-wider">
+
+                          <Download className="w-3.5 h-3.5" />
+
+                          Template Resmi
+
+                        </div>
+
+                        <p className="text-xs text-emerald-900/80 leading-relaxed">
+
+                          Gunakan template resmi yang sudah dilengkapi contoh data, format kolom, serta daftar kategori yang valid.
+
+                        </p>
+
+                      </div>
+
+                      <button
+
+                        type="button"
+
+                        onClick={() => downloadKatalogTemplate()}
+
+                        className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+
+                      >
+
+                        <Download className="w-4 h-4" />
+
+                        <span>Unduh Template Excel</span>
+
+                      </button>
+
+                    </div>
+
+                  </div>
+
+
+
+                  {/* Parsing State */}
+
+                  {parsingExcel && (
+
+                    <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center gap-3 text-slate-700 text-sm font-semibold">
+
+                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+
+                      <span>Membaca dan memvalidasi file Excel...</span>
+
+                    </div>
+
+                  )}
+
+
+
+                  {/* Error Notification */}
+
+                  {excelParseError && (
+
+                    <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-3">
+
+                      <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+
+                      <span>{excelParseError}</span>
+
+                    </div>
+
+                  )}
+
+
+
+                  {/* Parsed Result Preview */}
+
+                  {parsedResult && (
+
+                    <div className="space-y-4 pt-2">
+
+                      {/* Summary Cards */}
+
+                      <div className="grid grid-cols-3 gap-3">
+
+                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+
+                          <div className="text-xl font-extrabold text-slate-800">{parsedResult.totalRows}</div>
+
+                          <div className="text-[11px] font-semibold text-slate-500">Total Baris Terbaca</div>
+
+                        </div>
+
+                        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+
+                          <div className="text-xl font-extrabold text-emerald-700">{parsedResult.validItems.length}</div>
+
+                          <div className="text-[11px] font-semibold text-emerald-600">Siap Diimpor / Diterapkan</div>
+
+                        </div>
+
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+
+                          <div className="text-xl font-extrabold text-amber-700">{parsedResult.invalidItems.length}</div>
+
+                          <div className="text-[11px] font-semibold text-amber-600">Perlu Perbaikan</div>
+
+                        </div>
+
+                      </div>
+
+
+
+                      {/* Invalid Items Warning if any */}
+
+                      {parsedResult.invalidItems.length > 0 && (
+
+                        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+
+                          <div className="flex items-center justify-between">
+
+                            <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+
+                              <AlertCircle className="w-4 h-4 text-amber-600" />
+
+                              <span>Terdapat {parsedResult.invalidItems.length} baris dengan data belum lengkap (dilewati):</span>
+
+                            </div>
+
+                            <button
+
+                              type="button"
+
+                              onClick={() => setShowExcelErrorsDetail(!showExcelErrorsDetail)}
+
+                              className="text-[11px] font-bold text-amber-800 hover:underline cursor-pointer"
+
+                            >
+
+                              {showExcelErrorsDetail ? "Sembunyikan Detail" : "Lihat Detail"}
+
+                            </button>
+
+                          </div>
+
+                          {showExcelErrorsDetail && (
+
+                            <ul className="text-xs text-amber-800 space-y-1 pl-5 list-disc pt-1 max-h-36 overflow-y-auto">
+
+                              {parsedResult.invalidItems.map((inv, idx) => (
+
+                                <li key={idx}>
+
+                                  <strong>Baris {inv.rowNumber}</strong> ({inv.namaProduk || "Tanpa Nama"}): {inv.errors.join(", ")}
+
+                                </li>
+
+                              ))}
+
+                            </ul>
+
+                          )}
+
+                        </div>
+
+                      )}
+
+
+
+                      {/* Table Preview */}
+
+                      <div className="space-y-2">
+
+                        <div className="flex items-center justify-between">
+
+                          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+
+                            Pratinjau Data ({parsedResult.validItems.length} Produk Valid)
+
+                          </h4>
+
+                          <span className="text-[11px] text-gray-500">
+
+                            Klik &quot;Gunakan di Form&quot; untuk mengisi form dengan baris tertentu
+
+                          </span>
+
+                        </div>
+
+
+
+                        <div className="border border-gray-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto overflow-x-auto">
+
+                          <table className="w-full text-left text-xs">
+
+                            <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-bold sticky top-0 z-10">
+
+                              <tr>
+
+                                <th className="py-2.5 px-3">No</th>
+
+                                <th className="py-2.5 px-3 min-w-[200px]">Nama Produk</th>
+
+                                <th className="py-2.5 px-3 min-w-[130px]">Kategori</th>
+
+                                <th className="py-2.5 px-3 min-w-[110px]">Merek</th>
+
+                                <th className="py-2.5 px-3 text-right min-w-[110px]">Harga (Rp)</th>
+
+                                <th className="py-2.5 px-3 text-center">Stok</th>
+
+                                <th className="py-2.5 px-3 min-w-[120px]">PIC & Kontak</th>
+
+                                <th className="py-2.5 px-3 text-center min-w-[130px]">Aksi</th>
+
+                              </tr>
+
+                            </thead>
+
+                            <tbody className="divide-y divide-gray-100">
+
+                              {parsedResult.validItems.map((item, idx) => (
+
+                                <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
+
+                                  <td className="py-2 px-3 text-gray-500 font-medium">{idx + 1}</td>
+
+                                  <td className="py-2 px-3 font-semibold text-gray-900">
+
+                                    <div className="line-clamp-1">{item.namaProduk}</div>
+
+                                    <div className="text-[10px] text-gray-500 font-mono">{item.sku}</div>
+
+                                  </td>
+
+                                  <td className="py-2 px-3 text-gray-700">
+
+                                    <div>{item.kategori}</div>
+
+                                    {item.subKategori && (
+
+                                      <div className="text-[10px] text-gray-500">{item.subKategori}</div>
+
+                                    )}
+
+                                  </td>
+
+                                  <td className="py-2 px-3 text-gray-700">{item.merek}</td>
+
+                                  <td className="py-2 px-3 text-right font-semibold text-gray-900">
+
+                                    Rp {item.hargaProduk.toLocaleString("id-ID")}
+
+                                  </td>
+
+                                  <td className="py-2 px-3 text-center font-bold text-gray-800">
+
+                                    {item.jumlahStok} {item.satuanProduk}
+
+                                  </td>
+
+                                  <td className="py-2 px-3 text-gray-600 text-[11px]">
+
+                                    <div>{item.namaPic}</div>
+
+                                    <div className="text-gray-400">{item.noHpPic}</div>
+
+                                  </td>
+
+                                  <td className="py-2 px-3 text-center">
+
+                                    <button
+
+                                      type="button"
+
+                                      onClick={() => handleApplyRowToForm(item)}
+
+                                      className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[11px] font-bold transition-colors cursor-pointer"
+
+                                    >
+
+                                      Gunakan di Form
+
+                                    </button>
+
+                                  </td>
+
+                                </tr>
+
+                              ))}
+
+                            </tbody>
+
+                          </table>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  )}
+
+                </>
+
+              )}
+
+            </div>
+
+
+
+            {/* Modal Footer */}
+
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex flex-wrap items-center justify-between gap-3">
+
+              <button
+
+                type="button"
+
+                onClick={() => setShowExcelModal(false)}
+
+                className="px-4 py-2 rounded-xl border border-gray-200 hover:bg-white text-xs sm:text-sm font-bold text-gray-700 transition-colors cursor-pointer"
+
+              >
+
+                Tutup
+
+              </button>
+
+
+
+              {parsedResult && parsedResult.validItems.length > 0 && !importSuccessResult && (
+
+                <div className="flex flex-wrap items-center gap-2.5">
+
+                  <button
+
+                    type="button"
+
+                    onClick={() => handleApplyRowToForm(parsedResult.validItems[0])}
+
+                    className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-blue-700 border border-blue-300 text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer"
+
+                  >
+
+                    Terapkan Baris 1 ke Form
+
+                  </button>
+
+                  <button
+
+                    type="button"
+
+                    disabled={importingBatch}
+
+                    onClick={handleBulkImport}
+
+                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-2"
+
+                  >
+
+                    {importingBatch ? (
+
+                      <>
+
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+
+                        <span>Mengimpor {parsedResult.validItems.length} Produk...</span>
+
+                      </>
+
+                    ) : (
+
+                      <>
+
+                        <CheckCircle2 className="w-4 h-4" />
+
+                        <span>Impor Semua ({parsedResult.validItems.length} Produk) ke Katalog</span>
+
+                      </>
+
+                    )}
+
+                  </button>
+
+                </div>
+
+              )}
 
             </div>
 

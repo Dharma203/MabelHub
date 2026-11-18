@@ -97,6 +97,12 @@ durasiPreOrder?: number;
 statusDraf?: boolean;
 
 hargaProduk: number;
+hargaModal?: number;
+feeAdminPersen?: number;
+feeAdminNominal?: number;
+labaKotor?: number;
+labaBersih?: number;
+persenMargin?: number;
 
 pajak?: string;
 
@@ -125,6 +131,10 @@ jenisLabel?: string;
 jenisPenyedia?: string;
 
 namaPenyedia?: string;
+
+namaPic?: string;
+
+noHpPic?: string;
 
 lokasiPenyedia?: string;
 
@@ -933,6 +943,41 @@ Stok {product.jumlahStok?.toLocaleString("id-ID") || 0} {product.satuanProduk ||
 
 </div>
 
+{canManage && (
+  <div className="mt-2.5 p-3 rounded-xl bg-[#1D80D9]/5 border border-[#1D80D9]/25 text-xs space-y-2">
+    <div className="flex items-center justify-between border-b border-[#1D80D9]/20 pb-1.5">
+      <span className="font-bold uppercase tracking-wider text-[10px] text-[#1D80D9] flex items-center gap-1.5">
+        <ShieldCheck className="w-3.5 h-3.5" />
+        Kalkulasi Margin Admin (CRM)
+      </span>
+      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#1D80D9]/10 text-[#1D80D9] font-bold border border-[#1D80D9]/20">
+        Internal
+      </span>
+    </div>
+    <div className="grid grid-cols-2 gap-2 text-[11px]">
+      <div>
+        <span className="text-slate-400 block text-[10px]">Harga Modal (HPP):</span>
+        <span className="font-extrabold text-amber-700">{formatRupiah(product.hargaModal ?? 0)}</span>
+      </div>
+      <div>
+        <span className="text-slate-400 block text-[10px]">Fee Admin ({product.feeAdminPersen ?? 5}%):</span>
+        <span className="font-extrabold text-rose-600">
+          -{formatRupiah(product.feeAdminNominal ?? Math.round(((product.hargaProduk || 0) * (product.feeAdminPersen ?? 5)) / 100))}
+        </span>
+      </div>
+    </div>
+    <div className="pt-1.5 border-t border-[#1D80D9]/20 flex items-center justify-between">
+      <span className="text-slate-500 text-[10px]">Estimasi Laba Bersih:</span>
+      <span className="font-black text-emerald-700 text-xs">
+        +{formatRupiah(product.labaBersih ?? ((product.hargaProduk || 0) - (product.hargaModal || 0) - Math.round(((product.hargaProduk || 0) * (product.feeAdminPersen ?? 5)) / 100)))}
+        <span className="ml-1 text-[10px] font-bold text-slate-500">
+          ({product.persenMargin ?? (product.hargaProduk > 0 ? Math.round((((product.hargaProduk - (product.hargaModal || 0) - Math.round((product.hargaProduk * (product.feeAdminPersen ?? 5)) / 100)) / product.hargaProduk) * 1000)) / 10 : 0)}%)
+        </span>
+      </span>
+    </div>
+  </div>
+)}
+
 </div>
 
 {/* Variants Selector */}
@@ -1434,6 +1479,38 @@ activeTab === "riwayatStok"
 </span>
 
 </div>
+
+{Boolean(product.namaPic && product.namaPic !== "-") && (
+
+<div className="flex items-start justify-between py-1 border-b border-slate-100/80">
+
+<span className="text-slate-500">Nama PIC:</span>
+
+<span className="font-semibold text-slate-800">
+
+{product.namaPic}
+
+</span>
+
+</div>
+
+)}
+
+{Boolean(product.noHpPic && product.noHpPic !== "-") && (
+
+<div className="flex items-start justify-between py-1 border-b border-slate-100/80">
+
+<span className="text-slate-500">No. HP / WA PIC:</span>
+
+<span className="font-mono font-semibold text-slate-800">
+
+{product.noHpPic}
+
+</span>
+
+</div>
+
+)}
 
 </div>
 

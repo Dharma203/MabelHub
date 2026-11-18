@@ -8,6 +8,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
     const kategori = searchParams.get("kategori") || "";
+    const merek = searchParams.get("merek") || "";
     const jenisProduk = searchParams.get("jenisProduk") || "";
     const labelProduk = searchParams.get("labelProduk") || "";
     const jenisPenyedia = searchParams.get("jenisPenyedia") || "";
@@ -51,8 +52,12 @@ export async function GET(req: Request) {
       ];
     }
 
-    if (kategori) {
+    if (kategori && kategori !== "all") {
       query.kategori = { $regex: kategori, $options: "i" };
+    }
+
+    if (merek && merek !== "all") {
+      query.merek = { $regex: `^${merek.trim()}$`, $options: "i" };
     }
 
     if (jenisProduk) {
@@ -89,19 +94,31 @@ export async function GET(req: Request) {
     else if (sort === "nama_asc") sortOptions = { namaProduk: 1 };
     else if (sort === "tkdn_desc") sortOptions = { tkdnBmp: -1 };
 
-    const skip = (page - 1) * limit;
-    const [items, filteredTotal, totalDraft, totalPublished, totalAll] = await Promise.all([
-      col.find(query).sort(sortOptions).skip(skip).limit(limit).toArray(),
+    const isExport = searchParams.get("export") === "true";
+    const skip = isExport ? 0 : (page - 1) * limit;
+    const [items, filteredTotal, totalDraft, totalPublished, totalAll, rawBrands] = await Promise.all([
+      isExport
+        ? col.find(query).sort(sortOptions).toArray()
+        : col.find(query).sort(sortOptions).skip(skip).limit(limit).toArray(),
       col.countDocuments(query),
       col.countDocuments({ statusDraf: true }),
       col.countDocuments({ statusDraf: { $ne: true } }),
       col.countDocuments({}),
+      col.distinct("merek"),
     ]);
 
     const formattedItems = items.map((doc) => ({
       ...doc,
       _id: doc._id.toString(),
     }));
+
+    const availableBrands = Array.isArray(rawBrands)
+      ? rawBrands
+          .filter((b) => Boolean(b) && typeof b === "string" && b.trim() !== "" && b.trim() !== "-")
+          .map((b) => b.trim())
+          .filter((b, idx, self) => self.indexOf(b) === idx)
+          .sort((a, b) => a.localeCompare(b))
+      : [];
 
     return NextResponse.json({
       success: true,
@@ -112,6 +129,7 @@ export async function GET(req: Request) {
         draft: totalDraft,
         published: totalPublished,
       },
+      availableBrands,
       page,
       limit,
       totalPages: Math.ceil(filteredTotal / limit) || 1,
@@ -148,6 +166,13 @@ export async function POST(req: Request) {
     }
 
     const harga = Number(body.hargaProduk) || 0;
+    const hargaModal = Number(body.hargaModal) || 0;
+    const feeAdminPersen = Number(body.feeAdminPersen) || 0;
+    const feeAdminNominal = Math.round((harga * feeAdminPersen) / 100);
+    const labaKotor = harga - hargaModal;
+    const labaBersih = labaKotor - feeAdminNominal;
+    const persenMargin = harga > 0 ? Math.round((labaBersih / harga) * 1000) / 10 : 0;
+
     const persenPajak = Number(body.persenPajak) || 0;
     const hargaSetelahPajak =
       body.hargaSetelahPajak !== undefined
@@ -179,6 +204,12 @@ export async function POST(req: Request) {
       isPreOrder: Boolean(body.isPreOrder),
       durasiPreOrder: Number(body.durasiPreOrder) || 0,
       hargaProduk: harga,
+      hargaModal,
+      feeAdminPersen,
+      feeAdminNominal,
+      labaKotor,
+      labaBersih,
+      persenMargin,
       pajak: body.pajak || "PPN",
       persenPajak,
       hargaSetelahPajak,
@@ -195,6 +226,8 @@ export async function POST(req: Request) {
       jenisLabel: body.jenisLabel || "PDN",
       jenisPenyedia: body.jenisPenyedia || "UMKK",
       namaPenyedia: body.namaPenyedia || "MabelHub Store",
+      namaPic: body.namaPic || body.namaPicPenyedia || "-",
+      noHpPic: body.noHpPic || body.noHpPicPenyedia || "-",
       lokasiPenyedia: body.lokasiPenyedia || "-",
       dikirimDari: body.dikirimDari || body.lokasiPenyedia || "-",
       kodeKbki: body.kodeKbki || "-",
