@@ -3,7 +3,6 @@ import {
   Calendar,
   Filter,
   Package,
-  MessageCircleCodeIcon,
   Building2,
   MapPin,
   Users,
@@ -135,36 +134,6 @@ type keSalesSummary = {
   kosong: number
 }
 
-interface DataItem {
-  id: string
-  kode_input: string
-  nama_perusahaan: string
-  produk: string
-  merek_tayang: string
-  kota: string
-  provinsi: string
-  pic: string
-  jabatan: string
-  telp: string
-  email: string
-  alamat: string
-  segmen: string
-  segmentasi: string
-  tipe: string
-  bidang_perusahaan: string
-  brand_owner: string
-  sumber_data: string
-  sumber_lain: string
-  link_produk: string
-  link_toko: string
-  penginput: string
-  jenis_entitas: string
-  bulan_data: string
-  status_call: string
-  detail_update: string
-  ke_sales: string
-}
-
 type ExportField = {
   key: keyof BroadCastRow
   label: string
@@ -241,16 +210,11 @@ function DetailItem({
   isLink?: boolean
 }) {
   const empty = !value || value.trim() === ''
-  const Icon = icon ? (
-    <span className='inline-flex items-center justify-center text-slate-400 text-xs mr-1.5'>
-      {icon}
-    </span>
-  ) : null
 
   return (
     <div className='flex items-start gap-1.5 min-w-0'>
       {icon && (
-        <span className='mt-[1px] shrink-0 text-[11px] leading-none'>
+        <span className='mt-px shrink-0 text-[11px] leading-none'>
           {icon}
         </span>
       )}
@@ -270,7 +234,7 @@ function DetailItem({
             🔗 Buka Link
           </a>
         ) : (
-          <span className='text-[10.5px] text-slate-700 font-medium break-words leading-snug'>
+          <span className='text-[10.5px] text-slate-700 font-medium wrap-break-words leading-snug'>
             {value}
           </span>
         )}
@@ -427,13 +391,12 @@ export default function TrackingCallPage() {
   const [kota, setKota] = useState<string[]>([])
   const [statusCall, setStatusCall] = useState<string[]>([])
   const [toSales, setToSales] = useState<string[]>([])
-  const [namaPic, setNamaPic] = useState<string[]>([])
+  const [namaPic] = useState<string[]>([])
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
   // data - statistik & analitik
-  const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<ApiStats | null>(null)
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
@@ -861,7 +824,7 @@ export default function TrackingCallPage() {
                 val = `${yyyy}-${mm}-${dd}`
               }
             } catch (err) {
-              // fallback if invalid date
+              alert(err)
             }
           }
           obj[f.label] = val
@@ -953,7 +916,7 @@ export default function TrackingCallPage() {
                 val = `${yyyy}-${mm}-${dd}`
               }
             } catch (err) {
-              // fallback
+              alert(err)
             }
           }
           rowData.push(val)
@@ -1111,7 +1074,7 @@ export default function TrackingCallPage() {
                       <button
                         type='button'
                         onClick={() => setOpenDropdown(isOpen ? null : btn.id)}
-                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${isOpen
+                        className={`w-full flex items-center justify-between gap-1 py-1.75 px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${isOpen
                             ? 'border-2 border-blue-500 bg-white text-blue-600 shadow-md'
                             : isActive
                               ? 'border-2 border-blue-400 bg-white text-blue-700'
@@ -1128,7 +1091,7 @@ export default function TrackingCallPage() {
                         </span>
                         <span className='flex items-center gap-1 shrink-0'>
                           {isActive && (
-                            <span className='inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-600 text-white text-[9px] font-bold'>
+                            <span className='inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-blue-600 text-white text-[9px] font-bold'>
                               {count}
                             </span>
                           )}
@@ -1142,7 +1105,7 @@ export default function TrackingCallPage() {
                       {/* Dropdown panel */}
                       {isOpen && (
                         <div
-                          className='absolute top-[calc(100%+4px)] left-0 z-[9999] w-56 bg-white rounded-lg flex flex-col'
+                          className='absolute top-[calc(100%+4px)] left-0 z-9999 w-56 bg-white rounded-lg flex flex-col'
                           style={{
                             boxShadow:
                               '0 12px 40px -4px rgba(0,0,0,0.2), 0 4px 12px -2px rgba(0,0,0,0.08)',
@@ -1308,8 +1271,8 @@ export default function TrackingCallPage() {
               <div className='flex flex-col sm:flex-row gap-3 w-full'>
                 {/* Card Kiri: Total Unik No HP */}
                 <div className='shrink-0 md:w-auto w-full'>
-                  <div className='flex items-center gap-3 bg-white border border-gray-200 rounded-lg shadow-sm px-3 sm:px-4 py-3 h-full min-w-0 sm:min-w-[200px]'>
-                    <div className='rounded-full flex items-center justify-center text-white shrink-0 w-9 h-9 bg-gradient-to-br from-green-500 to-teal-600'>
+                  <div className='flex items-center gap-3 bg-white border border-gray-200 rounded-lg shadow-sm px-3 sm:px-4 py-3 h-full min-w-0 sm:min-w-50'>
+                    <div className='rounded-full flex items-center justify-center text-white shrink-0 w-9 h-9 bg-linear-to-br from-green-500 to-teal-600'>
                       <PhoneCallIcon
                         size={14}
                         className='text-white'
@@ -1470,7 +1433,7 @@ export default function TrackingCallPage() {
               <div className='flex flex-col flex-1 rounded-lg border border-blue-100 overflow-hidden shadow-sm'>
                 {/* Header Panel Kiri */}
                 <div
-                  className='flex items-center justify-between px-3 py-[6px]'
+                  className='flex items-center justify-between px-3 py-1.5'
                   style={{
                     background: '#dbeafe',
                     borderBottom: '2px solid #2563eb',

@@ -11,7 +11,6 @@ import {
   Search,
   Package,
   ChevronRight,
-  Shield,
   Lock,
   Unlock,
   Trash2,
@@ -454,7 +453,7 @@ export default function ProdukDetailPage({
                   {/* File preview area */}
                   <div
                     onClick={() => handlePreview(doc)}
-                    className="h-28 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center cursor-pointer group/thumb relative overflow-hidden"
+                    className="h-28 bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center cursor-pointer group/thumb relative overflow-hidden"
                     title="Klik untuk membuka dokumen"
                   >
                     <FileText className="w-12 h-12 text-blue-300 group-hover/thumb:scale-110 transition-transform duration-200" />
@@ -563,9 +562,9 @@ export default function ProdukDetailPage({
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Preview Header */}
-                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 flex-shrink-0">
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 hrink-0">
                   <div className="flex items-center gap-3 min-w-0 pr-4">
-                    <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
                       <FileText className="w-4.5 h-4.5 text-blue-600" />
                     </div>
                     <div className="min-w-0">
@@ -581,7 +580,7 @@ export default function ProdukDetailPage({
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     {quickPreviewDoc.url && (
                       <a
                         href={`${quickPreviewDoc.url}?download=true`}
@@ -658,9 +657,9 @@ export default function ProdukDetailPage({
           {previewDoc && (
             <div className="fixed inset-0 z-50 flex flex-col bg-white w-screen h-screen overflow-hidden">
               {/* Modal Header */}
-              <div className="flex items-center justify-between px-6 py-3.5 border-b border-gray-200 flex-shrink-0 bg-white shadow-sm z-10">
+              <div className="flex items-center justify-between px-6 py-3.5 border-b border-gray-200 shrink-0 bg-white shadow-sm z-10">
                 <div className="flex items-center gap-3 min-w-0 pr-4">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
                     <FileText className="w-5 h-5 text-blue-600" />
                   </div>
                   <div className="min-w-0">
@@ -678,7 +677,7 @@ export default function ProdukDetailPage({
                 </div>
 
                 {/* Modal Action Controls: Cetak, Unduh & Tutup */}
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-center gap-3 shrink-0">
                   {/* Cetak Dokumen */}
                   <button
                     onClick={handlePrintDoc}

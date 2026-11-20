@@ -132,8 +132,6 @@ function PlanSalesContent() {
       note: note,
     }))
 
-    let res: Response
-
     if (isRevisionMode) {
       // hitung perubahan field
       const changedFields = computeChangedFields(

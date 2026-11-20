@@ -626,7 +626,7 @@ export default function TrackingDatabasePage() {
                 val = `${yyyy}-${mm}-${dd}`
               }
             } catch (err) {
-              // fallback if invalid date
+              alert(err)
             }
           }
           obj[f.label] = val
@@ -722,7 +722,7 @@ export default function TrackingDatabasePage() {
                 val = `${yyyy}-${mm}-${dd}`
               }
             } catch (err) {
-              // fallback
+              alert(err)
             }
           }
           rowData.push(val)

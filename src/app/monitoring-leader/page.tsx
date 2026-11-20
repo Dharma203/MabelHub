@@ -35,9 +35,8 @@ export default function MonitoringLeaderPage() {
 
   const [pageSize, setPageSize] = useState(25)
   const [page, setPage] = useState(1)
-  const [loadingRows, setLoadingRows] = useState(true)
-  const [total, setTotal] = useState(0)
-  const [totalPages, setTotalPages] = useState(1)
+  const [total] = useState(0)
+  const [totalPages] = useState(1)
 
   const safePage = useMemo(
     () => Math.min(Math.max(1, page), Math.max(1, totalPages)),

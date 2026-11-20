@@ -2,11 +2,9 @@
 
 import { useEffect, useMemo, useState, Fragment, useCallback } from "react";
 
-import { useRouter } from "next/navigation";
+
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import HistoryEprocModal, {
-  EProcHistoryItem,
-} from "@/components/modals/HistoryEprocModal";
+import HistoryEprocModal from "@/components/modals/HistoryEprocModal";
 import { useSession } from "@/components/session/SessionProvider";
 import { loadXLSX } from "@/lib/xlsx-loader";
 import ExportExcelModal, {
@@ -70,14 +68,6 @@ function formatDateTime(iso?: string | Date | null): string {
   )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-function formatDateOnly(iso?: string | null) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
-}
-
 function formatSegmen(raw: string) {
   if (!raw.includes("::")) return raw;
   const [r, s] = raw.split("::");
@@ -85,7 +75,6 @@ function formatSegmen(raw: string) {
 }
 
 export default function RekapitulasiEProcurementPage() {
-  const router = useRouter();
   const { user } = useSession();
 
   const [rows, setRows] = useState<EProcDoc[]>([]);
@@ -149,7 +138,9 @@ export default function RekapitulasiEProcurementPage() {
         setParamSegmen(doc.segmen || []);
         setParamStatusAkhir(doc.status_akhir || []);
       }
-    } catch (e) {}
+    } catch (e) {
+      alert(e)
+    }
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -1500,7 +1491,7 @@ export default function RekapitulasiEProcurementPage() {
                                     {it.tayangInaprocAdmin || "-"}
                                   </td>
                                   <td
-                                    className="px-3 py-3 max-w-[200px] truncate"
+                                    className="px-3 py-3 max-w-50 truncate"
                                     title={it.catatanAdminItem}
                                   >
                                     {it.catatanAdminItem || "-"}
@@ -1584,7 +1575,7 @@ export default function RekapitulasiEProcurementPage() {
                                             </svg>
                                             Catatan Admin
                                           </div>
-                                          <div className="mt-1 pl-2 text-sm text-slate-700 italic bg-white p-3 rounded-md border border-slate-200 shadow-sm min-h-[40px]">
+                                          <div className="mt-1 pl-2 text-sm text-slate-700 italic bg-white p-3 rounded-md border border-slate-200 shadow-sm min-h-10">
                                             {it.catatanAdminItem ? (
                                               it.catatanAdminItem
                                             ) : (

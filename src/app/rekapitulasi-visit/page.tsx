@@ -193,8 +193,8 @@ export default function RekapitulasiVisitPage() {
   const [visits, setVisits] = useState<VisitRow[]>([])
 
   // Calendar state
-  const [calendarView, setCalendarView] = useState<CalendarView>('month')
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [calendarView] = useState<CalendarView>('month')
+  const [currentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [detailKunjungan, setDetailKunjungan] = useState<VisitRow | null>(null)
 
@@ -211,7 +211,7 @@ export default function RekapitulasiVisitPage() {
     }
   }, [sessionLoading, user, router])
 
-  const [activeFilters, setActiveFilters] = useState<{
+  const [activeFilters] = useState<{
     ring: string | null
     statusGroup: string | null
     city: string | null
@@ -241,10 +241,10 @@ export default function RekapitulasiVisitPage() {
   const [fRing, setFRing] = useState<string>('ALL')
   const [fCity, setFCity] = useState<string>('ALL')
   const [fSatker, setFSatker] = useState<string>('ALL')
-  const [startDate, setStartDate] = useState<string | null>(null)
-  const [endDate, setEndDate] = useState<string | null>(null)
+  const [startDate] = useState<string | null>(null)
+  const [endDate] = useState<string | null>(null)
   const [fNamaEntitas, setFNamaEntitas] = useState<string>('ALL')
-  const [fJenisEntitas, setFJenisEntitas] = useState<string>('ALL')
+  const [fJenisEntitas] = useState<string>('ALL')
 
   // ====== mobile filter toggle ======
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -272,7 +272,7 @@ export default function RekapitulasiVisitPage() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
 
-  const [search, setSearch] = useState('')
+  const [search] = useState('')
 
   // paginate
   const [loading, setLoading] = useState(false)
@@ -1668,7 +1668,7 @@ export default function RekapitulasiVisitPage() {
                               <div className='text-xs font-medium text-gray-500 mb-0.5'>
                                 Satuan Kerja
                               </div>
-                              <div className='break-words font-semibold leading-tight text-gray-900'>
+                              <div className='wrap-break-words font-semibold leading-tight text-gray-900'>
                                 {r.satuan_kerja}
                               </div>
                             </div>
@@ -1684,7 +1684,7 @@ export default function RekapitulasiVisitPage() {
                               <div className='text-xs font-medium text-gray-500 mb-0.5'>
                                 PIC Name
                               </div>
-                              <div className='break-words font-semibold text-gray-900'>
+                              <div className='wrap-break-words font-semibold text-gray-900'>
                                 {r.pic_name}
                               </div>
                             </div>
@@ -1704,68 +1704,12 @@ export default function RekapitulasiVisitPage() {
                               <div className='text-xs font-medium text-gray-500 mb-0.5'>
                                 PIC Phone
                               </div>
-                              <div className='break-words font-semibold text-gray-900'>
+                              <div className='wrap-break-words font-semibold text-gray-900'>
                                 {r.pic_phone}
                               </div>
                             </div>
                           </div>
                         </div>
-
-                        {/* {active && (
-                          <div className='border-t border-blue-100 bg-blue-50/30 p-4'>
-                            <div className='mb-4 flex items-center gap-2 text-base font-extrabold text-gray-900'>
-                              <span className='grid h-7 w-7 place-items-center rounded-lg bg-blue-100 text-blue-600 text-sm'>
-                                📖
-                              </span>
-                              Detail Kunjungan
-                            </div>
-                            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 text-sm'>
-                              <DetailItem
-                                label='Created At'
-                                value={formatDateID(r.created_at)}
-                              />
-                              <DetailItem
-                                label='Market Status'
-                                value={r.status_market}
-                              />
-                              <DetailItem label='KLPD' value={r.klpd} />
-                              <DetailItem
-                                label='Reschedule'
-                                value={
-                                  r.reschedule && r.reschedule !== '-'
-                                    ? formatDateID(r.reschedule)
-                                    : '-'
-                                }
-                              />
-                              <DetailItem
-                                label='Institusi Kerja'
-                                value={r.institusi_kerja}
-                              />
-                              <DetailItem
-                                label='PIC Position'
-                                value={r.pic_position}
-                              />
-                              <DetailItem label='PIC Role' value={r.pic_role} />
-                              <DetailItem
-                                label='Tindak Lanjut'
-                                value={r.tindak_lanjut}
-                              />
-                              <DetailItem
-                                label='Kegiatan Status'
-                                value={r.kegiatan_status}
-                              />
-                            </div>
-
-                            <div className='mt-4 border-t border-blue-100 pt-3'>
-                              <div className='text-xs font-extrabold tracking-wider text-gray-500 mb-1'>
-                                DESKRIPSI
-                              </div>
-                              <div className='whitespace-pre-line text-sm text-gray-700 bg-white p-3 rounded-lg border border-blue-50 shadow-sm leading-relaxed'>
-                                {r.descriptions || '-'}
-                              </div>
-                            </div>
-                          </div>
-                        )} */}
                       </div>
                     )
                   })

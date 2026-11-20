@@ -132,7 +132,6 @@ export default function TrackingB2GPage() {
   const [salesOptions, setSalesOptions] = useState<string[]>([])
   const [cityOptions, setCityOptions] = useState<string[]>([])
   const [satkerOptions, setSatkerOptions] = useState<string[]>([])
-  const [phoneOptions, setPhoneOptions] = useState<string[]>([])
   const [klpdOptions, setKlpdOptions] = useState<string[]>([])
   const [visitOptions, setVisitOptions] = useState<string[]>([])
   const [entitasOptions, setEntitasOptions] = useState<string[]>([])
@@ -1258,7 +1257,7 @@ export default function TrackingB2GPage() {
           {/* ========== FULLSCREEN IMAGE VIEWER ========== */}
           {viewImage && (
             <div
-              className='fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4'
+              className='fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4'
               onClick={() => setViewImage(null)}
             >
               <button
@@ -1359,7 +1358,7 @@ function StatCard({ title, value, icon }: StatCardProps) {
       {icon && <div className='rounded-lg bg-blue-100 p-2'>{icon}</div>}
       <div className='min-w-0'>
         <p className='text-xs sm:text-sm text-gray-500'>{title}</p>
-        <p className='mt-1 sm:mt-2 text-lg sm:text-3xl font-semibold break-words'>
+        <p className='mt-1 sm:mt-2 text-lg sm:text-3xl font-semibold wrap-break-words'>
           {value ?? '-'}
         </p>
       </div>

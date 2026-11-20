@@ -214,7 +214,7 @@ export default function TrackingB2BPage() {
   const [salesOptions, setSalesOptions] = useState<string[]>([])
   const [cityOptions, setCityOptions] = useState<string[]>([])
   const [satkerOptions, setSatkerOptions] = useState<string[]>([])
-  const [phoneOptions, setPhoneOptions] = useState<string[]>([])
+  const [phoneOptions] = useState<string[]>([])
   const [klpdOptions, setKlpdOptions] = useState<string[]>([])
   const [visitOptions, setVisitOptions] = useState<string[]>([])
 
@@ -1119,27 +1119,27 @@ export default function TrackingB2BPage() {
                             )}
                           </button>
                         </div>
-                        <div className='break-words text-sm font-extrabold text-[#0B6AA9]'>
+                        <div className='wrap-wrap-break-words text-sm font-extrabold text-[#0B6AA9]'>
                           {r.nama_sales}
                         </div>
                         <div className='grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700'>
-                          <div className='min-w-0 break-words'>
+                          <div className='min-w-0 wrap-break-words'>
                             <span className='text-gray-400'>City:</span>{' '}
                             {r.city}
                           </div>
-                          <div className='min-w-0 break-words'>
+                          <div className='min-w-0 wrap-break-words'>
                             <span className='text-gray-400'>Ring:</span>{' '}
                             {normalizeRing(r.status_ring) || '-'}
                           </div>
-                          <div className='col-span-2 min-w-0 break-words'>
+                          <div className='col-span-2 min-w-0 wrap-break-words'>
                             <span className='text-gray-400'>Satker:</span>{' '}
                             {r.satuan_kerja}
                           </div>
-                          <div className='min-w-0 break-words'>
+                          <div className='min-w-0 wrap-break-words'>
                             <span className='text-gray-400'>PIC:</span>{' '}
                             {r.pic_name}
                           </div>
-                          <div className='min-w-0 break-words'>
+                          <div className='min-w-0 wrap-break-words'>
                             <span className='text-gray-400'>Phone:</span>{' '}
                             {r.pic_phone}
                           </div>
@@ -1221,7 +1221,7 @@ export default function TrackingB2BPage() {
                       <h3 className='text-lg font-extrabold text-gray-900'>
                         Detail Kunjungan
                       </h3>
-                      <p className='break-words text-xs text-gray-500'>
+                      <p className='wrap-break-words text-xs text-gray-500'>
                         {modalVisit.visit_date} — {modalVisit.satuan_kerja}
                       </p>
                     </div>
@@ -1413,7 +1413,7 @@ export default function TrackingB2BPage() {
           {/* ========== FULLSCREEN IMAGE VIEWER ========== */}
           {viewImage && (
             <div
-              className='fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4'
+              className='fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4'
               onClick={() => setViewImage(null)}
             >
               <button
@@ -1438,7 +1438,7 @@ export default function TrackingB2BPage() {
           )}
           {/* Pagination */}
           <section className='mt-6 flex flex-col gap-3 rounded-2xl bg-white px-4 py-4 sm:px-6 shadow-sm ring-1 ring-blue-100 md:flex-row md:items-center md:justify-between'>
-            <div className='text-sm text-gray-600 break-words'>
+            <div className='text-sm text-gray-600 wrap-break-words'>
               Menampilkan {showingFrom} - {showingTo} dari {total} data
             </div>
 
@@ -1535,7 +1535,7 @@ function DetailItem({ label, value }: { label: string; value: string }) {
       <div className='text-xs font-extrabold tracking-wider text-gray-500'>
         {label}
       </div>
-      <div className='mt-1 break-words text-sm font-semibold text-gray-900'>
+      <div className='mt-1 wrap-break-words text-sm font-semibold text-gray-900'>
         {value || '-'}
       </div>
     </div>
@@ -1612,7 +1612,7 @@ function StatCard({ title, value, icon }: StatCardProps) {
       {icon && <div className='rounded-lg bg-blue-100 p-2'>{icon}</div>}
       <div className='min-w-0'>
         <p className='text-xs sm:text-sm text-gray-500'>{title}</p>
-        <p className='mt-1 sm:mt-2 text-lg sm:text-3xl font-semibold break-words'>
+        <p className='mt-1 sm:mt-2 text-lg sm:text-3xl font-semibold wrap-break-words'>
           {value ?? '-'}
         </p>
       </div>
@@ -1638,7 +1638,7 @@ function TableCard({
           >
             <Icon className={`w-4 h-4 ${theme.icon}`} strokeWidth={2} />
           </div>
-          <h3 className='min-w-0 break-words text-xs font-semibold tracking-wider text-gray-500 uppercase'>
+          <h3 className='min-w-0 wrap-break-words text-xs font-semibold tracking-wider text-gray-500 uppercase'>
             {title}
           </h3>
         </div>
@@ -1651,7 +1651,7 @@ function TableCard({
 
       <hr className='border-gray-100 mb-3.5' />
 
-      <div className='max-h-[230px] overflow-y-auto space-y-3.5'>
+      <div className='max-h-57.5 overflow-y-auto space-y-3.5'>
         {items.map((item) => {
           const rowTheme = item.color ? THEMES[item.color] : theme
           const width = maxValue > 0 ? (item.value / maxValue) * 100 : 0
@@ -1705,10 +1705,10 @@ function MonthlyTable({ data }: { data: MonthlyProgressData }) {
 
   return (
     <div className='overflow-x-auto'>
-      <table className='w-full text-[10px] border-collapse min-w-[900px]'>
+      <table className='w-full text-[10px] border-collapse min-w-225'>
         <thead>
           <tr className='border-b border-gray-200'>
-            <th className='text-left py-2 px-2 text-gray-500 font-semibold sticky left-0 bg-white z-10 min-w-[140px]'>
+            <th className='text-left py-2 px-2 text-gray-500 font-semibold sticky left-0 bg-white z-10 min-w-35'>
               Nama Sales
             </th>
             {months.map((m, mi) => {

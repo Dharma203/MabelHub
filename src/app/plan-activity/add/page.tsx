@@ -263,8 +263,6 @@ function ReadonlyField({ label, value }: { label: string; value: string }) {
 // --- Main Content Component ---
 
 function AddPlansContent() {
-  const [jenisEntitas, setJenisEntitas] = useState('')
-  const [namaEntitas, setNamaEntitas] = useState('')
   const router = useRouter()
   const sp = useSearchParams()
 

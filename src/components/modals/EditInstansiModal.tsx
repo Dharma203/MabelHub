@@ -92,42 +92,6 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      className={clsx(
-        "h-11 w-full rounded-xl bg-white px-4 text-sm text-gray-500 outline-none",
-        "ring-1 ring-black/10 focus:ring-2 focus:ring-black/20",
-        props.className || "",
-      )}
-    />
-  );
-}
-
-function PrimaryButton({
-  children,
-  onClick,
-  disabled,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      disabled={disabled}
-      onClick={onClick}
-      className={clsx(
-        "h-11 rounded-full px-7 text-md font-extrabold tracking-wide",
-        "bg-white ring-1 ring-black/15 shadow-sm hover:bg-black/5",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 function SolidButton({
   children,
   onClick,

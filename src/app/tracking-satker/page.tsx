@@ -198,7 +198,6 @@ export default function TrackingSatuanKerja() {
 
   // expand row: visit dates by satker
   const [expandedSatker, setExpandedSatker] = useState<string | null>(null)
-  const [expandedEntitas, setExpanderEntitas] = useState<string | null>(null)
   const [visitDates, setVisitDates] = useState<VisitDetail[]>([])
   const [loadingVisitDates, setLoadingVisitDates] = useState(false)
 

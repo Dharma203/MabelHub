@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { compressImage } from '@/lib/image-utils'
+import Image from 'next/image'
 
 type EditModalProps = {
   isOpen: boolean
@@ -335,7 +336,6 @@ export default function EditVisitModal({
   // canEditMain   : semua field data (nama, deskripsi, foto, dll)
   // canEditStatus : hanya status kunjungan + field reschedule
   const canEditMain = isPrivileged || (isOwner && !isPastDeadline)
-  const canEditStatus = isPrivileged || (isOwner && !isAlreadyVisited)
 
   // Mode reschedule-only: lewat deadline, belum visited, bukan privileged
   const isRescheduleOnly = !isAlreadyVisited && isPastDeadline && !isPrivileged
@@ -726,9 +726,11 @@ export default function EditVisitModal({
 
                 {form.visit_image && !fileObj && (
                   <div className='mb-3'>
-                    <img
+                    <Image
                       src={form.visit_image}
                       alt='Preview Kunjungan'
+                      width={500}
+                      height={500}
                       className='w-full h-40 object-contain bg-gray-200 border border-gray-300 rounded-lg'
                     />
                   </div>

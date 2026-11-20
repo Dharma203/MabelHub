@@ -3,7 +3,7 @@
  * Letakkan file ini di: src/app/tracking-database/page.test.tsx
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import TrackingDatabasePage from './page'
 
 // ─── 1. MOCK DEPENDENCIES ────────────────────────────────────────────────────

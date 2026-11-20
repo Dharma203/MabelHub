@@ -25,7 +25,6 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import { normalizeRing } from '@/lib/ring'
-import { div } from 'motion/react-client'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -1288,7 +1287,7 @@ export default function PlanActivityPage() {
                 key={i}
                 onClick={() => handleDateClick(day)}
                 className={`
-                  min-h-[100px] md:min-h-[120px] border-b border-r border-gray-100 p-1.5 cursor-pointer transition-all duration-150
+                  min-h-25 md:min-h-30 border-b border-r border-gray-100 p-1.5 cursor-pointer transition-all duration-150
                   ${!isCurrentMonth ? 'bg-gray-50/50' : 'bg-white hover:bg-blue-50/30'}
                   ${isSelected ? 'ring-2 ring-blue-500 ring-inset bg-blue-50/40' : ''}
                 `}
@@ -1361,7 +1360,7 @@ export default function PlanActivityPage() {
         </div>
 
         {/* Day columns */}
-        <div className='grid grid-cols-7 min-h-[400px]'>
+        <div className='grid grid-cols-7 min-h-100'>
           {weekDays.map((day, i) => {
             const key = dateToKey(day)
             const dayPlans = plansByDate[key] || []

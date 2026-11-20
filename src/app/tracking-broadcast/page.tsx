@@ -245,11 +245,6 @@ function DetailItem({
   isLink?: boolean
 }) {
   const empty = !value || value.trim() === ''
-  const Icon = icon ? (
-    <span className='inline-flex items-center justify-center text-slate-400 text-xs mr-1.5'>
-      {icon}
-    </span>
-  ) : null
 
   return (
     <div className='flex items-start gap-1.5 min-w-0'>
@@ -1213,7 +1208,7 @@ export default function TrackingBroadcastPage() {
                       <button
                         type='button'
                         onClick={() => setOpenDropdown(isOpen ? null : btn.id)}
-                        className={`w-full flex items-center justify-between gap-1 py-[7px] px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${
+                        className={`w-full flex items-center justify-between gap-1 py-1.75 px-3 text-[11px] font-semibold rounded-lg cursor-pointer ${
                           isOpen
                             ? 'border-2 border-blue-500 bg-white text-blue-600 shadow-md'
                             : isActive
@@ -1231,7 +1226,7 @@ export default function TrackingBroadcastPage() {
                         </span>
                         <span className='flex items-center gap-1 shrink-0'>
                           {isActive && (
-                            <span className='inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-600 text-white text-[9px] font-bold'>
+                            <span className='inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-blue-600 text-white text-[9px] font-bold'>
                               {count}
                             </span>
                           )}
@@ -1245,7 +1240,7 @@ export default function TrackingBroadcastPage() {
                       {/* Dropdown panel */}
                       {isOpen && (
                         <div
-                          className='absolute top-[calc(100%+4px)] left-0 z-[9999] w-56 bg-white rounded-lg flex flex-col'
+                          className='absolute top-[calc(100%+4px)] left-0 z-9999 w-56 bg-white rounded-lg flex flex-col'
                           style={{
                             boxShadow:
                               '0 12px 40px -4px rgba(0,0,0,0.2), 0 4px 12px -2px rgba(0,0,0,0.08)',
@@ -1411,8 +1406,8 @@ export default function TrackingBroadcastPage() {
               <div className='flex flex-col sm:flex-row gap-3 w-full'>
                 {/* Card Kiri: Total Unik No HP */}
                 <div className='shrink-0 md:w-auto w-full'>
-                  <div className='flex items-center gap-3 bg-white border border-gray-200 rounded-lg shadow-sm px-3 sm:px-4 py-3 h-full min-w-0 sm:min-w-[200px]'>
-                    <div className='rounded-full flex items-center justify-center text-white shrink-0 w-9 h-9 bg-gradient-to-br from-green-500 to-teal-600'>
+                  <div className='flex items-center gap-3 bg-white border border-gray-200 rounded-lg shadow-sm px-3 sm:px-4 py-3 h-full min-w-0 sm:min-w-50'>
+                    <div className='rounded-full flex items-center justify-center text-white shrink-0 w-9 h-9 bg-linear-to-br from-green-500 to-teal-600'>
                       <PhoneCallIcon
                         size={14}
                         className='text-white'
@@ -1617,7 +1612,7 @@ export default function TrackingBroadcastPage() {
               <div className='flex flex-col flex-1 rounded-lg border border-blue-100 overflow-hidden shadow-sm'>
                 {/* Header Panel Kiri */}
                 <div
-                  className='flex items-center justify-between px-3 py-[6px]'
+                  className='flex items-center justify-between px-3 py-1.5'
                   style={{
                     background: 'linear-gradient(135deg, #eff6ff, #dbeafe)',
                     borderBottom: '2px solid #2563eb',
@@ -1657,7 +1652,7 @@ export default function TrackingBroadcastPage() {
                   </div>
                 </div>
                 {/* Tabel */}
-                <div className='max-h-[220px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-blue-50 [&::-webkit-scrollbar-thumb]:bg-blue-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-blue-400'>
+                <div className='max-h-55 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-blue-50 [&::-webkit-scrollbar-thumb]:bg-blue-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-blue-400'>
                   <table className='w-full text-left border-collapse'>
                     <thead className='sticky top-0 z-10 bg-[#f1f5f9]'>
                       <tr>
@@ -1718,7 +1713,7 @@ export default function TrackingBroadcastPage() {
                             <td className='px-2 py-1.5 text-[10px] text-slate-600'>
                               <div className='flex items-center gap-1.5'>
                                 <span>{row.kota}</span>
-                                <div className='flex-1 min-w-[36px] bg-blue-100 rounded-full h-[4px] overflow-hidden'>
+                                <div className='flex-1 min-w-9 bg-blue-100 rounded-full h-1 overflow-hidden'>
                                   <div
                                     className='bg-blue-500 h-full rounded-full'
                                     style={{ width: `${row.pct}%` }}
@@ -1727,7 +1722,7 @@ export default function TrackingBroadcastPage() {
                               </div>
                             </td>
                             <td className='px-2 py-1.5 text-right'>
-                              <span className='inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
+                              <span className='inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
                                 {row.unik}
                               </span>
                             </td>
@@ -1743,7 +1738,7 @@ export default function TrackingBroadcastPage() {
               <div className='flex flex-col flex-1 rounded-lg border border-[#FDE68A] overflow-hidden shadow-sm'>
                 {/* Header Panel Kanan */}
                 <div
-                  className='flex items-center justify-between px-3 py-[6px]'
+                  className='flex items-center justify-between px-3 py-1.5'
                   style={{
                     background: 'linear-gradient(135deg, #FEF9C3, #FDE68A)',
                     borderBottom: '2px solid #D97706',
@@ -1777,7 +1772,7 @@ export default function TrackingBroadcastPage() {
                   </div>
                 </div>
                 {/* Tabel */}
-                <div className='max-h-[220px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-amber-50 [&::-webkit-scrollbar-thumb]:bg-amber-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-amber-400'>
+                <div className='max-h-55 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-amber-50 [&::-webkit-scrollbar-thumb]:bg-amber-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-amber-400'>
                   <table className='w-full text-left border-collapse'>
                     <thead className='sticky top-0 z-10 bg-[#FFFBEB]'>
                       <tr>
@@ -1831,7 +1826,7 @@ export default function TrackingBroadcastPage() {
                             </td>
                             <td className='px-3 py-2 text-right'>
                               <div className='flex items-center gap-2 justify-end'>
-                                <div className='flex-1 min-w-[40px] max-w-[140px] bg-gray-200 rounded-full h-[5px] overflow-hidden'>
+                                <div className='flex-1 min-w-10 max-w-35 bg-gray-200 rounded-full h-1.25 overflow-hidden'>
                                   <div
                                     className='h-full rounded-full'
                                     style={{
@@ -1843,7 +1838,7 @@ export default function TrackingBroadcastPage() {
                                     }}
                                   />
                                 </div>
-                                <span className='inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white shadow-sm'>
+                                <span className='inline-flex items-center justify-center min-w-6 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white shadow-sm'>
                                   {row.unik}
                                 </span>
                               </div>
@@ -1889,8 +1884,8 @@ export default function TrackingBroadcastPage() {
                 </button>
               </div>
             )}
-            <div className='overflow-x-auto -mx-0 sm:mx-0'>
-              <table className='min-w-[900px] sm:min-w-full text-left border-collapse'>
+            <div className='overflow-x-auto mx-0 sm:mx-0'>
+              <table className='min-w-225 sm:min-w-full text-left border-collapse'>
                 {/* Header */}
                 <thead className='sticky top-0 z-10'>
                   <tr className='bg-[#1a2c4e] text-white'>
@@ -2139,7 +2134,7 @@ export default function TrackingBroadcastPage() {
                               >
                                 <div className='rounded-xl bg-white shadow-sm ring-1 ring-blue-100 overflow-hidden'>
                                   {/* ── Header bar ── */}
-                                  <div className='flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-blue-50 to-white border-b border-blue-100'>
+                                  <div className='flex items-center justify-between px-4 py-2.5 bg-linear-to-r from-blue-50 to-white border-b border-blue-100'>
                                     <div className='flex items-center gap-2'>
                                       <span className='grid h-5.5 w-4.5 place-items-center rounded-xl bg-blue-600 text-white text-[9px]'>
                                         ℹ
@@ -2235,7 +2230,7 @@ export default function TrackingBroadcastPage() {
                                     <div className='flex flex-col gap-2.5'>
                                       {/* Keterangan Update — Riwayat Revisi Terbaru */}
                                       <div className='flex items-start gap-1.5 min-w-0 col-span-1'>
-                                        <span className='mt-[1px] shrink-0 text-[11px] leading-none'>
+                                        <span className='mt-px shrink-0 text-[11px] leading-none'>
                                           📝
                                         </span>
                                         <div className='flex flex-col min-w-0'>
@@ -2454,10 +2449,10 @@ export default function TrackingBroadcastPage() {
 
       {/* export modals */}
       {showExportModal && (
-        <div className='fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm'>
+        <div className='fixed inset-0 z-9999 flex items-center justify-center bg-black/40 backdrop-blur-sm'>
           <div className='bg-white rounded-2xl shadow-2xl w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto'>
             {/* Header */}
-            <div className='flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-white rounded-t-2xl'>
+            <div className='flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-linear-to-r from-green-50 to-white rounded-t-2xl'>
               <div className='flex items-center gap-2'>
                 <div className='grid h-8 w-8 place-items-center rounded-lg bg-green-600 text-white'>
                   <Download size={16} />
@@ -2610,7 +2605,7 @@ export default function TrackingBroadcastPage() {
                     </button>
                   </div>
                 </div>
-                <div className='grid grid-cols-2 gap-1.5 max-h-[280px] overflow-y-auto p-3 rounded-xl border border-gray-100 bg-gray-50/50'>
+                <div className='grid grid-cols-2 gap-1.5 max-h-70 overflow-y-auto p-3 rounded-xl border border-gray-100 bg-gray-50/50'>
                   {EXPORT_FIELDS.map((f) => {
                     const checked = exportFields.has(f.key)
                     return (

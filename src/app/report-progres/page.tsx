@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { ChevronUp, Filter, Calendar, Users, MapIcon, Phone, CheckCircle, Briefcase, PieChartIcon, PhoneCallIcon, TrendingUpIcon, User, CalendarCheckIcon, SearchXIcon, ChevronDown, Loader2 } from "lucide-react";
+import { Filter, Calendar, Users, MapIcon, Phone, CheckCircle, Briefcase, PieChartIcon, PhoneCallIcon, TrendingUpIcon, User, CalendarCheckIcon, ChevronDown, Loader2 } from "lucide-react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, CartesianGrid, XAxis, YAxis, AreaChart, Area } from "recharts";
 
 type DashboardStats = {
@@ -161,7 +161,7 @@ export default function ReportProgresPage() {
                                 <div className="flex item-center gap-2">
                                     <input
                                         type="date"
-                                        className="w-30 text-xs h-8 shadow-none border-1 border-slate-300 cursor-pointer rounded-lg"
+                                        className="w-30 text-xs h-8 shadow-none border border-slate-300 cursor-pointer rounded-lg"
                                         placeholder="Dari"
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
@@ -174,7 +174,7 @@ export default function ReportProgresPage() {
                                     <span className="text-gray-400 font-semibold">-</span>
                                     <input
                                         type="date"
-                                        className="w-30 text-xs h-8 shadow-none border-1 border-slate-300 cursor-pointer rounded-lg"
+                                        className="w-30 text-xs h-8 shadow-none border border-slate-300 cursor-pointer rounded-lg"
                                         placeholder="Sampai"
                                         value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
@@ -194,10 +194,10 @@ export default function ReportProgresPage() {
                                     const isOpen = openFilterDropdown === btn.id;
 
                                     return (
-                                        <div key={idx} className="relative flex-1 min-w-[120px]">
+                                        <div key={idx} className="relative flex-1 min-w-30">
                                             <button
                                                 onClick={() => setOpenFilterDropdown(isOpen ? null : btn.id)}
-                                                className={`w-full flex items-center justify-center gap-1.5 py-[7px] px-2 text-xs font-semibold border-[1.5px] rounded-lg cursor-pointer transition-all duration-150 select-none box-border truncate ${isActive ? 'bg-blue-50 border-blue-400 text-blue-700' : 'bg-white border-[#ced4da] text-[#495057] hover:bg-slate-50 hover:border-slate-400'}`}
+                                                className={`w-full flex items-center justify-center gap-1.5 py-1.75 px-2 text-xs font-semibold border-[1.5px] rounded-lg cursor-pointer transition-all duration-150 select-none box-border truncate ${isActive ? 'bg-blue-50 border-blue-400 text-blue-700' : 'bg-white border-[#ced4da] text-[#495057] hover:bg-slate-50 hover:border-slate-400'}`}
                                             >
                                                 <IconComponent
                                                     size={10}
@@ -210,7 +210,7 @@ export default function ReportProgresPage() {
                                             </button>
                                             
                                             {isOpen && (
-                                                <div className="absolute top-full left-0 mt-1 w-full min-w-[200px] max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50">
+                                                <div className="absolute top-full left-0 mt-1 w-full min-w-50 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50">
                                                     {options.length === 0 ? (
                                                         <div className="p-3 text-xs text-slate-500 text-center">Tidak ada data</div>
                                                     ) : (
@@ -490,7 +490,7 @@ export default function ReportProgresPage() {
                             </div>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 w-full h-[250px] mt-5">
+                    <div className="grid grid-cols-2 gap-3 w-full h-62.5 mt-5">
                         <div className="flex flex-col rounded-lg border border-slate-100 overflow-hidden bg-slate-100 shadow-sm">
                             <div className="flex justify-between items-center gap-1.5 px-2 pt-3 pb-2 border-b-2 bg-orange-100 border-yellow-700 lg:table-cell">
                                 <div className="flex items-center gap-1.5">
@@ -536,12 +536,12 @@ export default function ReportProgresPage() {
                                                     <td className='px-2 py-1.5 text-[10px] text-slate-900 font-bold'>
                                                         {row.no}
                                                     </td>
-                                                    <td className='px-2 py-1.5 text-[10px] text-slate-900 font-medium truncate max-w-[100px]'>
+                                                    <td className='px-2 py-1.5 text-[10px] text-slate-900 font-medium truncate max-w-25'>
                                                         {row.pic || "(Kosong)"}
                                                     </td>
     
                                                     <td className='px-2 py-1.5 text-[10px] text-slate-600'>
-                                                        <div className='flex-1 min-w-[36px] bg-blue-100 rounded-full h-[4px] overflow-hidden'>
+                                                        <div className='flex-1 min-w-9 bg-blue-100 rounded-full h-1 overflow-hidden'>
                                                             <div
                                                                 className='bg-blue-600 h-full rounded-full'
                                                                 style={{ width: `${percent}%` }}
@@ -549,7 +549,7 @@ export default function ReportProgresPage() {
                                                         </div>
                                                     </td>
                                                     <td className="px-2 py-1.5 text-[10px] text-slate-700 font-medium">
-                                                        <div className='items-center inline-flex justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-700 text-white'>
+                                                        <div className='items-center inline-flex justify-center min-w-5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-700 text-white'>
                                                             {row.unik}
                                                         </div>
                                                     </td>
@@ -616,7 +616,7 @@ export default function ReportProgresPage() {
                         </div>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 w-full gap-3 h-auto lg:h-[350px] mt-5">
+                <div className="grid grid-cols-1 w-full gap-3 h-auto lg:h-87.5 mt-5">
                     <div className="flex flex-col rounded-lg border border-white overflow-hidden bg-white-100 shadow-sm">
                         <div className="flex items-center gap-1.5 px-2 pt-3 pb-2 border-b-2 bg-white-100 border-blue-600">
                             <CalendarCheckIcon size={12} strokeWidth={2} className="text-blue-600" />
@@ -624,7 +624,7 @@ export default function ReportProgresPage() {
                                 Detail Data {stats?.detailData?.length ? `(Menampilkan ${stats.detailData.length} data)` : ''}
                             </p>
                         </div>
-                        <div className="overflow-y-auto max-h-[320px] shadow-sm" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
+                        <div className="overflow-y-auto max-h-80 shadow-sm" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
                             <table className="border-collapse w-full block lg:table">
                                 <thead className='w-full text-left border-collapse sticky top-0 z-10 bg-white hidden lg:table-header-group'>
                                     <tr>
@@ -673,7 +673,7 @@ export default function ReportProgresPage() {
                                             </td>
                                             <td className='flex justify-between items-center lg:table-cell py-1.5 lg:py-1 px-2 text-xs font-medium text-slate-900 border-b border-slate-200 border-dashed lg:border-solid lg:border-0 lg:border-b'>
                                                 <span className="lg:hidden font-bold text-gray-500">Perusahaan</span>
-                                                <span className="max-w-[200px] truncate">{row.perusahaan || "-"}</span>
+                                                <span className="max-w-50 truncate">{row.perusahaan || "-"}</span>
                                             </td>
                                             <td className='flex justify-between items-center lg:table-cell py-1.5 lg:py-1 px-2 text-xs font-medium text-slate-900 border-b border-slate-200 border-dashed lg:border-solid lg:border-0 lg:border-b'>
                                                 <span className="lg:hidden font-bold text-gray-500">Kota</span>

@@ -8,7 +8,7 @@ import { getMenuByRole } from "@/lib/menu";
 import { useSession } from "@/components/session/SessionProvider";
 import NotificationMenu from "@/components/modals/NotificationMenu";
 import * as Icons from "lucide-react";
-import { Menu, X, ChevronUp, LogOut } from "lucide-react";
+import { Menu, X, ChevronUp} from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -30,7 +30,9 @@ export default function Sidebar() {
         try {
           const saved = localStorage.getItem("sidebarAccordionState");
           if (saved) return JSON.parse(saved);
-        } catch (e) {}
+        } catch (e) {
+          alert(e)
+        }
       }
       return {};
     },
@@ -47,7 +49,9 @@ export default function Sidebar() {
       const newState = { ...prev, [title]: prev[title] === false };
       try {
         localStorage.setItem("sidebarAccordionState", JSON.stringify(newState));
-      } catch (err) {}
+      } catch (err) {
+        alert(err)
+      }
       return newState;
     });
   };
@@ -262,7 +266,7 @@ export default function Sidebar() {
       />
 
       {/* Sidebar Wrapper Div to maintain layout width on desktop */}
-      <div className="hidden lg:block w-20 flex-shrink-0 transition-all duration-300" />
+      <div className="hidden lg:block w-20 shrink-0 transition-all duration-300" />
 
       <aside
         suppressHydrationWarning
@@ -274,8 +278,8 @@ export default function Sidebar() {
         `}
       >
         {/* LOGO / HEAD SECTION */}
-        <div className="flex items-center h-20 px-4 flex-shrink-0">
-          <div className="flex-shrink-0 w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg active:scale-95 transition-transform">
+        <div className="flex items-center h-20 px-4 shrink-0">
+          <div className="shrink-0 w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg active:scale-95 transition-transform">
              <Icons.ShieldCheck className="w-6 h-6 text-blue-900" />
           </div>
           <div className={`ml-4 flex flex-col ${labelVisibility} transition-opacity duration-300 whitespace-nowrap overflow-hidden`}>
@@ -296,7 +300,7 @@ export default function Sidebar() {
         </div>
 
         {/* SCROLL PROGRESS */}
-        <div className="h-[2px] w-full bg-white/10 relative flex-shrink-0">
+        <div className="h-[2px] w-full bg-white/10 relative shrink-0">
           <div 
             className="absolute top-0 left-0 h-full bg-white transition-all duration-150 shadow-[0_0_8px_rgba(255,255,255,0.8)]"
             style={{ width: `${sidebarScrollProgress}%` }}
@@ -324,7 +328,7 @@ export default function Sidebar() {
                       ${active ? "bg-white text-blue-900 shadow-lg shadow-white/10" : "text-white/60 hover:text-white hover:bg-white/10"}
                     `}
                   >
-                    <div className={`flex-shrink-0 w-6 h-6 flex items-center justify-center mr-4 
+                    <div className={`shrink-0 w-6 h-6 flex items-center justify-center mr-4 
                       ${active ? "text-blue-900" : "text-white"}
                     `}>
                       <SectionIcon className="w-5 h-5" />
@@ -348,7 +352,7 @@ export default function Sidebar() {
                     ${hasActiveItem && !expanded ? "bg-white text-blue-900" : "text-white/60 hover:text-white hover:bg-white/10"}
                    `}
                 >
-                  <div className={`flex-shrink-0 w-6 h-6 flex items-center justify-center mr-4 
+                  <div className={`shrink-0 w-6 h-6 flex items-center justify-center mr-4 
                     ${hasActiveItem && !expanded ? "text-blue-900" : "text-white"}
                   `}>
                     <SectionIcon className="w-5 h-5" />
@@ -358,7 +362,7 @@ export default function Sidebar() {
                       {section.title}
                     </span>
                     <ChevronUp
-                      className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${expanded ? "" : "transform rotate-180"}`}
+                      className={`w-4 h-4 shrink-0 transition-transform duration-200 ${expanded ? "" : "transform rotate-180"}`}
                     />
                   </div>
                 </button>
@@ -384,7 +388,7 @@ export default function Sidebar() {
                             : "text-white/60 hover:bg-white/10 hover:text-white active:bg-white/20"}
                         `}
                       >
-                        <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center mr-4">
+                        <div className="shrink-0 w-5 h-5 flex items-center justify-center mr-4">
                           <ItemIcon className={`w-4 h-4 ${active ? "text-blue-900" : "text-white/40 group-hover/item:text-white"}`} />
                         </div>
                         <span className={`whitespace-nowrap font-medium text-base ${labelVisibility} transition-opacity duration-300 ${active ? "text-blue-900" : ""}`}>
@@ -403,7 +407,7 @@ export default function Sidebar() {
         <div className="mt-auto border-t border-white/10 bg-black/20 dark:bg-black/40">
             {/* USER PROFILE */}
             <div className="px-4 py-4 flex items-center overflow-hidden">
-                 <div className="flex-shrink-0 h-12 w-12 rounded-full bg-white flex items-center justify-center text-blue-900 dark:text-[#0d1f3c] font-bold text-lg shadow-lg">
+                 <div className="shrink-0 h-12 w-12 rounded-full bg-white flex items-center justify-center text-blue-900 dark:text-[#0d1f3c] font-bold text-lg shadow-lg">
                     {user.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
                  </div>
                  <div className={`ml-4 ${labelVisibility} transition-opacity duration-300 flex flex-col min-w-0`}>
@@ -419,7 +423,7 @@ export default function Sidebar() {
                 onClick={onLogout}
                 className="flex items-center justify-center h-12 w-full rounded-xl bg-white/10 text-white hover:bg-white hover:text-blue-900 dark:hover:text-[#0d1f3c] active:bg-white/20 transition-all duration-200 group/logout"
               >
-                 <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center group-hover/logout:text-blue-900">
+                 <div className="shrink-0 w-12 h-12 flex items-center justify-center group-hover/logout:text-blue-900">
                     <Icons.LogOut className="w-5 h-5" />
                  </div>
                  <span className={`font-bold text-[10px] tracking-widest ${labelVisibility} transition-opacity duration-300 overflow-hidden whitespace-nowrap`}>

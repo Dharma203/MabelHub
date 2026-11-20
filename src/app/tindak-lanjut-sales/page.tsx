@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Calendar, MapPin, Filter, ChevronUp, Package, Building2, MapIcon, Phone, MapPinCheck, BookOpenCheckIcon, CheckCircle, LucideBookUser, Box, BarChart2, ChevronDown } from 'lucide-react';
+import { Users, Calendar, MapPin, Filter, Package, Building2, MapIcon, Phone, MapPinCheck, CheckCircle, LucideBookUser, Box, BarChart2, ChevronDown } from 'lucide-react';
 
 type KontakItems = {
     kode_input: string;
@@ -44,18 +44,11 @@ export default function TindakLanjutSalesPage() {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(25);
     const [selected, setSelected] = useState<KontakItems | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading] = useState(false);
     const [provinsi, setProvinsi] = useState<string[]>([]);
     const [kota, setKota] = useState<string[]>([]);
-    const [stats, setStats] = useState<ApiStats | null>(null);
-
-    // pagination
-    const [rows, setRows] = useState<KontakItems[]>([])
-    const [loadingRows, setLoadingRows] = useState(true)
-    const [total, setTotal] = useState(0)
-    const [totalPages, setTotalPages] = useState(1)
+    const [stats] = useState<ApiStats | null>(null);
 
     const filterButtons = [
         { id: 'perusahaan', icon: Building2, label: 'Perusahaan' },
@@ -119,7 +112,7 @@ export default function TindakLanjutSalesPage() {
                                 <div className="flex item-center gap-2">
                                     <input
                                         type="date"
-                                        className="w-30 text-xs h-8 shadow-none border-1 border-slate-300 rounded-lg"
+                                        className="w-30 text-xs h-8 shadow-none border border-slate-300 rounded-lg"
                                         placeholder="Dari"
                                         value={startDate}
                                         onChange={(e) => { setStartDate(e.target.value); setPage(1); setSelected(null); }}
@@ -127,7 +120,7 @@ export default function TindakLanjutSalesPage() {
                                     <span className="text-gray-400 font-semibold">-</span>
                                     <input
                                         type="date"
-                                        className="w-30 text-xs h-8 shadow-none border-1 border-slate-300 rounded-lg"
+                                        className="w-30 text-xs h-8 shadow-none border border-slate-300 rounded-lg"
                                         placeholder="Sampai"
                                         value={endDate}
                                         onChange={(e) => { setEndDate(e.target.value); setPage(1); setSelected(null); }}
@@ -140,7 +133,7 @@ export default function TindakLanjutSalesPage() {
                                     return (
                                         <button
                                             key={idx}
-                                            className="flex items-center justify-center gap-1.5 py-[7px] px-2 text-xs font-semibold border-[1.5px] border-[#ced4da] rounded-lg bg-white cursor-pointer text-[#495057] transition-all duration-150 select-none box-border truncate hover:bg-slate-50 hover:border-slate-400"
+                                            className="flex items-center justify-center gap-1.5 py-1.75 px-2 text-xs font-semibold border-[1.5px] border-[#ced4da] rounded-lg bg-white cursor-pointer text-[#495057] transition-all duration-150 select-none box-border truncate hover:bg-slate-50 hover:border-slate-400"
                                         >
                                             <IconComponent
                                                 size={10}
@@ -185,7 +178,7 @@ export default function TindakLanjutSalesPage() {
                         >
                             <div className="flex flex-col md:flex-row gap-3 w-full">
                                 <div className="shrink-0">
-                                    <div className="flex flex-col h-20 md:w-[430px] bg-[#f8f9fa] rounded-lg shadow-sm border-[#F2A549] overflow-hidden">
+                                    <div className="flex flex-col h-20 md:w-107.5 bg-[#f8f9fa] rounded-lg shadow-sm border-[#F2A549] overflow-hidden">
                                         <div className="flex flex-row items-center justify-between w-full flex-1 px-4 py-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="rounded-full flex items-center justify-center text-white shrink-0 w-9 h-9 bg-linear-to-br from-[#F2A549] to-[#e8913a]">
@@ -266,7 +259,7 @@ export default function TindakLanjutSalesPage() {
                                 <div className='flex flex-col rounded-lg border border-blue-100 overflow-hidden shadow-sm'>
                                     {/* Header Panel Kiri */}
                                     <div
-                                        className='flex items-center justify-between px-3 py-[6px]'
+                                        className='flex items-center justify-between px-3 py-1.5'
                                         style={{
                                             background: 'linear-gradient(135deg, #FEF7DB, #FFF5CF)',
                                             borderBottom: '2px solid #B45309',
@@ -301,7 +294,7 @@ export default function TindakLanjutSalesPage() {
                                         </div>
                                     </div>
                                     {/* Tabel */}
-                                    <div className='max-h-[180px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-blue-50 [&::-webkit-scrollbar-thumb]:bg-blue-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-blue-400'>
+                                    <div className='max-h-45 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-blue-50 [&::-webkit-scrollbar-thumb]:bg-blue-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-blue-400'>
                                         <table className='w-full text-left border-collapse'>
                                             <thead className='sticky top-0 z-10'>
                                                 <tr>
@@ -358,7 +351,7 @@ export default function TindakLanjutSalesPage() {
                                                         <td className='px-2 py-1.5 text-[10px] text-slate-600'>
                                                             <div className='flex items-center gap-1.5'>
                                                                 <span>{row.kota}</span>
-                                                                <div className='flex-1 min-w-[36px] bg-blue-100 rounded-full h-[4px] overflow-hidden'>
+                                                                <div className='flex-1 min-w-9 bg-blue-100 rounded-full h-1 overflow-hidden'>
                                                                     <div
                                                                         className='bg-blue-500 h-full rounded-full'
                                                                         style={{ width: `${row.pct}%` }}
@@ -367,7 +360,7 @@ export default function TindakLanjutSalesPage() {
                                                             </div>
                                                         </td>
                                                         <td className='px-2 py-1.5 text-right'>
-                                                            <span className='inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
+                                                            <span className='inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-600 text-white'>
                                                                 {row.unik}
                                                             </span>
                                                         </td>
@@ -380,7 +373,7 @@ export default function TindakLanjutSalesPage() {
                                 <div className='flex flex-col rounded-lg border border-orange-100 overflow-hidden shadow-sm'>
                                     {/* Header Panel Kanan */}
                                     <div
-                                        className='flex items-center justify-between px-3 py-[6px]'
+                                        className='flex items-center justify-between px-3 py-1.5'
                                         style={{
                                             background: 'linear-gradient(135deg, #fefce8, #fef9c3)',
                                             borderBottom: '2px solid #f59e0b',
@@ -415,7 +408,7 @@ export default function TindakLanjutSalesPage() {
                                         </div>
                                     </div>
                                     {/* Tabel */}
-                                    <div className='max-h-[200px] overflow-x-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-orange-50 [&::-webkit-scrollbar-thumb]:bg-orange-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-orange-400'>
+                                    <div className='max-h-50 overflow-x-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-orange-50 [&::-webkit-scrollbar-thumb]:bg-orange-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-orange-400'>
                                         <table className='w-full text-left border-collapse'>
                                             <thead className='sticky top-0 z-10'>
                                                 <tr>
@@ -464,13 +457,13 @@ export default function TindakLanjutSalesPage() {
 
                                                         <td className='px-2 py-1.5 text-[10px] text-slate-600'>
                                                             <div className='flex items-center gap-1.5'>
-                                                                <div className='flex-1 min-w-[36px] bg-orange-100 rounded-full h-[4px] overflow-hidden'>
+                                                                <div className='flex-1 min-w-9 bg-orange-100 rounded-full h-1 overflow-hidden'>
                                                                     <div
                                                                         className='bg-orange-300 h-full rounded-full'
                                                                         style={{ width: `${Math.round((row.unik / 5) * 100)}%` }}
                                                                     />
                                                                 </div>
-                                                                <span className='inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-orange-200 text-black'>
+                                                                <span className='inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-orange-200 text-black'>
                                                                     {row.unik}
                                                                 </span>
                                                             </div>
@@ -484,7 +477,7 @@ export default function TindakLanjutSalesPage() {
                                 <div className='flex flex-col rounded-lg border border-blue-100 overflow-hidden shadow-sm'>
                                     {/* Header Panel Kanan */}
                                     <div
-                                        className='flex items-center justify-between px-3 py-[6px]'
+                                        className='flex items-center justify-between px-3 py-1.5'
                                         style={{
                                             background: 'linear-gradient(135deg, #eff6ff, #e0e7ff)',
                                             borderBottom: '2px solid #2563eb',
@@ -519,7 +512,7 @@ export default function TindakLanjutSalesPage() {
                                         </div>
                                     </div>
                                     {/* Tabel */}
-                                    <div className='max-h-[180px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-blue-50 [&::-webkit-scrollbar-thumb]:bg-blue-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-blue-400'>
+                                    <div className='max-h-45 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-blue-50 [&::-webkit-scrollbar-thumb]:bg-blue-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-blue-400'>
                                         <table className='w-full text-left border-collapse'>
                                             <thead className='sticky top-0 z-10'>
                                                 <tr>
@@ -559,13 +552,13 @@ export default function TindakLanjutSalesPage() {
 
                                                         <td className='px-2 py-1.5 text-[10px] text-slate-600'>
                                                             <div className='flex items-center gap-1.5'>
-                                                                <div className='flex-1 min-w-[36px] bg-blue-100 rounded-full h-[4px] overflow-hidden'>
+                                                                <div className='flex-1 min-w-9 bg-blue-100 rounded-full h-1 overflow-hidden'>
                                                                     <div
                                                                         className='bg-blue-300 h-full rounded-full'
                                                                         style={{ width: `${row.pct}%` }}
                                                                     />
                                                                 </div>
-                                                                <span className='inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-200 text-black'>
+                                                                <span className='inline-flex items-center justify-center min-w-5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-200 text-black'>
                                                                     {row.unik}
                                                                 </span>
                                                             </div>

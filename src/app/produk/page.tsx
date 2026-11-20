@@ -177,8 +177,8 @@ function CategoryCard({
       <div
         className={`h-1.5 w-full rounded-t-2xl ${
           isLocked
-            ? "bg-gradient-to-r from-amber-500 via-amber-400 to-orange-400"
-            : "bg-gradient-to-r from-[#1D80D9] via-[#3B9AE8] to-[#1769B5]"
+            ? "bg-linear-to-r from-amber-500 via-amber-400 to-orange-400"
+            : "bg-linear-to-r from-[#1D80D9] via-[#3B9AE8] to-[#1769B5]"
         }`}
       />
 
@@ -601,7 +601,7 @@ export default function ProdukPage() {
                   </p>
                   <div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-200/60">
                     <p className="text-xs text-red-600 font-semibold flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                       Semua dokumen dalam kategori ini juga akan dihapus secara permanen.
                     </p>
                   </div>
