@@ -97,7 +97,7 @@ export async function PUT(
     "link", "namaFolder", "instansi", "tanggalKontrak",
     "namaPengadaan", "keterangan", "marketing", "bendera",
     "tanggalPenyerahan", "catatan", "pic", "tanggalBerakhirKontrak",
-    "perusahaan", "status", "dokSales",
+    "perusahaan", "status", "dokSales", "statusBuktiPotong",
   ];
 
   for (const f of stringFields) {
@@ -142,6 +142,28 @@ export async function PUT(
       );
     }
     setPayload.nominalKontrak = nom;
+  }
+
+  if (body.biayaLainnya !== undefined) {
+    const b = Number(body.biayaLainnya) || 0;
+    if (b < 0) {
+      return NextResponse.json(
+        { error: "Biaya lainnya tidak boleh bernilai negatif" },
+        { status: 400 },
+      );
+    }
+    setPayload.biayaLainnya = b;
+  }
+
+  if (body.pajak !== undefined) {
+    const p = Number(body.pajak) || 0;
+    if (p < 0) {
+      return NextResponse.json(
+        { error: "Pajak tidak boleh bernilai negatif" },
+        { status: 400 },
+      );
+    }
+    setPayload.pajak = p;
   }
 
   const tglKontrak = setPayload.tanggalKontrak !== undefined ? setPayload.tanggalKontrak : existing.tanggalKontrak;
@@ -264,6 +286,9 @@ export async function PUT(
     pic: "PIC",
     status: "Status",
     dokSales: "Dokumen Sales",
+    biayaLainnya: "Biaya Lainnya",
+    pajak: "Pajak",
+    statusBuktiPotong: "Status Bukti Potong Pajak",
   };
 
   const changes: {
@@ -297,6 +322,32 @@ export async function PUT(
         label: "Nominal Kontrak",
         oldValue: `Rp ${oldNom.toLocaleString("id-ID")}`,
         newValue: `Rp ${newNom.toLocaleString("id-ID")}`,
+      });
+    }
+  }
+
+  if (setPayload.biayaLainnya !== undefined) {
+    const oldB = Number(existing.biayaLainnya) || 0;
+    const newB = Number(setPayload.biayaLainnya) || 0;
+    if (oldB !== newB) {
+      changes.push({
+        field: "biayaLainnya",
+        label: "Biaya Lainnya",
+        oldValue: `Rp ${oldB.toLocaleString("id-ID")}`,
+        newValue: `Rp ${newB.toLocaleString("id-ID")}`,
+      });
+    }
+  }
+
+  if (setPayload.pajak !== undefined) {
+    const oldP = Number(existing.pajak) || 0;
+    const newP = Number(setPayload.pajak) || 0;
+    if (oldP !== newP) {
+      changes.push({
+        field: "pajak",
+        label: "Pajak",
+        oldValue: `Rp ${oldP.toLocaleString("id-ID")}`,
+        newValue: `Rp ${newP.toLocaleString("id-ID")}`,
       });
     }
   }

@@ -1,4 +1,4 @@
-export type ProjectStatus = "DONE PROJECT" | "PENAGIHAN" | "PENDING";
+export type ProjectStatus = "DONE PROJECT" | "PENAGIHAN" | "PENDING" | "CANCEL";
 
 export type StatusSuggestion = {
   status: ProjectStatus;
@@ -9,6 +9,7 @@ export type StatusSuggestion = {
 /**
  * Menghitung usulan status otomatis untuk suatu project/kontrak.
  * Aturan bisnis:
+ * 0. CANCEL: Project dibatalkan.
  * 1. DONE PROJECT: Pembayaran telah LUNAS dan dokumentasi project sudah diupload / disetujui.
  * 2. PENDING: Dokumentasi ditolak oleh admin (menunggu revisi sales) atau ada penangguhan.
  * 3. PENAGIHAN: Belum lunas (masih ada sisa tagihan) atau menunggu proses pembayaran.
@@ -20,6 +21,15 @@ export function getSuggestedProjectStatus(contract: {
   dokSales?: string;
 }): StatusSuggestion {
   const currentStatus = (contract.status || "PENAGIHAN").trim().toUpperCase();
+
+  if (currentStatus === "CANCEL") {
+    return {
+      status: "CANCEL",
+      reason: "Project berstatus CANCEL (Dibatalkan).",
+      isMatch: true,
+    };
+  }
+
   const nominal = Number(contract.nominalKontrak) || 0;
   const totalBayar = (contract.pembayaran || []).reduce(
     (sum, p) => sum + (Number(p.jumlah) || 0),

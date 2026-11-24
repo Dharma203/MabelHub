@@ -34,6 +34,8 @@ import {
   Download,
   History,
   Save,
+  ArrowRight,
+  Filter,
 } from "lucide-react";
 import { getSuggestedProjectStatus } from "@/lib/project-status-helper";
 import { buildDataProjectWorkbook } from "@/lib/data-project-export";
@@ -68,6 +70,30 @@ export type PembayaranAuditItem = {
   reason?: string;
 };
 
+export type HistoryChange = {
+  field: string;
+  label: string;
+  oldValue: string;
+  newValue: string;
+};
+
+export type HistoryEntry = {
+  id: string;
+  at: string | Date;
+  by: string;
+  role?: string;
+  action: "CREATE" | "UPDATE" | "DELETE" | "BULK_UPDATE" | string;
+  changes?: HistoryChange[];
+  note?: string;
+};
+
+const HISTORY_ACTION_META: Record<string, { label: string; cls: string }> = {
+  CREATE: { label: "Kontrak Dibuat", cls: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+  UPDATE: { label: "Perubahan Data", cls: "bg-blue-50 text-blue-700 border border-blue-200" },
+  DELETE: { label: "Data Dihapus", cls: "bg-rose-50 text-rose-700 border border-rose-200" },
+  BULK_UPDATE: { label: "Perubahan Massal", cls: "bg-violet-50 text-violet-700 border border-violet-200" },
+};
+
 type Penagihan = {
   tanggalMulai?: string;
   tanggalBerakhir?: string;
@@ -82,15 +108,19 @@ type Contract = {
   tanggalKontrak?: string;
   namaPengadaan?: string;
   nominalKontrak?: number;
+  biayaLainnya?: number;
+  pajak?: number;
   bendera?: string;
   marketing?: string;
   pic?: string;
   tanggalBerakhirKontrak?: string;
   status?: string;
+  statusBuktiPotong?: string;
   dokSales?: string;
   penagihan?: Penagihan;
   pembayaran?: PembayaranItem[];
   pembayaranAudit?: PembayaranAuditItem[];
+  history?: HistoryEntry[];
   [key: string]: any;
 };
 
@@ -119,6 +149,9 @@ type SortField =
   | "nomorKontrak"
   | "tanggalKontrak"
   | "nominalKontrak"
+  | "biayaLainnya"
+  | "pajak"
+  | "statusBuktiPotong"
   | "terbayar"
   | "sisa"
   | "pic"
@@ -157,6 +190,20 @@ function fmtCurrencyWithZero(n?: number) {
   return `Rp ${n.toLocaleString("id-ID")}`;
 }
 
+function fmtDateTime(d?: string | Date) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return String(d);
+  return `${dt.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })} ${dt.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })} WIB`;
+}
+
 function DataProjectContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -177,6 +224,8 @@ function DataProjectContent() {
   const [filterPic, setFilterPic] = useState("Semua");
   const [filterStatus, setFilterStatus] = useState("Semua");
   const [filterDokSales, setFilterDokSales] = useState("Semua");
+  const [filterSisaPenagihan, setFilterSisaPenagihan] = useState("Semua");
+  const [filterSisaPajak, setFilterSisaPajak] = useState("Semua");
 
   // Sorting
   const [sortField, setSortField] = useState<SortField>("tanggalKontrak");
@@ -232,14 +281,45 @@ function DataProjectContent() {
     };
   }, [selectedDetail?.nomorKontrak]);
 
-  // Edit Modal State (hanya ubah status)
+  // Edit Modal State (status & finansial)
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [editStatus, setEditStatus] = useState("PENAGIHAN");
+  const [editStatusBuktiPotong, setEditStatusBuktiPotong] = useState("Belum Diterima");
   const [editDokSales, setEditDokSales] = useState("Proses Verifikasi");
   const [editAlasanPenolakan, setEditAlasanPenolakan] = useState("");
+  const [editBiayaLainnya, setEditBiayaLainnya] = useState<number>(0);
+  const [editPajak, setEditPajak] = useState<number>(0);
   const [savingEdit, setSavingEdit] = useState(false);
   const [modalError, setModalError] = useState("");
   const [modalSuccess, setModalSuccess] = useState("");
+
+  // Inline input state for Biaya Lainnya & Pajak di tabel
+  const [inlineFinancialDrafts, setInlineFinancialDrafts] = useState<
+    Record<string, { biayaLainnya?: string; pajak?: string }>
+  >({});
+  const [savingInlineField, setSavingInlineField] = useState<string | null>(null);
+  const [savedInlineField, setSavedInlineField] = useState<string | null>(null);
+
+  // History Modal State (muncul saat kolom diklik)
+  const [selectedHistory, setSelectedHistory] = useState<{
+    contract: Contract;
+    focusedField?: string;
+    focusedLabel?: string;
+  } | null>(null);
+  const [activeHistoryFilter, setActiveHistoryFilter] = useState<string>("ALL");
+
+  const openColumnHistory = (
+    c: Contract,
+    focusedField?: string,
+    focusedLabel?: string
+  ) => {
+    setSelectedHistory({
+      contract: c,
+      focusedField,
+      focusedLabel,
+    });
+    setActiveHistoryFilter(focusedField || "ALL");
+  };
 
   // Quick Verification State (di dalam modal detail)
   const [verifyingDok, setVerifyingDok] = useState(false);
@@ -306,6 +386,8 @@ function DataProjectContent() {
       if (filterBendera !== "Semua") activeFilters.push({ label: "Bendera / PT", value: filterBendera });
       if (filterPic !== "Semua") activeFilters.push({ label: "PIC Admin", value: filterPic });
       if (filterDokSales !== "Semua") activeFilters.push({ label: "Dokumen Sales", value: filterDokSales });
+      if (filterSisaPenagihan !== "Semua") activeFilters.push({ label: "Sisa Penagihan", value: filterSisaPenagihan });
+      if (filterSisaPajak !== "Semua") activeFilters.push({ label: "Sisa Penagihan Pajak", value: filterSisaPajak });
       if (searchTerm.trim()) activeFilters.push({ label: "Pencarian", value: searchTerm.trim() });
 
       const wb = buildDataProjectWorkbook(sortedContracts, {
@@ -344,6 +426,8 @@ function DataProjectContent() {
     setFilterPic("Semua");
     setFilterStatus("Semua");
     setFilterDokSales("Semua");
+    setFilterSisaPenagihan("Semua");
+    setFilterSisaPajak("Semua");
     setCurrentPage(1);
   };
 
@@ -373,7 +457,7 @@ function DataProjectContent() {
   }, [contracts]);
 
   const uniqueStatus = useMemo(() => {
-    const set = new Set<string>(["PENAGIHAN", "DONE PROJECT", "PENDING"]);
+    const set = new Set<string>(["PENAGIHAN", "DONE PROJECT", "PENDING", "CANCEL"]);
     contracts.forEach((c) => {
       if (c.status) set.add(c.status);
     });
@@ -434,6 +518,33 @@ function DataProjectContent() {
         }
       }
 
+      // Filter Sisa Penagihan
+      if (filterSisaPenagihan !== "Semua") {
+        const nominal = Number(c.nominalKontrak) || 0;
+        const terbayar = getTotalTerbayar(c);
+        const sisa = Math.max(0, nominal - terbayar);
+        if (filterSisaPenagihan === "Ada Sisa") {
+          if (nominal <= 0 || sisa <= 0) return false;
+        } else if (filterSisaPenagihan === "Lunas") {
+          if (nominal <= 0 || sisa > 0) return false;
+        } else if (filterSisaPenagihan === "Belum Ada Nominal") {
+          if (nominal > 0) return false;
+        }
+      }
+
+      // Filter Status Sisa Penagihan Pajak
+      if (filterSisaPajak !== "Semua") {
+        const p = Number(c.pajak) || 0;
+        const bpVal = c.statusBuktiPotong || "Belum Diterima";
+        if (filterSisaPajak === "Ada Sisa Pajak") {
+          if (p <= 0 || bpVal === "Sudah Diterima") return false;
+        } else if (filterSisaPajak === "Pajak Selesai") {
+          if (p <= 0 || bpVal !== "Sudah Diterima") return false;
+        } else if (filterSisaPajak === "Tanpa Pajak") {
+          if (p > 0) return false;
+        }
+      }
+
       return true;
     });
   }, [
@@ -446,6 +557,8 @@ function DataProjectContent() {
     filterPic,
     filterStatus,
     filterDokSales,
+    filterSisaPenagihan,
+    filterSisaPajak,
   ]);
 
   const sortedContracts = useMemo(() => {
@@ -477,6 +590,18 @@ function DataProjectContent() {
         case "nominalKontrak":
           valA = a.nominalKontrak || 0;
           valB = b.nominalKontrak || 0;
+          break;
+        case "biayaLainnya":
+          valA = a.biayaLainnya || 0;
+          valB = b.biayaLainnya || 0;
+          break;
+        case "pajak":
+          valA = a.pajak || 0;
+          valB = b.pajak || 0;
+          break;
+        case "statusBuktiPotong":
+          valA = a.statusBuktiPotong || "Belum Diterima";
+          valB = b.statusBuktiPotong || "Belum Diterima";
           break;
         case "terbayar":
           valA = getTotalTerbayar(a);
@@ -532,7 +657,7 @@ function DataProjectContent() {
     }
   };
 
-  // Open Edit Modal (hanya status)
+  // Open Edit Modal (status & finansial)
   const openEditModal = (c: Contract) => {
     setEditingContract(c);
     const suggestion = getSuggestedProjectStatus(c);
@@ -549,7 +674,10 @@ function DataProjectContent() {
           ? "Proses Verifikasi"
           : "Disetujui";
     setEditDokSales(dokVal);
+    setEditStatusBuktiPotong(c.statusBuktiPotong || "Belum Diterima");
     setEditAlasanPenolakan(c.alasanPenolakan || c.dokVerifikasi?.alasanPenolakan || "");
+    setEditBiayaLainnya(c.biayaLainnya || 0);
+    setEditPajak(c.pajak || 0);
     setModalError("");
     setModalSuccess("");
   };
@@ -584,7 +712,102 @@ function DataProjectContent() {
     }
   };
 
-  // Save Modal (hanya update status)
+  // Simpan input Biaya Lainnya / Pajak secara inline dari tabel
+  const handleSaveInlineFinancial = async (
+    targetContract: Contract,
+    field: "biayaLainnya" | "pajak",
+    value: number
+  ) => {
+    const currentVal = targetContract[field] || 0;
+    if (value === currentVal) return;
+
+    const key = `${targetContract.nomorKontrak}_${field}`;
+    setSavingInlineField(key);
+    try {
+      const res = await fetch(
+        `/api/contracts/${encodeURIComponent(targetContract.nomorKontrak)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [field]: value }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal menyimpan perubahan");
+
+      setContracts((prev) =>
+        prev.map((c) =>
+          c.nomorKontrak === targetContract.nomorKontrak
+            ? { ...c, [field]: value }
+            : c
+        )
+      );
+
+      if (selectedDetail && selectedDetail.nomorKontrak === targetContract.nomorKontrak) {
+        setSelectedDetail((prev) => (prev ? { ...prev, [field]: value } : null));
+      }
+      if (editingContract && editingContract.nomorKontrak === targetContract.nomorKontrak) {
+        setEditingContract((prev) => (prev ? { ...prev, [field]: value } : null));
+      }
+      if (selectedHistory && selectedHistory.contract.nomorKontrak === targetContract.nomorKontrak) {
+        setSelectedHistory((prev) =>
+          prev ? { ...prev, contract: { ...prev.contract, [field]: value, ...(json.data || {}) } } : null
+        );
+      }
+
+      setSavedInlineField(key);
+      setTimeout(() => {
+        setSavedInlineField((cur) => (cur === key ? null : cur));
+      }, 2000);
+    } catch (err: any) {
+      alert(err.message || "Gagal menyimpan data");
+    } finally {
+      setSavingInlineField((cur) => (cur === key ? null : cur));
+    }
+  };
+
+  // Toggle cepat status Bukti Potong Pajak
+  const handleToggleBuktiPotong = async (targetContract: Contract) => {
+    const currentVal = targetContract.statusBuktiPotong || "Belum Diterima";
+    const nextVal = currentVal === "Sudah Diterima" ? "Belum Diterima" : "Sudah Diterima";
+    const key = `${targetContract.nomorKontrak}_statusBuktiPotong`;
+    setSavingInlineField(key);
+    try {
+      const res = await fetch(
+        `/api/contracts/${encodeURIComponent(targetContract.nomorKontrak)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ statusBuktiPotong: nextVal }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal mengubah status bukti potong pajak");
+
+      setContracts((prev) =>
+        prev.map((c) =>
+          c.nomorKontrak === targetContract.nomorKontrak
+            ? { ...c, statusBuktiPotong: nextVal }
+            : c
+        )
+      );
+      if (selectedDetail && selectedDetail.nomorKontrak === targetContract.nomorKontrak) {
+        setSelectedDetail((prev) => (prev ? { ...prev, statusBuktiPotong: nextVal } : null));
+      }
+      if (editingContract && editingContract.nomorKontrak === targetContract.nomorKontrak) {
+        setEditStatusBuktiPotong(nextVal);
+      }
+      if (selectedHistory && selectedHistory.contract.nomorKontrak === targetContract.nomorKontrak) {
+        setSelectedHistory((prev) => (prev ? { ...prev, contract: { ...prev.contract, statusBuktiPotong: nextVal } } : null));
+      }
+    } catch (err: any) {
+      alert(err.message || "Gagal mengubah status bukti potong pajak");
+    } finally {
+      setSavingInlineField((cur) => (cur === key ? null : cur));
+    }
+  };
+
+  // Save Modal (update status & finansial)
   const handleSaveModal = async () => {
     if (!editingContract) return;
     setSavingEdit(true);
@@ -592,8 +815,11 @@ function DataProjectContent() {
     setModalSuccess("");
 
     try {
-      const payload: Record<string, string> = {
+      const payload: Record<string, any> = {
         status: editStatus,
+        statusBuktiPotong: editStatusBuktiPotong,
+        biayaLainnya: editBiayaLainnya,
+        pajak: editPajak,
       };
       // Status dokumen hanya bisa diubah jika dokumen sudah diupload
       if (editingContract.dokSales !== "Belum Upload") {
@@ -626,6 +852,9 @@ function DataProjectContent() {
             ? {
                 ...c,
                 status: editStatus,
+                statusBuktiPotong: editStatusBuktiPotong,
+                biayaLainnya: editBiayaLainnya,
+                pajak: editPajak,
                 ...(payload.dokSales ? { dokSales: payload.dokSales } : {}),
                 ...(payload.dokSales === "Ditolak"
                   ? { alasanPenolakan: payload.alasanPenolakan }
@@ -642,6 +871,9 @@ function DataProjectContent() {
             ? {
                 ...prev,
                 status: editStatus,
+                statusBuktiPotong: editStatusBuktiPotong,
+                biayaLainnya: editBiayaLainnya,
+                pajak: editPajak,
                 ...(payload.dokSales ? { dokSales: payload.dokSales } : {}),
                 ...(payload.dokSales === "Ditolak"
                   ? { alasanPenolakan: payload.alasanPenolakan }
@@ -649,6 +881,28 @@ function DataProjectContent() {
                 ...json.data,
               }
             : prev
+        );
+      }
+
+      if (selectedHistory && selectedHistory.contract.nomorKontrak === editingContract.nomorKontrak) {
+        setSelectedHistory((prev) =>
+          prev
+            ? {
+                ...prev,
+                contract: {
+                  ...prev.contract,
+                  status: editStatus,
+                  statusBuktiPotong: editStatusBuktiPotong,
+                  biayaLainnya: editBiayaLainnya,
+                  pajak: editPajak,
+                  ...(payload.dokSales ? { dokSales: payload.dokSales } : {}),
+                  ...(payload.dokSales === "Ditolak"
+                    ? { alasanPenolakan: payload.alasanPenolakan }
+                    : { alasanPenolakan: "" }),
+                  ...json.data,
+                },
+              }
+            : null
         );
       }
 
@@ -926,6 +1180,21 @@ function DataProjectContent() {
             : null
         );
       }
+      if (selectedHistory && selectedHistory.contract.nomorKontrak === targetContract.nomorKontrak) {
+        setSelectedHistory((prev) =>
+          prev
+            ? {
+                ...prev,
+                contract: {
+                  ...prev.contract,
+                  pembayaran: updatedPayments,
+                  ...(shouldAutoDone ? { status: "DONE PROJECT" } : {}),
+                  ...(json.data ? json.data : {}),
+                },
+              }
+            : null
+        );
+      }
 
       setPaymentSuccess(
         shouldAutoDone
@@ -1010,6 +1279,11 @@ function DataProjectContent() {
       if (paymentContract && paymentContract.nomorKontrak === targetContract.nomorKontrak) {
         setPaymentContract((prev) =>
           prev ? { ...prev, ...stateUpdate } : null
+        );
+      }
+      if (selectedHistory && selectedHistory.contract.nomorKontrak === targetContract.nomorKontrak) {
+        setSelectedHistory((prev) =>
+          prev ? { ...prev, contract: { ...prev.contract, ...stateUpdate, ...(json.data || {}) } } : null
         );
       }
 
@@ -1152,6 +1426,11 @@ function DataProjectContent() {
           prev ? { ...prev, ...stateUpdate } : null
         );
       }
+      if (selectedHistory && selectedHistory.contract.nomorKontrak === targetContract.nomorKontrak) {
+        setSelectedHistory((prev) =>
+          prev ? { ...prev, contract: { ...prev.contract, ...stateUpdate, ...(json.data || {}) } } : null
+        );
+      }
 
       setEditingPayment(null);
       setPaymentSuccess("Pembayaran berhasil diperbarui.");
@@ -1287,7 +1566,7 @@ function DataProjectContent() {
         </div>
 
         {/* Row 2: Dropdowns & Reset */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-1 items-end">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 pt-1 items-end">
           {/* Marketing */}
           <div>
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 block">
@@ -1398,6 +1677,46 @@ function DataProjectContent() {
             </select>
           </div>
 
+          {/* Sisa Penagihan */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 block whitespace-nowrap">
+              SISA PENAGIHAN
+            </label>
+            <select
+              value={filterSisaPenagihan}
+              onChange={(e) => {
+                setFilterSisaPenagihan(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+            >
+              <option value="Semua">Semua</option>
+              <option value="Ada Sisa">Ada Sisa</option>
+              <option value="Lunas">Lunas</option>
+              <option value="Belum Ada Nominal">Belum Ada Nominal</option>
+            </select>
+          </div>
+
+          {/* Sisa Penagihan Pajak */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 block whitespace-nowrap">
+              SISA PENAGIHAN PAJAK
+            </label>
+            <select
+              value={filterSisaPajak}
+              onChange={(e) => {
+                setFilterSisaPajak(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+            >
+              <option value="Semua">Semua</option>
+              <option value="Ada Sisa Pajak">Ada Sisa Pajak</option>
+              <option value="Pajak Selesai">Pajak Selesai</option>
+              <option value="Tanpa Pajak">Tanpa Pajak</option>
+            </select>
+          </div>
+
           {/* Reset Filter Button */}
           <div>
             <button
@@ -1474,6 +1793,33 @@ function DataProjectContent() {
                   </div>
                 </th>
                 <th
+                  onClick={() => handleSort("biayaLainnya")}
+                  className="py-3.5 px-3.5 font-bold text-[11px] tracking-wider uppercase cursor-pointer hover:text-blue-600 transition-colors select-none whitespace-nowrap text-right"
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>BIAYA LAINNYA</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort("pajak")}
+                  className="py-3.5 px-3.5 font-bold text-[11px] tracking-wider uppercase cursor-pointer hover:text-blue-600 transition-colors select-none whitespace-nowrap text-right"
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>PAJAK</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort("statusBuktiPotong")}
+                  className="py-3.5 px-3.5 font-bold text-[11px] tracking-wider uppercase cursor-pointer hover:text-blue-600 transition-colors select-none whitespace-nowrap text-center"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>BUKTI POTONG PAJAK</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </th>
+                <th
                   onClick={() => handleSort("terbayar")}
                   className="py-3.5 px-3.5 font-bold text-[11px] tracking-wider uppercase cursor-pointer hover:text-blue-600 transition-colors select-none whitespace-nowrap text-right"
                 >
@@ -1527,7 +1873,7 @@ function DataProjectContent() {
               {paginatedContracts.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={13}
+                    colSpan={16}
                     className="py-16 text-center text-slate-400 font-medium"
                   >
                     <div className="flex flex-col items-center justify-center gap-2">
@@ -1548,46 +1894,296 @@ function DataProjectContent() {
                   return (
                     <tr
                       key={c.nomorKontrak || idx}
-                      onClick={() => setSelectedDetail(c)}
-                      className="hover:bg-blue-50/60 cursor-pointer transition-colors group"
+                      className="hover:bg-blue-50/40 transition-colors group"
                     >
                       {/* NO */}
-                      <td className="py-4 px-3 text-center text-xs font-semibold text-slate-400">
+                      <td
+                        onClick={() => openColumnHistory(c, undefined, "Semua Kolom")}
+                        className="py-4 px-3 text-center text-xs font-semibold text-slate-400 cursor-pointer hover:bg-blue-100/50 hover:text-blue-600 transition-colors"
+                        title="Klik untuk melihat riwayat perubahan data kontrak"
+                      >
                         {rowNumber}
                       </td>
 
                       {/* MARKETING */}
-                      <td className="py-4 px-3.5 font-semibold text-slate-800">
-                        {c.marketing || "—"}
+                      <td
+                        onClick={() => openColumnHistory(c, "marketing", "Marketing / Sales")}
+                        className="py-4 px-3.5 font-semibold text-slate-800 cursor-pointer hover:bg-blue-100/50 hover:text-blue-600 transition-colors"
+                        title="Klik untuk melihat riwayat perubahan Marketing"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span>{c.marketing || "—"}</span>
+                          <History className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </td>
 
                       {/* BENDERA */}
-                      <td className="py-4 px-3.5 text-slate-600 font-medium">
-                        {c.bendera || "—"}
+                      <td
+                        onClick={() => openColumnHistory(c, "bendera", "Bendera / PT")}
+                        className="py-4 px-3.5 text-slate-600 font-medium cursor-pointer hover:bg-blue-100/50 hover:text-blue-600 transition-colors"
+                        title="Klik untuk melihat riwayat perubahan Bendera"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span>{c.bendera || "—"}</span>
+                          <History className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </td>
 
                       {/* INSTANSI */}
-                      <td className="py-4 px-3.5 font-semibold text-slate-900 max-w-xs truncate" title={c.instansi}>
-                        {c.instansi || "—"}
+                      <td
+                        onClick={() => openColumnHistory(c, "instansi", "Instansi")}
+                        className="py-4 px-3.5 font-semibold text-slate-900 max-w-xs truncate cursor-pointer hover:bg-blue-100/50 hover:text-blue-600 transition-colors"
+                        title={`Klik untuk melihat riwayat perubahan Instansi: ${c.instansi || ""}`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="truncate">{c.instansi || "—"}</span>
+                          <History className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                        </div>
                       </td>
 
                       {/* NO KONTRAK */}
-                      <td className="py-4 px-3.5 font-mono text-xs text-slate-700 whitespace-nowrap">
-                        {c.nomorKontrak || "—"}
+                      <td
+                        onClick={() => openColumnHistory(c, "nomorKontrak", "No. Kontrak / SPK")}
+                        className="py-4 px-3.5 font-mono text-xs text-slate-700 whitespace-nowrap cursor-pointer hover:bg-blue-100/50 hover:text-blue-600 transition-colors"
+                        title="Klik untuk melihat riwayat perubahan No. Kontrak"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span>{c.nomorKontrak || "—"}</span>
+                          <History className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </td>
 
                       {/* TGL KONTRAK */}
-                      <td className="py-4 px-3.5 text-slate-600 whitespace-nowrap">
-                        {fmtDate(c.tanggalKontrak)}
+                      <td
+                        onClick={() => openColumnHistory(c, "tanggalKontrak", "Tanggal Kontrak")}
+                        className="py-4 px-3.5 text-slate-600 whitespace-nowrap cursor-pointer hover:bg-blue-100/50 hover:text-blue-600 transition-colors"
+                        title="Klik untuk melihat riwayat perubahan Tanggal Kontrak"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span>{fmtDate(c.tanggalKontrak)}</span>
+                          <History className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </td>
 
                       {/* NILAI PENGADAAN */}
-                      <td className="py-4 px-3.5 font-bold text-slate-800 whitespace-nowrap">
-                        {fmtCurrency(c.nominalKontrak)}
+                      <td
+                        onClick={() => openColumnHistory(c, "nominalKontrak", "Nilai Pengadaan")}
+                        className="py-4 px-3.5 font-bold text-slate-800 whitespace-nowrap cursor-pointer hover:bg-blue-100/50 hover:text-blue-600 transition-colors"
+                        title="Klik untuk melihat riwayat perubahan Nilai Pengadaan"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span>{fmtCurrency(c.nominalKontrak)}</span>
+                          <History className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </td>
+
+                      {/* BIAYA LAINNYA (KOLOM INPUT) */}
+                      <td
+                        className="py-3 px-3.5 whitespace-nowrap hover:bg-blue-50/80 transition-colors cursor-pointer"
+                        onClick={() => openColumnHistory(c, "biayaLainnya", "Biaya Lainnya")}
+                        title="Klik untuk melihat riwayat perubahan Biaya Lainnya"
+                      >
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <div className="relative flex items-center min-w-[125px] max-w-[150px]">
+                            <span className="absolute left-2.5 text-[10px] font-bold text-slate-400 select-none pointer-events-none">
+                              Rp
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="0"
+                              value={
+                                inlineFinancialDrafts[c.nomorKontrak]?.biayaLainnya !== undefined
+                                  ? inlineFinancialDrafts[c.nomorKontrak]?.biayaLainnya
+                                  : (c.biayaLainnya || 0) > 0
+                                    ? (c.biayaLainnya || 0).toLocaleString("id-ID")
+                                    : ""
+                              }
+                              onChange={(e) => {
+                                const text = e.target.value;
+                                const digits = text.replace(/\D/g, "");
+                                const num = digits ? parseInt(digits, 10) : 0;
+                                setInlineFinancialDrafts((prev) => ({
+                                  ...prev,
+                                  [c.nomorKontrak]: {
+                                    ...prev[c.nomorKontrak],
+                                    biayaLainnya: num > 0 ? num.toLocaleString("id-ID") : "",
+                                  },
+                                }));
+                              }}
+                              onBlur={() => {
+                                const draftStr = inlineFinancialDrafts[c.nomorKontrak]?.biayaLainnya;
+                                if (draftStr !== undefined) {
+                                  const digits = draftStr.replace(/\D/g, "");
+                                  const num = digits ? parseInt(digits, 10) : 0;
+                                  handleSaveInlineFinancial(c, "biayaLainnya", num);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.currentTarget.blur();
+                                }
+                              }}
+                              title="Input Biaya Lainnya (Tekan Enter atau klik di luar untuk simpan)"
+                              className={`w-full pl-8 pr-7 py-1.5 bg-slate-50 hover:bg-white focus:bg-white border rounded-lg text-xs font-semibold text-slate-800 focus:outline-none transition-all ${
+                                savingInlineField === `${c.nomorKontrak}_biayaLainnya`
+                                  ? "border-blue-400 ring-2 ring-blue-500/20"
+                                  : savedInlineField === `${c.nomorKontrak}_biayaLainnya`
+                                    ? "border-emerald-400 bg-emerald-50/40 ring-2 ring-emerald-500/20"
+                                    : "border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                              }`}
+                            />
+                            <div className="absolute right-2 flex items-center pointer-events-none">
+                              {savingInlineField === `${c.nomorKontrak}_biayaLainnya` ? (
+                                <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+                              ) : savedInlineField === `${c.nomorKontrak}_biayaLainnya` ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : null}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openColumnHistory(c, "biayaLainnya", "Biaya Lainnya");
+                            }}
+                            className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                            title="Lihat riwayat perubahan Biaya Lainnya"
+                          >
+                            <History className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* PAJAK (KOLOM INPUT) */}
+                      <td
+                        className="py-3 px-3.5 whitespace-nowrap hover:bg-blue-50/80 transition-colors cursor-pointer"
+                        onClick={() => openColumnHistory(c, "pajak", "Pajak")}
+                        title="Klik untuk melihat riwayat perubahan Pajak"
+                      >
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <div className="relative flex items-center min-w-[125px] max-w-[150px]">
+                            <span className="absolute left-2.5 text-[10px] font-bold text-slate-400 select-none pointer-events-none">
+                              Rp
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="0"
+                              value={
+                                inlineFinancialDrafts[c.nomorKontrak]?.pajak !== undefined
+                                  ? inlineFinancialDrafts[c.nomorKontrak]?.pajak
+                                  : (c.pajak || 0) > 0
+                                    ? (c.pajak || 0).toLocaleString("id-ID")
+                                    : ""
+                              }
+                              onChange={(e) => {
+                                const text = e.target.value;
+                                const digits = text.replace(/\D/g, "");
+                                const num = digits ? parseInt(digits, 10) : 0;
+                                setInlineFinancialDrafts((prev) => ({
+                                  ...prev,
+                                  [c.nomorKontrak]: {
+                                    ...prev[c.nomorKontrak],
+                                    pajak: num > 0 ? num.toLocaleString("id-ID") : "",
+                                  },
+                                }));
+                              }}
+                              onBlur={() => {
+                                const draftStr = inlineFinancialDrafts[c.nomorKontrak]?.pajak;
+                                if (draftStr !== undefined) {
+                                  const digits = draftStr.replace(/\D/g, "");
+                                  const num = digits ? parseInt(digits, 10) : 0;
+                                  handleSaveInlineFinancial(c, "pajak", num);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.currentTarget.blur();
+                                }
+                              }}
+                              title="Input Pajak (Tekan Enter atau klik di luar untuk simpan)"
+                              className={`w-full pl-8 pr-7 py-1.5 bg-slate-50 hover:bg-white focus:bg-white border rounded-lg text-xs font-semibold text-slate-800 focus:outline-none transition-all ${
+                                savingInlineField === `${c.nomorKontrak}_pajak`
+                                  ? "border-blue-400 ring-2 ring-blue-500/20"
+                                  : savedInlineField === `${c.nomorKontrak}_pajak`
+                                    ? "border-emerald-400 bg-emerald-50/40 ring-2 ring-emerald-500/20"
+                                    : "border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                              }`}
+                            />
+                            <div className="absolute right-2 flex items-center pointer-events-none">
+                              {savingInlineField === `${c.nomorKontrak}_pajak` ? (
+                                <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+                              ) : savedInlineField === `${c.nomorKontrak}_pajak` ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : null}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openColumnHistory(c, "pajak", "Pajak");
+                            }}
+                            className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                            title="Lihat riwayat perubahan Pajak"
+                          >
+                            <History className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* BUKTI POTONG PAJAK */}
+                      <td
+                        onClick={() => openColumnHistory(c, "statusBuktiPotong", "Bukti Potong Pajak")}
+                        className="py-4 px-3.5 text-center whitespace-nowrap cursor-pointer hover:bg-blue-100/50 transition-colors"
+                        title="Klik untuk melihat riwayat perubahan Bukti Potong Pajak"
+                      >
+                        {(c.pajak || 0) > 0 ? (
+                          <div className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleBuktiPotong(c)}
+                              disabled={savingInlineField === `${c.nomorKontrak}_statusBuktiPotong`}
+                              className={`px-2.5 py-1 rounded-full text-xs font-bold border transition-all inline-flex items-center gap-1.5 shadow-2xs hover:scale-105 active:scale-95 cursor-pointer ${
+                                (c.statusBuktiPotong || "Belum Diterima") === "Sudah Diterima"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                  : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                              }`}
+                              title="Klik untuk mengubah status Bukti Potong Pajak"
+                            >
+                              {savingInlineField === `${c.nomorKontrak}_statusBuktiPotong` ? (
+                                <Loader2 className="w-3 h-3 animate-spin text-slate-500" />
+                              ) : (c.statusBuktiPotong || "Belum Diterima") === "Sudah Diterima" ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <Clock className="w-3.5 h-3.5 text-amber-500" />
+                              )}
+                              <span>{c.statusBuktiPotong || "Belum Diterima"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openColumnHistory(c, "statusBuktiPotong", "Bukti Potong Pajak");
+                              }}
+                              className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                              title="Lihat riwayat perubahan Bukti Potong Pajak"
+                            >
+                              <History className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs font-mono">—</span>
+                        )}
                       </td>
 
                       {/* TERBAYAR */}
-                      <td className="py-4 px-3.5 text-right whitespace-nowrap">
+                      <td
+                        onClick={() => openColumnHistory(c, "pembayaran", "Pembayaran Terbayar")}
+                        className="py-4 px-3.5 text-right whitespace-nowrap cursor-pointer hover:bg-blue-100/50 transition-colors"
+                        title="Klik untuk melihat riwayat pembayaran"
+                      >
                         <div className="font-bold text-emerald-700">
                           {fmtCurrency(totalTerbayar)}
                         </div>
@@ -1599,7 +2195,11 @@ function DataProjectContent() {
                       </td>
 
                       {/* SISA TAGIHAN */}
-                      <td className="py-4 px-3.5 text-right whitespace-nowrap">
+                      <td
+                        onClick={() => openColumnHistory(c, "pembayaran", "Sisa Tagihan")}
+                        className="py-4 px-3.5 text-right whitespace-nowrap cursor-pointer hover:bg-blue-100/50 transition-colors"
+                        title="Klik untuk melihat riwayat pembayaran & sisa tagihan"
+                      >
                         {sisa <= 0 && (c.nominalKontrak || 0) > 0 ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             Lunas
@@ -1612,12 +2212,23 @@ function DataProjectContent() {
                       </td>
 
                       {/* PIC */}
-                      <td className="py-4 px-3.5 text-slate-700 uppercase font-semibold text-xs">
-                        {c.pic || "—"}
+                      <td
+                        onClick={() => openColumnHistory(c, "pic", "PIC Admin")}
+                        className="py-4 px-3.5 text-slate-700 uppercase font-semibold text-xs cursor-pointer hover:bg-blue-100/50 hover:text-blue-600 transition-colors"
+                        title="Klik untuk melihat riwayat perubahan PIC"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span>{c.pic || "—"}</span>
+                          <History className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </td>
 
                       {/* DOK. SALES */}
-                      <td className="py-4 px-3.5 whitespace-nowrap">
+                      <td
+                        onClick={() => openColumnHistory(c, "dokSales", "Dokumen Sales")}
+                        className="py-4 px-3.5 whitespace-nowrap cursor-pointer hover:bg-blue-100/50 transition-colors"
+                        title="Klik untuk melihat riwayat perubahan Dokumen Sales"
+                      >
                         {dokVal === "Disetujui" || dokVal === "Sudah Upload" ? (
                           <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -1645,7 +2256,11 @@ function DataProjectContent() {
                       </td>
 
                       {/* STATUS */}
-                      <td className="py-4 px-3.5 whitespace-nowrap">
+                      <td
+                        onClick={() => openColumnHistory(c, "status", "Status Project")}
+                        className="py-4 px-3.5 whitespace-nowrap cursor-pointer hover:bg-blue-100/50 transition-colors"
+                        title="Klik untuk melihat riwayat perubahan Status Project"
+                      >
                         <div className="flex flex-col items-start gap-1">
                           {statusVal === "DONE PROJECT" ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
@@ -1656,6 +2271,11 @@ function DataProjectContent() {
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
                               <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
                               PENAGIHAN
+                            </span>
+                          ) : statusVal === "CANCEL" ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                              CANCEL
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-50 text-slate-500 border border-slate-200">
@@ -1698,6 +2318,26 @@ function DataProjectContent() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              openColumnHistory(c);
+                            }}
+                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all shadow-2xs active:scale-90"
+                            title="Lihat Riwayat Perubahan Kontrak"
+                          >
+                            <History className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDetail(c);
+                            }}
+                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-2xs active:scale-90"
+                            title="Lihat Detail Lengkap Project"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               openPaymentModal(c);
                             }}
                             className="p-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-all shadow-2xs active:scale-90"
@@ -1711,7 +2351,7 @@ function DataProjectContent() {
                               openEditModal(c);
                             }}
                             className="p-1.5 rounded-lg border border-blue-200 bg-blue-50/50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-2xs active:scale-90"
-                            title="Ubah Status Project"
+                            title="Ubah Status / Finansial Project"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -1793,6 +2433,485 @@ function DataProjectContent() {
           </div>
         </div>
       </div>
+
+      {/* ─── Modal Riwayat Perubahan Kolom / Kontrak ─── */}
+      {selectedHistory && (() => {
+        const contract = selectedHistory.contract;
+        const historyList = contract.history || [];
+        const auditList = contract.pembayaranAudit || [];
+
+        // Definisi standar kolom tabel data project dengan matcher dan format nilai terkini
+        const STANDARD_COLUMN_FILTERS: {
+          key: string;
+          label: string;
+          matcher: (field: string) => boolean;
+          getCurrentValue: (contract: Contract) => string;
+        }[] = [
+          {
+            key: "nomorKontrak",
+            label: "No Kontrak",
+            matcher: (f) => f === "nomorKontrak" || f === "namaPengadaan",
+            getCurrentValue: (c) => c.nomorKontrak || "—",
+          },
+          {
+            key: "instansi",
+            label: "Instansi",
+            matcher: (f) => f === "instansi",
+            getCurrentValue: (c) => c.instansi || "—",
+          },
+          {
+            key: "marketing",
+            label: "Marketing",
+            matcher: (f) => f === "marketing",
+            getCurrentValue: (c) => c.marketing || "—",
+          },
+          {
+            key: "bendera",
+            label: "Bendera / PT",
+            matcher: (f) => f === "bendera" || f === "perusahaan",
+            getCurrentValue: (c) => c.bendera || c.perusahaan || "—",
+          },
+          {
+            key: "tanggalKontrak",
+            label: "Tgl Kontrak",
+            matcher: (f) =>
+              f === "tanggalKontrak" ||
+              f === "tanggalBerakhirKontrak" ||
+              f === "tanggalPenyerahan",
+            getCurrentValue: (c) => fmtDate(c.tanggalKontrak) || "—",
+          },
+          {
+            key: "nominalKontrak",
+            label: "Nilai Pengadaan",
+            matcher: (f) => f === "nominalKontrak",
+            getCurrentValue: (c) => fmtCurrencyWithZero(c.nominalKontrak || 0),
+          },
+          {
+            key: "biayaLainnya",
+            label: "Biaya Lainnya",
+            matcher: (f) => f === "biayaLainnya",
+            getCurrentValue: (c) => fmtCurrencyWithZero(c.biayaLainnya || 0),
+          },
+          {
+            key: "pajak",
+            label: "Pajak",
+            matcher: (f) => f === "pajak",
+            getCurrentValue: (c) => fmtCurrencyWithZero(c.pajak || 0),
+          },
+          {
+            key: "statusBuktiPotong",
+            label: "Bukti Potong Pajak",
+            matcher: (f) => f === "statusBuktiPotong",
+            getCurrentValue: (c) =>
+              (c.pajak || 0) > 0 ? c.statusBuktiPotong || "Belum Diterima" : "—",
+          },
+          {
+            key: "pembayaran",
+            label: "Pembayaran",
+            matcher: (f) => f === "pembayaran",
+            getCurrentValue: (c) =>
+              `Terbayar: ${fmtCurrencyWithZero(getTotalTerbayar(c))} (Sisa: ${fmtCurrencyWithZero(
+                Math.max(0, getSisaTagihan(c))
+              )})`,
+          },
+          {
+            key: "pic",
+            label: "PIC Admin",
+            matcher: (f) => f === "pic",
+            getCurrentValue: (c) => c.pic || "—",
+          },
+          {
+            key: "dokSales",
+            label: "Dok Sales",
+            matcher: (f) => f === "dokSales",
+            getCurrentValue: (c) => c.dokSales || "—",
+          },
+          {
+            key: "status",
+            label: "Status Project",
+            matcher: (f) => f === "status" || f === "alasanPenolakan",
+            getCurrentValue: (c) => c.status || "—",
+          },
+        ];
+
+        // Kumpulkan field ekstra bila ada field riwayat lain di luar 12 kolom standar
+        const extraFieldsSet = new Set<string>();
+        historyList.forEach((entry) => {
+          (entry.changes || []).forEach((ch) => {
+            if (
+              ch.field &&
+              !STANDARD_COLUMN_FILTERS.some((col) => col.matcher(ch.field))
+            ) {
+              extraFieldsSet.add(ch.field);
+            }
+          });
+        });
+
+        const extraColumns = Array.from(extraFieldsSet).map((f) => ({
+          key: f,
+          label: f.charAt(0).toUpperCase() + f.slice(1),
+          matcher: (x: string) => x === f,
+          getCurrentValue: (c: Contract) =>
+            (c as any)[f] !== undefined && (c as any)[f] !== null ? String((c as any)[f]) : "—",
+        }));
+
+        const allColumns = [...STANDARD_COLUMN_FILTERS, ...extraColumns];
+
+        // Hitung total perubahan per kolom untuk badge filter
+        const tabWithCounts = allColumns.map((col) => {
+          let count = 0;
+          historyList.forEach((entry) => {
+            (entry.changes || []).forEach((ch) => {
+              if (col.matcher(ch.field)) count++;
+            });
+          });
+          if (col.key === "pembayaran") {
+            count += auditList.length;
+          }
+          return { ...col, count };
+        });
+
+        const totalHistoryChanges =
+          historyList.reduce(
+            (acc, entry) => acc + (entry.changes ? entry.changes.length : 1),
+            0
+          ) + auditList.length;
+
+        const isAll = activeHistoryFilter === "ALL" || !activeHistoryFilter;
+        const activeCol = tabWithCounts.find((col) => col.key === activeHistoryFilter);
+
+        const filteredHistory = isAll
+          ? historyList
+          : historyList.filter((entry) =>
+              (entry.changes || []).some((ch) =>
+                activeCol ? activeCol.matcher(ch.field) : ch.field === activeHistoryFilter
+              )
+            );
+
+        const showPaymentAudit =
+          (isAll || activeHistoryFilter === "pembayaran") && auditList.length > 0;
+
+        const activeFilterLabel =
+          activeHistoryFilter === "ALL"
+            ? "Semua Kolom"
+            : activeCol?.label ||
+              selectedHistory.focusedLabel ||
+              activeHistoryFilter;
+
+        const hasAnyHistory = filteredHistory.length > 0 || showPaymentAudit;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-sm shadow-blue-500/20 flex-shrink-0">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                      <span>Riwayat Perubahan Data</span>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-extrabold bg-blue-100 text-blue-700 border border-blue-200">
+                        {activeFilterLabel}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 font-mono mt-0.5 truncate max-w-md">
+                      {contract.nomorKontrak} {contract.instansi ? `• ${contract.instansi}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedHistory(null)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                  title="Tutup"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Sub-header Filter Tabs per Kolom */}
+              <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-200/80 flex items-center gap-1.5 overflow-x-auto text-xs flex-shrink-0">
+                <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 whitespace-nowrap">
+                  <Filter className="w-3 h-3 text-slate-400" />
+                  <span>Kolom:</span>
+                </div>
+
+                {/* Tombol Semua Kolom */}
+                <button
+                  type="button"
+                  onClick={() => setActiveHistoryFilter("ALL")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    activeHistoryFilter === "ALL"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
+                  }`}
+                >
+                  <span>Semua Kolom</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                      activeHistoryFilter === "ALL"
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {totalHistoryChanges}
+                  </span>
+                </button>
+
+                {/* Tab untuk Setiap Kolom Tabel */}
+                {tabWithCounts.map((col) => {
+                  const isCurrent = activeHistoryFilter === col.key;
+                  const hasChanges = col.count > 0;
+
+                  return (
+                    <button
+                      key={col.key}
+                      type="button"
+                      onClick={() => setActiveHistoryFilter(col.key)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                        isCurrent
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : hasChanges
+                          ? "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
+                          : "bg-slate-50/80 border border-slate-200/60 text-slate-400 hover:text-slate-600 hover:bg-white"
+                      }`}
+                    >
+                      <span>{col.label}</span>
+                      <span
+                        className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                          isCurrent
+                            ? "bg-white/20 text-white"
+                            : hasChanges
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-slate-200/60 text-slate-400"
+                        }`}
+                      >
+                        {col.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Modal Body: Timeline Perubahan */}
+              <div className="overflow-y-auto p-6 space-y-4 flex-1 text-xs">
+                {!hasAnyHistory ? (
+                  <div className="text-center py-12 px-4 rounded-2xl bg-slate-50/70 border border-dashed border-slate-200">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                      <Clock className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">
+                      Belum Ada Riwayat Perubahan untuk {activeFilterLabel}
+                    </p>
+                    {activeCol?.getCurrentValue && (
+                      <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-2xs text-xs">
+                        <span className="text-slate-400 font-medium">Nilai Saat Ini:</span>
+                        <span className="font-bold text-slate-800 font-mono">
+                          {activeCol.getCurrentValue(contract)}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-xs text-slate-400 mt-2 max-w-sm mx-auto">
+                      Setiap kali nilai pada kolom ini diubah dan disimpan, catatan perubahannya akan otomatis terekam secara realtime di sini.
+                    </p>
+                    {activeHistoryFilter !== "ALL" && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveHistoryFilter("ALL")}
+                        className="mt-4 px-3.5 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 font-bold hover:bg-blue-100 transition-colors shadow-2xs"
+                      >
+                        Tampilkan Semua Riwayat Kontrak ({totalHistoryChanges})
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3.5">
+                    {/* Riwayat dari array history kontrak */}
+                    {filteredHistory.map((entry, idx) => {
+                      const displayedChanges =
+                        isAll
+                          ? entry.changes || []
+                          : (entry.changes || []).filter((c) =>
+                              activeCol ? activeCol.matcher(c.field) : c.field === activeHistoryFilter
+                            );
+
+                      const meta =
+                        HISTORY_ACTION_META[entry.action ?? ""] ?? HISTORY_ACTION_META.UPDATE;
+
+                      return (
+                        <div
+                          key={entry.id || idx}
+                          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-slate-300 transition-all space-y-3"
+                        >
+                          {/* Entry Header */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center text-xs font-bold">
+                                {entry.by ? entry.by.charAt(0).toUpperCase() : "A"}
+                              </div>
+                              <div>
+                                <span className="font-bold text-slate-800">
+                                  {entry.by || "Admin"}
+                                </span>
+                                {entry.role && (
+                                  <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600">
+                                    {entry.role}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${meta.cls}`}
+                              >
+                                {meta.label}
+                              </span>
+                              <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {fmtDateTime(entry.at)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Changes List */}
+                          {displayedChanges.length > 0 ? (
+                            <div className="space-y-2">
+                              {displayedChanges.map((ch, cIdx) => (
+                                <div
+                                  key={cIdx}
+                                  className="bg-slate-50/80 rounded-xl p-2.5 text-xs grid grid-cols-1 sm:grid-cols-[130px_1fr_auto_1fr] gap-2 items-center border border-slate-100"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const match = allColumns.find((t) => t.matcher(ch.field));
+                                      if (match) setActiveHistoryFilter(match.key);
+                                      else setActiveHistoryFilter(ch.field);
+                                    }}
+                                    className="font-bold text-slate-700 hover:text-blue-600 transition-colors text-left truncate cursor-pointer"
+                                    title={`Klik untuk filter kolom ${ch.label || ch.field}`}
+                                  >
+                                    {ch.label || ch.field}
+                                  </button>
+                                  <span
+                                    className="text-rose-600 line-through bg-rose-50/70 px-2 py-1 rounded-lg border border-rose-100 truncate font-mono text-[11px]"
+                                    title={ch.oldValue}
+                                  >
+                                    {ch.oldValue || "—"}
+                                  </span>
+                                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 hidden sm:block mx-auto flex-shrink-0" />
+                                  <span
+                                    className="text-emerald-700 font-bold bg-emerald-50/70 px-2 py-1 rounded-lg border border-emerald-100 truncate font-mono text-[11px]"
+                                    title={ch.newValue}
+                                  >
+                                    {ch.newValue || "—"}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic">
+                              {entry.action === "CREATE"
+                                ? "Data awal kontrak dibuat."
+                                : "Aktivitas tercatat pada riwayat perubahan."}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Pembayaran Audit Events jika relevan */}
+                    {showPaymentAudit && (
+                      <div className="space-y-2.5 pt-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                          Log Audit Pembayaran Masuk ({auditList.length})
+                        </span>
+                        {auditList.map((audit) => (
+                          <div
+                            key={audit.id}
+                            className={`p-3 rounded-2xl border ${
+                              audit.action === "DELETE"
+                                ? "bg-rose-50/40 border-rose-100"
+                                : "bg-amber-50/40 border-amber-100"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 mb-2">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                    audit.action === "DELETE"
+                                      ? "bg-rose-100 text-rose-700"
+                                      : "bg-amber-100 text-amber-700"
+                                  }`}
+                                >
+                                  PEMBAYARAN {audit.action === "DELETE" ? "DIHAPUS" : "DIEDIT"}
+                                </span>
+                                <span className="font-bold text-slate-700">{audit.user}</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                {fmtDateTime(audit.tanggal)}
+                              </span>
+                            </div>
+                            <div className="text-[11px] space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-500 w-16">Sebelum:</span>
+                                <span className="font-semibold text-slate-700">
+                                  {fmtDate(audit.oldData.tanggal)} — {fmtCurrencyWithZero(audit.oldData.jumlah)}{" "}
+                                  {audit.oldData.keterangan ? `(${audit.oldData.keterangan})` : ""}
+                                </span>
+                              </div>
+                              {audit.newData && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-slate-500 w-16">Sesudah:</span>
+                                  <span className="font-bold text-emerald-700">
+                                    {fmtDate(audit.newData.tanggal)} — {fmtCurrencyWithZero(audit.newData.jumlah)}{" "}
+                                    {audit.newData.keterangan ? `(${audit.newData.keterangan})` : ""}
+                                  </span>
+                                </div>
+                              )}
+                              {audit.reason && (
+                                <div className="text-slate-600 italic pt-0.5">
+                                  Alasan: {audit.reason}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/80 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const c = contract;
+                    setSelectedHistory(null);
+                    setSelectedDetail(c);
+                  }}
+                  className="px-4 py-2 border border-slate-200 bg-white hover:bg-blue-50 hover:text-blue-600 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Buka Detail Lengkap Proyek</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedHistory(null)}
+                  className="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-colors"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ─── Modal Edit Status ─── */}
       {editingContract && (
@@ -1907,6 +3026,7 @@ function DataProjectContent() {
                   <option value="PENAGIHAN">PENAGIHAN</option>
                   <option value="DONE PROJECT">DONE PROJECT</option>
                   <option value="PENDING">PENDING</option>
+                  <option value="CANCEL">CANCEL</option>
                 </select>
               </div>
 
@@ -1947,6 +3067,72 @@ function DataProjectContent() {
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Biaya Lainnya Input */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Biaya Lainnya
+                </label>
+                <div className="relative flex items-center bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all overflow-hidden">
+                  <span className="px-3 h-10 bg-slate-100/80 border-r border-slate-200 text-xs font-bold text-slate-600 flex items-center select-none">
+                    Rp
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={editBiayaLainnya > 0 ? editBiayaLainnya.toLocaleString("id-ID") : ""}
+                    onChange={(e) => {
+                      const text = e.target.value;
+                      const digits = text.replace(/\D/g, "");
+                      setEditBiayaLainnya(digits ? parseInt(digits, 10) : 0);
+                    }}
+                    placeholder="0"
+                    className="w-full h-10 px-3 bg-transparent text-sm font-semibold text-slate-800 focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Pajak Input */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Pajak
+                </label>
+                <div className="relative flex items-center bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all overflow-hidden">
+                  <span className="px-3 h-10 bg-slate-100/80 border-r border-slate-200 text-xs font-bold text-slate-600 flex items-center select-none">
+                    Rp
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={editPajak > 0 ? editPajak.toLocaleString("id-ID") : ""}
+                    onChange={(e) => {
+                      const text = e.target.value;
+                      const digits = text.replace(/\D/g, "");
+                      setEditPajak(digits ? parseInt(digits, 10) : 0);
+                    }}
+                    placeholder="0"
+                    className="w-full h-10 px-3 bg-transparent text-sm font-semibold text-slate-800 focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Status Bukti Potong Pajak */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Status Bukti Potong Pajak
+                </label>
+                <select
+                  value={editStatusBuktiPotong}
+                  onChange={(e) => setEditStatusBuktiPotong(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                >
+                  <option value="Belum Diterima">Belum Diterima</option>
+                  <option value="Sudah Diterima">Sudah Diterima</option>
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Status penerimaan bukti potong pajak dari bendahara / instansi.
+                </p>
               </div>
 
               {modalError && (
@@ -2045,10 +3231,12 @@ function DataProjectContent() {
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
                       selectedDetail.status === "DONE PROJECT"
                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        : "bg-slate-100 text-slate-700 border-slate-200"
+                        : selectedDetail.status === "CANCEL"
+                          ? "bg-rose-50 text-rose-700 border-rose-200"
+                          : "bg-slate-100 text-slate-700 border-slate-200"
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
-                        selectedDetail.status === "DONE PROJECT" ? "bg-emerald-500" : "bg-slate-400"
+                        selectedDetail.status === "DONE PROJECT" ? "bg-emerald-500" : selectedDetail.status === "CANCEL" ? "bg-rose-500" : "bg-slate-400"
                       }`} />
                       {selectedDetail.status || "PENAGIHAN"}
                     </span>
@@ -2219,13 +3407,67 @@ function DataProjectContent() {
                 </div>
 
                 {/* Tanggal Penyerahan */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 sm:col-span-2">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
                     Tanggal Penyerahan
                   </span>
                   <span className="font-medium text-slate-800">
                     {fmtDate(selectedDetail.tanggalPenyerahan)}
                   </span>
+                </div>
+
+                {/* Biaya Lainnya */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                    Biaya Lainnya
+                  </span>
+                  <span className="font-semibold text-slate-800 font-mono">
+                    {fmtCurrencyWithZero(selectedDetail.biayaLainnya)}
+                  </span>
+                </div>
+
+                {/* Pajak */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                    Pajak
+                  </span>
+                  <span className="font-semibold text-slate-800 font-mono">
+                    {fmtCurrencyWithZero(selectedDetail.pajak)}
+                  </span>
+                </div>
+
+                {/* Status Bukti Potong Pajak */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                      Bukti Potong Pajak
+                    </span>
+                    <span className="font-semibold text-xs text-slate-800">
+                      {(selectedDetail.pajak || 0) > 0 ? selectedDetail.statusBuktiPotong || "Belum Diterima" : "Tanpa Pajak"}
+                    </span>
+                  </div>
+                  {(selectedDetail.pajak || 0) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleBuktiPotong(selectedDetail)}
+                      disabled={savingInlineField === `${selectedDetail.nomorKontrak}_statusBuktiPotong`}
+                      className={`px-2.5 py-1 rounded-full text-xs font-bold border transition-all inline-flex items-center gap-1 shadow-2xs hover:scale-105 active:scale-95 cursor-pointer ${
+                        (selectedDetail.statusBuktiPotong || "Belum Diterima") === "Sudah Diterima"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                          : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                      }`}
+                      title="Klik untuk ubah status bukti potong pajak"
+                    >
+                      {savingInlineField === `${selectedDetail.nomorKontrak}_statusBuktiPotong` ? (
+                        <Loader2 className="w-3 h-3 animate-spin text-slate-500" />
+                      ) : (selectedDetail.statusBuktiPotong || "Belum Diterima") === "Sudah Diterima" ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      )}
+                      <span>{(selectedDetail.statusBuktiPotong || "Belum Diterima") === "Sudah Diterima" ? "Sudah Diterima" : "Belum Diterima"}</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2264,14 +3506,32 @@ function DataProjectContent() {
                       </button>
                     </div>
 
-                    {/* Ringkasan Finansial 3 Kartu */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    {/* Ringkasan Finansial Kartu */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                       <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
                           Nominal Kontrak
                         </span>
                         <span className="text-sm font-extrabold text-slate-900">
                           {fmtCurrencyWithZero(nominal)}
+                        </span>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
+                          Biaya Lainnya
+                        </span>
+                        <span className="text-sm font-extrabold text-slate-800">
+                          {fmtCurrencyWithZero(selectedDetail.biayaLainnya)}
+                        </span>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
+                          Pajak
+                        </span>
+                        <span className="text-sm font-extrabold text-slate-800">
+                          {fmtCurrencyWithZero(selectedDetail.pajak)}
                         </span>
                       </div>
 
@@ -2289,7 +3549,7 @@ function DataProjectContent() {
                         </span>
                       </div>
 
-                      <div className={`p-3 rounded-xl border ${isLunas ? "bg-emerald-50/50 border-emerald-200" : sisa > 0 ? "bg-rose-50/70 border-rose-100" : "bg-slate-50 border-slate-100"}`}>
+                      <div className={`p-3 rounded-xl border col-span-2 sm:col-span-1 ${isLunas ? "bg-emerald-50/50 border-emerald-200" : sisa > 0 ? "bg-rose-50/70 border-rose-100" : "bg-slate-50 border-slate-100"}`}>
                         <div className="flex items-center justify-between">
                           <span className={`text-[10px] font-bold uppercase tracking-wider block mb-0.5 ${isLunas ? "text-emerald-700" : sisa > 0 ? "text-rose-700" : "text-slate-500"}`}>
                             Sisa Tagihan

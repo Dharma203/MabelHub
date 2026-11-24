@@ -172,6 +172,8 @@ export async function POST(req: Request) {
     tanggalKontrak: String(body.tanggalKontrak ?? "").trim(),
     namaPengadaan: String(body.namaPengadaan ?? "").trim(),
     nominalKontrak: Number(body.nominalKontrak) || 0,
+    biayaLainnya: Number(body.biayaLainnya) || 0,
+    pajak: Number(body.pajak) || 0,
     fisik: body.fisik === "YA" ? "YA" : "TIDAK",
     scan: body.scan === "YA" ? "YA" : "TIDAK",
     keterangan: String(body.keterangan ?? "").trim(),
@@ -182,6 +184,7 @@ export async function POST(req: Request) {
     pic: String(body.pic ?? "").trim(),
     tanggalBerakhirKontrak: String(body.tanggalBerakhirKontrak ?? "").trim(),
     status: String(body.status ?? "PENAGIHAN").trim(),
+    statusBuktiPotong: String(body.statusBuktiPotong ?? "Belum Diterima").trim(),
     dokSales: String(body.dokSales ?? "Belum Upload").trim(),
 
     // Penagihan (embedded, one per contract)

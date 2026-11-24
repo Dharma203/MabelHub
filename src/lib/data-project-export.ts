@@ -10,6 +10,9 @@ export type ProjectContractExportItem = {
   tanggalKontrak?: string;
   tanggalBerakhirKontrak?: string;
   nominalKontrak?: number;
+  biayaLainnya?: number;
+  pajak?: number;
+  statusBuktiPotong?: string;
   marketing?: string;
   pic?: string;
   status?: string;
@@ -126,6 +129,37 @@ export const DATA_PROJECT_COLUMNS: ColumnDef[] = [
     getValue: (item) => Number(item.nominalKontrak) || 0,
   },
   {
+    header: "Biaya Lainnya (Rp)",
+    width: 20,
+    kind: "money",
+    getValue: (item) => Number(item.biayaLainnya) || 0,
+  },
+  {
+    header: "Pajak (Rp)",
+    width: 20,
+    kind: "money",
+    getValue: (item) => Number(item.pajak) || 0,
+  },
+  {
+    header: "Bukti Potong Pajak",
+    width: 20,
+    kind: "center",
+    getValue: (item) => {
+      const p = Number(item.pajak) || 0;
+      if (p <= 0) return "-";
+      return item.statusBuktiPotong || "Belum Diterima";
+    },
+    getStyle: (item) => {
+      const p = Number(item.pajak) || 0;
+      if (p <= 0) return undefined;
+      const bp = item.statusBuktiPotong || "Belum Diterima";
+      if (bp === "Sudah Diterima") {
+        return { font: { bold: true, color: { rgb: "047857" } }, fill: { patternType: "solid", fgColor: { rgb: "D1FAE5" } } };
+      }
+      return { font: { bold: true, color: { rgb: "B45309" } }, fill: { patternType: "solid", fgColor: { rgb: "FEF3C7" } } };
+    },
+  },
+  {
     header: "Total Terbayar (Rp)",
     width: 22,
     kind: "money",
@@ -232,6 +266,9 @@ export const DATA_PROJECT_COLUMNS: ColumnDef[] = [
       }
       if (st === "PENDING") {
         return { font: { bold: true, color: { rgb: "B45309" } }, fill: { patternType: "solid", fgColor: { rgb: "FEF3C7" } } };
+      }
+      if (st === "CANCEL") {
+        return { font: { bold: true, color: { rgb: "BE123C" } }, fill: { patternType: "solid", fgColor: { rgb: "FFE4E6" } } };
       }
       return { font: { bold: true, color: { rgb: "1D4ED8" } }, fill: { patternType: "solid", fgColor: { rgb: "DBEAFE" } } };
     },
@@ -363,6 +400,7 @@ export function buildDataProjectWorkbook(
   const countDone = items.filter((c) => (c.status || "").toUpperCase() === "DONE PROJECT").length;
   const countPenagihan = items.filter((c) => (c.status || "").toUpperCase() === "PENAGIHAN").length;
   const countPending = items.filter((c) => (c.status || "").toUpperCase() === "PENDING").length;
+  const countCancel = items.filter((c) => (c.status || "").toUpperCase() === "CANCEL").length;
 
   const summaryData: (string | number)[][] = [
     ["Laporan Data Project (MabelHub)", ""],
@@ -379,6 +417,7 @@ export function buildDataProjectWorkbook(
     ["DONE PROJECT", `${countDone} project`],
     ["PENAGIHAN", `${countPenagihan} project`],
     ["PENDING", `${countPending} project`],
+    ["CANCEL", `${countCancel} project`],
     ["", ""],
     ["Filter yang Diterapkan", ""],
   ];
